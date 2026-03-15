@@ -1,0 +1,41 @@
+// optimal/models/Notification.js
+const mongoose = require("mongoose");
+
+const notificationSchema = new mongoose.Schema(
+  {
+    recipient: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+      index: true,
+    },
+    type: {
+      type: String,
+      enum: [
+        "connect_request_received",
+        "connect_request_accepted",
+        "connect_request_declined",
+        "upcoming_session",
+        "new_message",
+        "session_completed",
+        "new_review",
+      ],
+      required: true,
+    },
+    title: { type: String, required: true },
+    message: { type: String, required: true },
+    read: { type: Boolean, default: false },
+    metadata: {
+      // flexible field to store extra info per type
+      mentorId:   { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+      menteeId:   { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+      sessionId:  { type: mongoose.Schema.Types.ObjectId },
+      requestId:  { type: mongoose.Schema.Types.ObjectId, ref: "ConnectRequest" },
+      amount:     { type: Number },
+      rating:     { type: Number },
+    },
+  },
+  { timestamps: true }
+);
+
+module.exports = mongoose.model("Notification", notificationSchema);

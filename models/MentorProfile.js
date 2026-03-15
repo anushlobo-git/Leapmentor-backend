@@ -1,0 +1,117 @@
+// models/MentorProfile.js
+const mongoose = require("mongoose");
+
+const mentorProfileSchema = new mongoose.Schema(
+  {
+    user: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+      unique: true, // one profile per mentor
+    },
+
+    // ✅ Core Identity
+    currentRole: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+
+    industry: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+
+    company: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+
+    bio: {
+      type: String,
+      trim: true,
+      maxlength: 1000,
+      default: "",
+    },
+
+    profilePicture: {
+      type: String, // URL
+      default: "",
+    },
+
+    yearsOfExperience: {
+      type: Number,
+      min: 0,
+      max: 60,
+      default: 0,
+    },
+
+    hourlyRate: {
+      type: Number,
+      min: 0,
+      default: 0,
+    },
+
+    avgRating: {
+      type: Number,
+      min: 0,
+      max: 5,
+      default: 0,
+    },
+
+    // MentorProfile.js
+    totalSessions: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+
+    skills: {
+      type: [String],
+      default: [],
+    },
+
+    communicationPreferences: {
+      type: [String],
+      enum: ["Chat", "Email", "Video Call", "Phone Call", "In-Person"],
+      default: [],
+    },
+
+    languages: {
+      type: [String],
+      default: ["English"],
+    },
+
+    linkedInUrl: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+
+    portfolioUrl: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+
+    isProfileComplete: {
+      type: Boolean,
+      default: false,
+    },
+
+    isProfilePublished: {
+      type: Boolean,
+      default: false,
+    },
+    emailNotifications: {
+      type: Boolean,
+      default: true,
+    },
+    
+  },
+  { timestamps: true }
+);
+
+module.exports = mongoose.model("MentorProfile", mentorProfileSchema);
