@@ -29,11 +29,10 @@ const menteeProfileSchema = new mongoose.Schema(
     },
 
     yearsOfExperience: {
-      type: Number,
-      min: 0,
-      max: 60,
-      default: 0,
-    },
+  type:    String,
+  trim:    true,
+  default: "",
+},
 
     bio: {
       type: String,
