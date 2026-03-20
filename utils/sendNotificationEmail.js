@@ -288,9 +288,72 @@ const sendPaymentReceivedEmail = async ({
   console.log(`✅ Payment received email sent to mentor: ${mentorEmail}`);
 };
 
+
+
+// ─────────────────────────────────────────────────────────────
+// Email 4: User notified when admin resolves their support ticket
+// ─────────────────────────────────────────────────────────────
+const sendSupportResolvedEmail = async ({ toEmail, subject }) => {
+  const html = `
+    <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+      max-width:520px;margin:0 auto;background:#ffffff;border-radius:16px;
+      overflow:hidden;border:1px solid #e2e8f0;">
+
+      <div style="background:linear-gradient(135deg,#2563eb 0%,#1d4ed8 100%);padding:32px 32px 28px;">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
+          <span style="color:white;font-size:20px;">🚀</span>
+          <span style="color:rgba(255,255,255,0.9);font-size:14px;font-weight:600;letter-spacing:0.5px;">LEAPMENTOR</span>
+        </div>
+        <h1 style="color:#ffffff;font-size:22px;font-weight:700;margin:0;line-height:1.3;">
+          Your support request is resolved ✅
+        </h1>
+        <p style="color:rgba(255,255,255,0.8);font-size:14px;margin:8px 0 0;">
+          Our team has looked into your issue and marked it as resolved.
+        </p>
+      </div>
+
+      <div style="padding:28px 32px;">
+        <div style="background:#f8fafc;border-radius:12px;padding:20px;margin-bottom:20px;border:1px solid #e2e8f0;">
+          <h2 style="font-size:13px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;margin:0 0 10px;">
+            🎫 Your Request
+          </h2>
+          <div style="font-size:15px;font-weight:700;color:#1e293b;">${subject}</div>
+        </div>
+
+        <div style="background:#f0fdf4;border-radius:12px;padding:16px;border:1px solid #bbf7d0;margin-bottom:20px;">
+          <p style="font-size:13px;color:#15803d;margin:0;font-weight:500;">
+            ✅ If your issue is fully resolved, no further action is needed. If you still need help, feel free to submit a new request from the Help Center in your dashboard.
+          </p>
+        </div>
+
+        <div style="background:#eff6ff;border-radius:12px;padding:16px;border-left:3px solid #2563eb;">
+          <p style="font-size:13px;color:#1e40af;margin:0;font-weight:500;">
+            Still having trouble? Open your dashboard → Help Center → Send us a message.
+          </p>
+        </div>
+      </div>
+
+      <div style="padding:20px 32px;border-top:1px solid #e2e8f0;text-align:center;">
+        <p style="font-size:12px;color:#94a3b8;margin:0;">
+          LeapMentor · Empowering the next generation of talent
+        </p>
+      </div>
+    </div>
+  `;
+
+  await transporter.sendMail({
+    from:    `"Leapmentor" <${process.env.SMTP_USER}>`,
+    to:      toEmail,
+    subject: `✅ Your support request has been resolved — Leapmentor`,
+    html,
+  });
+
+  console.log(`✅ Support resolved email sent to: ${toEmail}`);
+};
+
 module.exports = {
   sendConnectRequestEmail,
   sendRequestAcceptedEmail,
   sendPaymentReceivedEmail,
+  sendSupportResolvedEmail, 
 };
-

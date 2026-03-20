@@ -19,6 +19,7 @@ const notificationSchema = new mongoose.Schema(
         "new_message",
         "session_completed",
         "new_review",
+        "support_resolved",
       ],
       required: true,
     },
