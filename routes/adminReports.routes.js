@@ -2,12 +2,20 @@
 const express = require("express");
 const router  = express.Router();
 const { adminAuthenticate } = require("../middleware/adminAuth");
-const { getReportStats, getReports, handleReport } = require("../controllers/admin/adminReports.controller");
+const {
+  getReportStats,
+  getReports,
+  handleReport,
+  processRefund,
+  deleteSession,
+} = require("../controllers/admin/adminReports.controller");
 
 router.use(adminAuthenticate);
 
-router.get(  "/stats", getReportStats);
-router.get(  "/",      getReports);
-router.patch("/:id",   handleReport);
+router.get(    "/stats",          getReportStats);
+router.get(    "/",               getReports);
+router.patch(  "/:id",            handleReport);
+router.post(   "/:id/refund",     processRefund);   // ✅ process refund
+router.delete( "/:id/session",    deleteSession);   // ✅ delete connect request
 
 module.exports = router;
