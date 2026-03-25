@@ -1,26 +1,15 @@
 const crypto = require("crypto");
 const bcrypt = require("bcryptjs");
-const nodemailer = require("nodemailer");
-
 const { Resend } = require("resend");
-const resend = new Resend(process.env.RESEND_API_KEY);
 
 const User = require("../models/User");
 const VerificationToken = require("../models/VerificationToken");
 
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST,
-  port: Number(process.env.SMTP_PORT || 587),
-  secure: false,
-  auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
-});
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 const makeOtp = () => String(Math.floor(100000 + Math.random() * 900000));
 const makeLinkToken = () => crypto.randomBytes(32).toString("hex");
 
-/**
- * Generates OTP + magic link, saves BOTH to DB, sends ONE email with both options.
- */
 const sendVerificationEmail = async (user, subjectSuffix = "") => {
   await VerificationToken.deleteMany({ user: user._id });
 
@@ -38,8 +27,8 @@ const sendVerificationEmail = async (user, subjectSuffix = "") => {
   const base = process.env.APP_BASE_URL || "http://localhost:5173";
   const magicLink = `${base}/verify-email?token=${tokenPlain}&email=${encodeURIComponent(user.email)}`;
 
-await resend.emails.send({
-  from: "LeapMentor <onboarding@resend.dev>",
+  const { data, error } = await resend.emails.send({
+    from: "LeapMentor <onboarding@resend.dev>",
     to: user.email,
     subject: `LeapMentor Email Verification${subjectSuffix}`,
     text: `
@@ -70,6 +59,14 @@ ${otpPlain}
       </div>
     `,
   });
+
+  // Log result for debugging
+  if (error) {
+    console.error("Resend error:", error);
+    throw new Error(error.message || "Failed to send email");
+  }
+
+  console.log("Resend success:", data);
 };
 
 exports.sendVerification = async (req, res) => {
@@ -84,6 +81,7 @@ exports.sendVerification = async (req, res) => {
     await sendVerificationEmail(user);
     return res.json({ message: "Verification email sent (OTP + magic link)" });
   } catch (err) {
+    console.error("sendVerification error:", err.message);
     return res.status(500).json({ message: err.message });
   }
 };
@@ -100,6 +98,7 @@ exports.resendVerification = async (req, res) => {
     await sendVerificationEmail(user, " (Resend)");
     return res.json({ message: "Verification email resent (OTP + magic link)" });
   } catch (err) {
+    console.error("resendVerification error:", err.message);
     return res.status(500).json({ message: err.message });
   }
 };
