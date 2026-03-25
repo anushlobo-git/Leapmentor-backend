@@ -58,12 +58,22 @@ const connectRequestSchema = new mongoose.Schema(
       maxlength: 500,
       default: "",
     },
-    // Array of slots mentee proposed (min 1, max 5)
+    // Array of slots mentee proposed (min 1, max 5 at creation time only)
     selectedSlots: {
       type: [selectedSlotSchema],
       required: true,
       validate: {
-        validator: (arr) => arr.length >= 1 && arr.length <= 5,
+        // ✅ FIX: Only enforce the 1–5 limit when the document is NEW.
+        // After creation (ongoing session), additional slots are pushed here
+        // for session tracking. Blocking .save() at that point breaks
+        // meeting links, mark-complete, and pay-additional flows.
+        validator: function (arr) {
+          if (this.isNew) {
+            return arr.length >= 1 && arr.length <= 5;
+          }
+          // On updates just require at least 1 slot — no upper limit
+          return arr.length >= 1;
+        },
         message: "Please select between 1 and 5 slots",
       },
     },
