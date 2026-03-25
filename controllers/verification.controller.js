@@ -1,11 +1,20 @@
 const crypto = require("crypto");
 const bcrypt = require("bcryptjs");
-const { Resend } = require("resend");
+const nodemailer = require("nodemailer");
 
 const User = require("../models/User");
 const VerificationToken = require("../models/VerificationToken");
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+// Brevo SMTP transporter (only for OTP/email verification)
+const transporter = nodemailer.createTransport({
+  host: process.env.BREVO_SMTP_HOST,
+  port: Number(process.env.BREVO_SMTP_PORT || 2525),
+  secure: false,
+  auth: {
+    user: process.env.BREVO_SMTP_USER,
+    pass: process.env.BREVO_SMTP_PASS,
+  },
+});
 
 const makeOtp = () => String(Math.floor(100000 + Math.random() * 900000));
 const makeLinkToken = () => crypto.randomBytes(32).toString("hex");
@@ -27,8 +36,8 @@ const sendVerificationEmail = async (user, subjectSuffix = "") => {
   const base = process.env.APP_BASE_URL || "http://localhost:5173";
   const magicLink = `${base}/verify-email?token=${tokenPlain}&email=${encodeURIComponent(user.email)}`;
 
-  const { data, error } = await resend.emails.send({
-    from: "LeapMentor <onboarding@resend.dev>",
+  const info = await transporter.sendMail({
+    from: `LeapMentor <${process.env.BREVO_FROM_EMAIL}>`,
     to: user.email,
     subject: `LeapMentor Email Verification${subjectSuffix}`,
     text: `
@@ -60,13 +69,7 @@ ${otpPlain}
     `,
   });
 
-  // Log result for debugging
-  if (error) {
-    console.error("Resend error:", error);
-    throw new Error(error.message || "Failed to send email");
-  }
-
-  console.log("Resend success:", data);
+  console.log("Verification email sent:", info.messageId);
 };
 
 exports.sendVerification = async (req, res) => {
