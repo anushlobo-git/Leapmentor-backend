@@ -54,6 +54,5 @@ const transactionSchema = new mongoose.Schema(
 // ── Indexes for fast lookup ───────────────────────────────────
 transactionSchema.index({ user: 1, createdAt: -1 });
 transactionSchema.index({ connectRequest: 1 });
-transactionSchema.index({ type: 1 }); // ✅ NEW — fast query for commission_deduct records
-
+transactionSchema.index({ type: 1 }); 
 module.exports = mongoose.model("Transaction", transactionSchema);

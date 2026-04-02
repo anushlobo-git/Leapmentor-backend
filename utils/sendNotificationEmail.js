@@ -54,8 +54,11 @@ const sendConnectRequestEmail = async ({
   slots = [],
   message = "",
 }) => {
-  const slotCount   = slots.length;
+  const slotCount    = slots.length;
   const slotRowsHtml = buildSlotRows(slots);
+
+  // ── CHANGED: deep link to mentor requests tab ──
+const dashboardLink = `${process.env.APP_BASE_URL}/dashboard/mentor?tab=requests`;
 
   const html = `
     <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
@@ -98,9 +101,22 @@ const sendConnectRequestEmail = async ({
           <div style="font-size:14px;color:#334155;line-height:1.6;font-style:italic;">"${message}"</div>
         </div>` : ""}
 
-        <div style="background:#f0fdf4;border-radius:12px;padding:16px;border:1px solid #bbf7d0;">
+        <!-- ── CHANGED: replaced plain green box with CTA button ── -->
+        <div style="background:#f0fdf4;border-radius:12px;padding:16px;border:1px solid #bbf7d0;margin-bottom:20px;">
           <p style="font-size:13px;color:#15803d;margin:0;font-weight:500;">
             Log in to your Leapmentor dashboard to accept or decline this request.
+          </p>
+        </div>
+
+        <div style="text-align:center;">
+          <a href="${dashboardLink}"
+            style="display:inline-block;background:linear-gradient(135deg,#2563eb,#1d4ed8);
+            color:white;font-size:14px;font-weight:700;padding:13px 32px;border-radius:12px;
+            text-decoration:none;letter-spacing:0.3px;">
+            View Request →
+          </a>
+          <p style="font-size:12px;color:#94a3b8;margin-top:10px;">
+            Opens your <strong>Requests</strong> tab directly
           </p>
         </div>
       </div>
@@ -133,9 +149,11 @@ const sendRequestAcceptedEmail = async ({
   confirmedSlot,
   slots = [],
 }) => {
-  // Use all slots if confirmedSlot not available, else show confirmed slot
   const displaySlots = confirmedSlot ? [confirmedSlot] : slots;
   const slotRowsHtml = buildSlotRows(displaySlots);
+
+  // ── CHANGED: deep link to mentee history tab ──
+const dashboardLink = `${process.env.APP_BASE_URL}/dashboard/mentee?tab=history`;
 
   const html = `
     <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
@@ -170,9 +188,22 @@ const sendRequestAcceptedEmail = async ({
           ${slotRowsHtml}
         </div>
 
-        <div style="background:#fffbeb;border-radius:12px;padding:16px;border:1px solid #fde68a;">
+        <!-- ── CHANGED: replaced yellow warning box with CTA button ── -->
+        <div style="background:#fffbeb;border-radius:12px;padding:16px;border:1px solid #fde68a;margin-bottom:20px;">
           <p style="font-size:13px;color:#92400e;margin:0;font-weight:500;">
             💳 Complete your payment on Leapmentor to lock in your session. Tokens are held securely in escrow until the session is complete.
+          </p>
+        </div>
+
+        <div style="text-align:center;">
+          <a href="${dashboardLink}"
+            style="display:inline-block;background:linear-gradient(135deg,#2563eb,#1d4ed8);
+            color:white;font-size:14px;font-weight:700;padding:13px 32px;border-radius:12px;
+            text-decoration:none;letter-spacing:0.3px;">
+            Complete Payment →
+          </a>
+          <p style="font-size:12px;color:#94a3b8;margin-top:10px;">
+            Opens your <strong>Session History</strong> tab directly
           </p>
         </div>
       </div>
@@ -210,6 +241,9 @@ const sendPaymentReceivedEmail = async ({
 }) => {
   const slotCount    = slots.length;
   const slotRowsHtml = buildSlotRows(slots);
+
+  // ── CHANGED: deep link to mentor requests tab ──
+const dashboardLink = `${process.env.APP_BASE_URL}/dashboard/mentor?tab=requests`;
 
   const html = `
     <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
@@ -263,9 +297,22 @@ const sendPaymentReceivedEmail = async ({
           </div>
         </div>
 
-        <div style="background:#f0fdf4;border-radius:12px;padding:16px;border:1px solid #bbf7d0;">
+        <div style="background:#f0fdf4;border-radius:12px;padding:16px;border:1px solid #bbf7d0;margin-bottom:20px;">
           <p style="font-size:13px;color:#15803d;margin:0;font-weight:500;">
             ✅ Tokens are held in escrow and will be released to you automatically once all sessions are marked complete by both parties.
+          </p>
+        </div>
+
+        <!-- ── CHANGED: added CTA button ── -->
+        <div style="text-align:center;">
+          <a href="${dashboardLink}"
+            style="display:inline-block;background:linear-gradient(135deg,#2563eb,#1d4ed8);
+            color:white;font-size:14px;font-weight:700;padding:13px 32px;border-radius:12px;
+            text-decoration:none;letter-spacing:0.3px;">
+            View Sessions →
+          </a>
+          <p style="font-size:12px;color:#94a3b8;margin-top:10px;">
+            Opens your <strong>Requests</strong> tab directly
           </p>
         </div>
       </div>
@@ -288,10 +335,9 @@ const sendPaymentReceivedEmail = async ({
   console.log(`✅ Payment received email sent to mentor: ${mentorEmail}`);
 };
 
-
-
 // ─────────────────────────────────────────────────────────────
 // Email 4: User notified when admin resolves their support ticket
+// (no deep link added — ignored as per requirement)
 // ─────────────────────────────────────────────────────────────
 const sendSupportResolvedEmail = async ({ toEmail, subject }) => {
   const html = `
@@ -355,5 +401,5 @@ module.exports = {
   sendConnectRequestEmail,
   sendRequestAcceptedEmail,
   sendPaymentReceivedEmail,
-  sendSupportResolvedEmail, 
+  sendSupportResolvedEmail,
 };
