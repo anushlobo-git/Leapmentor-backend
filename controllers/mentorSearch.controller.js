@@ -15,6 +15,19 @@ const searchMentors = async (req, res) => {
     const limitNum = Math.min(20, Math.max(1, parseInt(limit)));
     const skip     = (pageNum - 1) * limitNum;
 
+    // Validate price range before doing anything
+if (minPrice !== undefined && maxPrice !== undefined) {
+  const min = Number(minPrice);
+  const max = Number(maxPrice);
+  if (!isNaN(min) && !isNaN(max) && min > max) {
+    return res.status(200).json({
+      success: true,
+      mentors: [],
+      pagination: { totalCount: 0, totalPages: 0, currentPage: pageNum, hasMore: false },
+    });
+  }
+}
+
     const hasQuery   = skill.trim() || name.trim();
     const hasFilters = industry.trim() || minPrice !== undefined
                        || maxPrice !== undefined || minRating !== undefined;
@@ -249,7 +262,7 @@ const searchMentors = async (req, res) => {
       console.warn("⚠️  Atlas Search unavailable — falling back to regex");
       return fallbackSearch(req, res);
     }
-    return res.status(500).json({ success: false, message: "Server error while searching mentors" });
+    return res.status(500).json({ success: false, message: "use proper price ranges(min - max)" });
   }
 };
 
