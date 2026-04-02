@@ -20,7 +20,6 @@ const register = async (req, res) => {
     }
 
     const normalizedEmail = String(email).toLowerCase().trim();
-
     const { valid, message, uniqueRoles } = validateRoles(roles);
     if (!valid) return res.status(400).json({ message });
 
@@ -33,64 +32,91 @@ const register = async (req, res) => {
       if (rolesChanged) {
         existing.roles = newRoles;
         await existing.save();
+
+        // ✅ Create wallet for each newly added role
+        const addedRoles = uniqueRoles.filter(r => !existing.roles.includes(r));
+        for (const role of addedRoles) {
+          const existingWallet = await Wallet.findOne({ user: existing._id, role });
+          if (!existingWallet) {
+            const isMentee = role === "mentee";
+            const startingBalance = isMentee ? 500 : 0;
+
+            const wallet = await Wallet.create({
+              user: existing._id,
+              role,
+              balance: startingBalance,
+              escrow: 0,
+            });
+            console.log(`Wallet created for existing user — role: ${role}`, wallet);
+
+            // ✅ Log welcome bonus for mentee
+            if (isMentee) {
+              const tx = await Transaction.create({
+                user: existing._id,
+                type: "credit",
+                amount: 500,
+                description: "Welcome bonus — 500 points to get started",
+                balanceAfter: 500,
+              });
+              console.log("Transaction created:", tx);
+            }
+          }
+        }
       }
 
       const token = signToken(existing._id);
-      return res.status(200).json({
-        message: rolesChanged ? "Role added successfully" : "Already registered with this role",
-        token,
-        user: sanitizeUser(existing),
-        isNewUser: false,
-      });
-    }
+      return res.status(400).json({
+        message: "This email is already registered. Please login instead.",
+      })
+  }
 
     const hashed = await bcrypt.hash(password, 10);
-    const user = await User.create({
-      name: String(name).trim(),
-      email: normalizedEmail,
-      password: hashed,
-      roles: uniqueRoles,
-      isEmailVerified: false,
-      termsAccepted: true,
-      termsAcceptedAt: new Date(),
-    });
+  const user = await User.create({
+    name: String(name).trim(),
+    email: normalizedEmail,
+    password: hashed,
+    roles: uniqueRoles,
+    isEmailVerified: false,
+    termsAccepted: true,
+    termsAcceptedAt: new Date(),
+  });
 
-    // ✅ Create wallet — 500 points for mentee, 0 for mentor
-    const isMentee        = uniqueRoles.includes("mentee");
+  // ✅ Create wallet per role for new user
+  for (const role of uniqueRoles) {
+    const isMentee = role === "mentee";
     const startingBalance = isMentee ? 500 : 0;
 
     const wallet = await Wallet.create({
-  user:    user._id,
-  balance: startingBalance,
-  escrow:  0,
-});
-console.log("Wallet created:", wallet);
+      user: user._id,
+      role,
+      balance: startingBalance,
+      escrow: 0,
+    });
+    console.log(`Wallet created — role: ${role}`, wallet);
 
-
-    // ✅ Log welcome bonus transaction for mentees
     if (isMentee) {
-     const tx= await Transaction.create({
-        user:         user._id,
-        type:         "credit",
-        amount:       500,
-        description:  "Welcome bonus — 500 points to get started",
+      const tx = await Transaction.create({
+        user: user._id,
+        type: "credit",
+        amount: 500,
+        description: "Welcome bonus — 500 points to get started",
         balanceAfter: 500,
       });
-          console.log("Transaction created:", tx);
-
+      console.log("Transaction created:", tx);
     }
-
-    const token = signToken(user._id);
-    return res.status(201).json({
-      message: "Registered successfully",
-      token,
-      user: sanitizeUser(user),
-      isNewUser: true,
-    });
-
-  } catch (err) {
-    return res.status(500).json({ message: err.message });
   }
+
+  const token = signToken(user._id);
+  return res.status(201).json({
+    message: "Registered successfully",
+    token,
+    user: sanitizeUser(user),
+    isNewUser: true,
+  });
+
+} catch (err) {
+  return res.status(500).json({ message: err.message });
+}
 };
 
 module.exports = { register };
