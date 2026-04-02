@@ -152,7 +152,7 @@ exports.verifyLink = async (req, res) => {
     user.isEmailVerified = true;
     await user.save();
     await VerificationToken.deleteMany({ user: user._id });
-    return res.json({ message: "Email verified successfully" });
+return res.json({ message: "Email verified successfully", role: user.role });
   } catch (err) {
     return res.status(500).json({ message: err.message });
   }
