@@ -2,9 +2,11 @@
 const mongoose = require("mongoose");
 
 const COMPLAINT_TYPES = [
-  "vulgar_chat",
-  "harassment",
-  "refund",   // ✅ lowercase to match frontend value
+  "inappropriate_behavior",
+  "session_misconduct",
+  "fake_credentials",
+  "spam_scam",
+  "refund",
   "other",
 ];
 
@@ -41,20 +43,20 @@ const reportSchema = new mongoose.Schema(
       trim: true,
       maxlength: 1000,
     },
-    screenshotUrl:      { type: String, default: "" },
+    screenshotUrl: { type: String, default: "" },
     screenshotPublicId: { type: String, default: "" },
     status: {
       type: String,
       enum: ["open", "under_review", "resolved", "dismissed"],
       default: "open",
     },
-    adminNote:  { type: String, trim: true, maxlength: 2000, default: "" },
+    adminNote: { type: String, trim: true, maxlength: 2000, default: "" },
     resolvedAt: { type: Date, default: null },
     resolvedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
 
     // ✅ NEW — track if refund was processed by admin
     refundProcessed: { type: Boolean, default: false },
-    refundedAt:      { type: Date, default: null },
+    refundedAt: { type: Date, default: null },
   },
   { timestamps: true }
 );
