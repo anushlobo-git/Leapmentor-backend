@@ -56,6 +56,7 @@ module.exports.io = null;
 
 // ── Main handler ──────────────────────────────────────────────
 const socketHandler = (io) => {
+
   // Expose emitToUser globally so backend controllers can call it
   module.exports.emitToUser = (userId, event, data) =>
     emitToUser(io, userId, event, data);
@@ -92,13 +93,18 @@ const socketHandler = (io) => {
 
         socket.to(connectRequestId).emit("user_online", { userId });
 
+        const otherId = await getOtherUserId(connectRequestId, userId);
+        if (otherId && onlineUsers.get(connectRequestId)?.has(otherId)) {
+          socket.emit("user_online", { userId: otherId });
+        }//changed here on 2nd april socket problem
+
         await Message.updateMany(
           {
             connectRequest: connectRequestId,
             sender: { $ne: userId },
             readAt: null,
           },
-          { $set: { readAt: new Date() } },
+          { $set: { readAt: new Date() } }
         );
 
         socket.to(connectRequestId).emit("messages_read", {
@@ -121,9 +127,7 @@ const socketHandler = (io) => {
 
         const allowed = await validateRoomAccess(connectRequestId, userId);
         if (!allowed) {
-          socket.emit("error", {
-            message: "Not authorized to send messages here",
-          });
+          socket.emit("error", { message: "Not authorized to send messages here" });
           return;
         }
 
@@ -148,9 +152,7 @@ const socketHandler = (io) => {
 
         io.to(connectRequestId).emit("new_message", populated);
 
-        console.log(
-          `💬 Message in ${connectRequestId} from ${socket.user.email}`,
-        );
+        console.log(`💬 Message in ${connectRequestId} from ${socket.user.email}`);
       } catch (err) {
         console.error("❌ send_message error:", err.message);
         socket.emit("error", { message: "Failed to send message" });
@@ -176,7 +178,7 @@ const socketHandler = (io) => {
             sender: { $ne: userId },
             readAt: null,
           },
-          { $set: { readAt: new Date() } },
+          { $set: { readAt: new Date() } }
         );
 
         socket.to(connectRequestId).emit("messages_read", {
@@ -206,9 +208,7 @@ const socketHandler = (io) => {
         }
         socket.to(room).emit("user_offline", { userId });
       }
-      console.log(
-        `🔌 Socket disconnected: ${socket.user?.email} (${socket.id})`,
-      );
+      console.log(`🔌 Socket disconnected: ${socket.user?.email} (${socket.id})`);
     });
   });
 };
