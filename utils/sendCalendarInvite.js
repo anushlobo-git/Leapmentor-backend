@@ -109,7 +109,7 @@ const sendCalendarInvite = async ({
 
       <div style="background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); padding: 32px 32px 28px;">
         <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 16px;">
-          <span style="color: white; font-size: 20px;">🚀</span>
+          <span style="color: white; font-size: 20px;"></span>
           <span style="color: rgba(255,255,255,0.9); font-size: 14px; font-weight: 600; letter-spacing: 0.5px;">LEAPMENTOR</span>
         </div>
         <h1 style="color: #ffffff; font-size: 22px; font-weight: 700; margin: 0; line-height: 1.3;">
@@ -171,7 +171,7 @@ const sendCalendarInvite = async ({
 
       <div style="background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); padding: 32px 32px 28px;">
         <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 16px;">
-          <span style="color: white; font-size: 20px;">🚀</span>
+          <span style="color: white; font-size: 20px;"></span>
           <span style="color: rgba(255,255,255,0.9); font-size: 14px; font-weight: 600; letter-spacing: 0.5px;">LEAPMENTOR</span>
         </div>
         <h1 style="color: #ffffff; font-size: 22px; font-weight: 700; margin: 0; line-height: 1.3;">
