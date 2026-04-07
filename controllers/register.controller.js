@@ -9,6 +9,12 @@ const register = async (req, res) => {
   try {
     const { name, email, password, roles, termsAccepted } = req.body;
 
+    if (!roles || roles.length !== 1) {
+      return res.status(400).json({
+        message: "Exactly one role is required.",
+      });
+    }
+
     if (!name || !email || !password) {
       return res.status(400).json({ message: "name, email, password are required" });
     }

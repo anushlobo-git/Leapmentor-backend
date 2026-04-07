@@ -18,10 +18,16 @@ const userSchema = new mongoose.Schema({
   },
 
   roles: {
-    type: [String],
-    enum: ["mentor", "mentee"],
-    required: true
-  },
+  type: [String],
+  enum: ["mentor", "mentee"],
+  required: true,
+  validate: {
+    validator: function(val) {
+      return val.length === 1
+    },
+    message: "A user can only have one role."
+  }
+},
 
   isEmailVerified: {
     type: Boolean,
