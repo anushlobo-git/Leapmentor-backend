@@ -49,6 +49,7 @@ const getPaymentStats = async (req, res) => {
       success: true,
       totalRevenue,
       platformCommission,
+      commissionRate,
       pendingPayouts,
       refundedRequests,
     });
