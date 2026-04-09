@@ -102,6 +102,7 @@ const uploadVerificationDocuments = async (req, res) => {
         phoneNumber: phoneNumber.trim(),
         resumeDocument,
         workExperienceDocuments,
+        verificationStatus: "pending",
       },
       { new: true }
     );
