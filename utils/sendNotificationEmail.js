@@ -831,8 +831,8 @@ const sendMentorVerifiedEmail = async ({ mentorName, mentorEmail }) => {
 // ─────────────────────────────────────────────────────────────
 // Email 10: Reporter notified when they successfully submit a report
 // ─────────────────────────────────────────────────────────────
-const sendReportSubmittedEmail = async ({ reporterName, reporterEmail, complaintType, description }) => {
-  const dashboardLink = `${process.env.APP_BASE_URL}/dashboard`;
+const sendReportSubmittedEmail = async ({ reporterName, reporterEmail, complaintType, description,reporterRole }) => {
+  const dashboardLink = `${process.env.APP_BASE_URL}/dashboard/${reporterRole === "mentor" ? "mentor" : "mentee"}`;
 
   const formattedType = complaintType
     .replace(/_/g, " ")
@@ -899,8 +899,8 @@ const sendReportSubmittedEmail = async ({ reporterName, reporterEmail, complaint
 // ─────────────────────────────────────────────────────────────
 // Email 11: Reporter notified when admin resolves/dismisses their report
 // ─────────────────────────────────────────────────────────────
-const sendReportResolvedEmail = async ({ reporterName, reporterEmail, complaintType, status, adminNote }) => {
-  const dashboardLink = `${process.env.APP_BASE_URL}/dashboard`;
+const sendReportResolvedEmail = async ({ reporterName, reporterEmail, complaintType, status, adminNote,reporterRole }) => {
+  const dashboardLink = `${process.env.APP_BASE_URL}/dashboard/${reporterRole === "mentor" ? "mentor" : "mentee"}`;
 
   const isResolved = status === "resolved";
 

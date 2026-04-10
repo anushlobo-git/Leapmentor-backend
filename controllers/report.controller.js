@@ -91,6 +91,7 @@ const submitReport = async (req, res) => {
       reporterEmail: req.user.email,
       complaintType,
       description:   description.trim(),
+      reporterRole,
     }).catch((err) => console.error("❌ sendReportSubmittedEmail failed:", err.message));
 
     return res.status(201).json({

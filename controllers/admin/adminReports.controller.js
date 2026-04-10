@@ -145,6 +145,7 @@ const handleReport = async (req, res) => {
         complaintType: report.complaintType,
         status,
         adminNote:     adminNote?.trim() || "",
+        reporterRole:  report.reporterRole,
       }).catch((err) => console.error("❌ sendReportResolvedEmail failed:", err.message));
     }
 
@@ -240,6 +241,7 @@ const processRefund = async (req, res) => {
         complaintType: report.complaintType,
         status:        "resolved",
         adminNote:     resolvedAdminNote,
+        reporterRole:  report.reporterRole,
       }).catch((err) => console.error("❌ sendReportResolvedEmail (refund) failed:", err.message));
     }
 
@@ -314,6 +316,7 @@ const deleteSession = async (req, res) => {
         complaintType: report.complaintType,
         status:        "resolved",
         adminNote:     resolvedAdminNote,
+        reporterRole:  report.reporterRole,
       }).catch((err) => console.error("❌ sendReportResolvedEmail (deleteSession) failed:", err.message));
     }
 
