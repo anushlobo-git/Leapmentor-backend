@@ -1,52 +1,77 @@
 const mongoose = require("mongoose");
 
-const userSchema = new mongoose.Schema({
-  name: {
-    type: String,
-    required: true
-  },
-
-  email: {
-    type: String,
-    required: true,
-    unique: true,
-    lowercase: true
-  },
-
-  password: {
-    type: String
-  },
-
-  roles: {
-  type: [String],
-  enum: ["mentor", "mentee"],
-  required: true,
-  validate: {
-    validator: function(val) {
-      return val.length === 1
+const userSchema = new mongoose.Schema(
+  {
+    name: {
+      type: String,
+      required: true,
     },
-    message: "A user can only have one role."
-  }
-},
 
-  isEmailVerified: {
-    type: Boolean,
-    default: false
+    email: {
+      type: String,
+      required: true,
+      unique: true,
+      lowercase: true,
+    },
+
+    password: {
+      type: String,
+    },
+
+    roles: {
+      type: [String],
+      enum: ["mentor", "mentee"],
+      required: true,
+      validate: {
+        validator: function (val) {
+          return val.length === 1;
+        },
+        message: "A user can only have one role.",
+      },
+    },
+
+    isEmailVerified: {
+      type: Boolean,
+      default: false,
+    },
+
+    termsAccepted: {
+      type: Boolean,
+      required: true,
+    },
+
+    termsAcceptedAt: {
+      type: Date,
+    },
+    passwordChangedAt: {
+      type: Date,
+      default: null,
+    },
+    isDeleted: {
+      type: Boolean,
+      default: false,
+    },
+    deletedAt: {
+      type: Date,
+      default: null,
+    },
   },
+  { timestamps: true },
+);
+// No changes to schema fields — isDeleted and deletedAt are correct ✅
 
-  termsAccepted: {
-    type: Boolean,
-    required: true
-  },
+// Replace your pre-find middleware with this:
+userSchema.pre(/^find/, function (next) {
+  if (typeof next !== "function") return;
 
-  termsAcceptedAt: {
-    type: Date
-  },
-  passwordChangedAt: {
-  type: Date,
-  default: null,
-},
+  const options = this.getOptions() || {};
+  const filter = this.getFilter() || {};
 
-}, { timestamps: true });
+  if (options.ignoreIsDeleted) return next();
+  if (filter.isDeleted === true) return next();
+
+  this.where({ isDeleted: { $ne: true } });
+  next();
+});
 
 module.exports = mongoose.model("User", userSchema);

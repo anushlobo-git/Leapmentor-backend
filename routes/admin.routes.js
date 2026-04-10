@@ -10,6 +10,8 @@ const {
   getUsers,
   getUserDetail,
   deleteUser,
+  blockUser,
+  unblockUser,
   getEngagementStats,
   getEngagements,
   getUserGrowth,
@@ -35,6 +37,10 @@ router.get("/user-growth", adminAuthenticate, getUserGrowth);
 router.get   ("/users",        adminAuthenticate, getUsers);
 router.get   ("/users/:userId", adminAuthenticate, getUserDetail);
 router.delete("/users/:userId", adminAuthenticate, deleteUser);
+
+// NEW: Block and Unblock routes
+router.patch ("/users/:userId/block",   adminAuthenticate, blockUser);
+router.patch ("/users/:userId/unblock", adminAuthenticate, unblockUser);
 
 //engagements
 router.get("/engagements/stats", adminAuthenticate, getEngagementStats);

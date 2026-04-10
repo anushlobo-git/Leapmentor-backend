@@ -10,9 +10,20 @@ const authenticate = async (req, res, next) => {
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    // ✅ Always fetch fresh from DB — roles are always up to date
-    const user = await User.findById(decoded.id).select("-password");
+    // ✅ Fetch fresh from DB (Bypass the isDeleted filter so we can check it manually!)
+    const user = await User.findById(decoded.id)
+      .select("-password")
+      .setOptions({ ignoreIsDeleted: true }); 
+      
     if (!user) return res.status(401).json({ message: "User not found" });
+
+    // 🛑 👇 ACTIVE SESSION KILLER 👇 🛑
+    // If the admin blocked them while they were logged in, this stops their next request!
+    if (user.isDeleted) {
+      return res.status(403).json({ 
+        message: "Your account has been blocked by an administrator." 
+      });
+    }
 
     req.user = user;
 
@@ -37,8 +48,8 @@ const requireRole = (...roles) => {
     if (!hasRole) {
       return res.status(403).json({
         message: "Access denied: insufficient role",
-        required: roles,       // ✅ tells frontend exactly what role is needed
-        userRoles,             // ✅ tells us what the user actually has
+        required: roles,       
+        userRoles,             
       });
     }
     next();
