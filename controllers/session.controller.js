@@ -420,20 +420,21 @@ const addSlot = async (req, res) => {
 
     // ── Notify both parties via email (non-blocking) ──
     ConnectRequest.findById(connectRequestId)
-      .populate("mentor", "name email")
-      .populate("mentee", "name email")
-      .then((populated) => {
-        sendAdditionalSlotEmail({
-          connectRequestId,
-          mentorName: populated.mentor.name,
-          mentorEmail: populated.mentor.email,
-          menteeName: populated.mentee.name,
-          menteeEmail: populated.mentee.email,
-          slot: newSelectedSlot,
-        }).catch((err) => console.error("❌ Additional slot email failed:", err.message));
-      })
-      .catch((err) => console.error("❌ Failed to populate for additional slot email:", err.message));
-
+  .populate("mentor", "name email")
+  .populate("mentee", "name email")
+  .then((populated) => {
+    console.log("📧 Sending additional slot email to:", populated.mentor.email, populated.mentee.email); // 👈 add
+    sendAdditionalSlotEmail({
+      connectRequestId,
+      mentorName:  populated.mentor.name,
+      mentorEmail: populated.mentor.email,
+      menteeName:  populated.mentee.name,
+      menteeEmail: populated.mentee.email,
+      slot:        newSelectedSlot,
+    }).catch((err) => console.error("❌ Additional slot email failed:", err.message));
+  })
+  .catch((err) => console.error("❌ Failed to populate for additional slot email:", err.message));
+  
     return res.status(201).json({
       success: true,
       message: "Additional session slot added successfully",
