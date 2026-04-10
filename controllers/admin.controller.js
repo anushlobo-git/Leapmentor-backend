@@ -64,6 +64,7 @@ const getStats = async (req, res) => {
     startOfMonth.setDate(1);
     startOfMonth.setHours(0, 0, 0, 0);
 
+    // All countDocuments must bypass the middleware to count ALL users
     const [
       totalUsers,
       totalMentors,
@@ -72,12 +73,24 @@ const getStats = async (req, res) => {
       newMentorsThisMonth,
       newMenteesThisMonth,
     ] = await Promise.all([
-      User.countDocuments(),
-      User.countDocuments({ roles: "mentor" }),
-      User.countDocuments({ roles: "mentee" }),
-      User.countDocuments({ createdAt: { $gte: startOfMonth } }),
-      User.countDocuments({ roles: "mentor", createdAt: { $gte: startOfMonth } }),
-      User.countDocuments({ roles: "mentee", createdAt: { $gte: startOfMonth } }),
+      User.countDocuments({}).setOptions({ ignoreIsDeleted: true }),
+      User.countDocuments({ roles: "mentor" }).setOptions({
+        ignoreIsDeleted: true,
+      }),
+      User.countDocuments({ roles: "mentee" }).setOptions({
+        ignoreIsDeleted: true,
+      }),
+      User.countDocuments({ createdAt: { $gte: startOfMonth } }).setOptions({
+        ignoreIsDeleted: true,
+      }),
+      User.countDocuments({
+        roles: "mentor",
+        createdAt: { $gte: startOfMonth },
+      }).setOptions({ ignoreIsDeleted: true }),
+      User.countDocuments({
+        roles: "mentee",
+        createdAt: { $gte: startOfMonth },
+      }).setOptions({ ignoreIsDeleted: true }),
     ]);
 
     return res.status(200).json({
@@ -158,9 +171,15 @@ const getMentorIndustryStats = async (req, res) => {
 
 const getUsers = async (req, res) => {
   try {
-    const { search, role, page = 1, limit = 20 } = req.query;
+    const { search, role, page = 1, limit = 20, deleted } = req.query;
 
     const filter = {};
+    // NEW: Handle the Active vs Blocked toggle
+    if (deleted === "true") {
+      filter.isDeleted = true; // Show ONLY blocked users
+    } else {
+      filter.isDeleted = { $ne: true }; // Show ONLY active users
+    }
 
     if (role && ["mentor", "mentee"].includes(role)) {
       filter.roles = role;
@@ -171,10 +190,10 @@ const getUsers = async (req, res) => {
       filter.$or = [{ name: regex }, { email: regex }];
     }
 
-    const skip  = (Number(page) - 1) * Number(limit);
-    const total = await User.countDocuments(filter);
+    const skip = (Number(page) - 1) * Number(limit);
+    const total = await User.countDocuments(filter, { ignoreIsDeleted: true });
 
-    const users = await User.find(filter)
+    const users = await User.find(filter, null, { ignoreIsDeleted: true })
       .select("-password")
       .sort({ createdAt: -1 })
       .skip(skip)
@@ -192,20 +211,25 @@ const getUsers = async (req, res) => {
         .lean(),
     ]);
 
-    const mentorMap = Object.fromEntries(mentorProfiles.map((p) => [p.user.toString(), p]));
-    const menteeMap = Object.fromEntries(menteeProfiles.map((p) => [p.user.toString(), p]));
+    const mentorMap = Object.fromEntries(
+      mentorProfiles.map((p) => [p.user.toString(), p]),
+    );
+    const menteeMap = Object.fromEntries(
+      menteeProfiles.map((p) => [p.user.toString(), p]),
+    );
 
     const enriched = users.map((u) => ({
       ...u,
-      profile: mentorMap[u._id.toString()] || menteeMap[u._id.toString()] || null,
+      profile:
+        mentorMap[u._id.toString()] || menteeMap[u._id.toString()] || null,
     }));
 
     return res.status(200).json({
       users: enriched,
       pagination: {
         total,
-        page:       Number(page),
-        limit:      Number(limit),
+        page: Number(page),
+        limit: Number(limit),
         totalPages: Math.ceil(total / Number(limit)),
       },
     });
@@ -219,7 +243,10 @@ const getUserDetail = async (req, res) => {
   try {
     const { userId } = req.params;
 
-    const user = await User.findById(userId).select("-password").lean();
+    const user = await User.findById(userId)
+      .select("-password")
+      .setOptions({ ignoreIsDeleted: true }) // ← blocked users are viewable by admin
+      .lean();
     if (!user) return res.status(404).json({ message: "User not found." });
 
     const isMentor = user.roles.includes("mentor");
@@ -269,6 +296,56 @@ const deleteUser = async (req, res) => {
   }
 };
 
+//blocking user
+const blockUser = async (req, res) => {
+  try {
+    const { userId } = req.params; // Note: Ensure your route uses :userId to match this
+
+    const user = await User.findByIdAndUpdate(
+      userId,
+      { isDeleted: true, deletedAt: new Date() },
+      { new: true },
+    );
+
+    if (!user) return res.status(404).json({ message: "User not found." });
+
+    console.log(`🔒 Admin blocked user: ${user.email} (${userId})`);
+
+    return res.status(200).json({
+      success: true,
+      message: `User ${user.name} has been blocked.`,
+    });
+  } catch (err) {
+    console.error("❌ blockUser error:", err);
+    return res.status(500).json({ message: "Server error." });
+  }
+};
+
+const unblockUser = async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    // findByIdAndUpdate triggers pre-hook and can't find blocked users
+    // Switch to findOneAndUpdate with ignoreIsDeleted option
+    const user = await User.findOneAndUpdate(
+      { _id: userId },
+      { isDeleted: false, deletedAt: null },
+      { new: true, ignoreIsDeleted: true }, // ← key fix
+    );
+
+    if (!user) return res.status(404).json({ message: "User not found." });
+
+    console.log(`🔓 Admin unblocked user: ${user.email} (${userId})`);
+
+    return res.status(200).json({
+      success: true,
+      message: `User ${user.name} has been restored.`,
+    });
+  } catch (err) {
+    console.error("❌ unblockUser error:", err);
+    return res.status(500).json({ message: "Server error." });
+  }
+};
 // ═════════════════════════════════════════════════════════════
 // ENGAGEMENTS
 // ═════════════════════════════════════════════════════════════
@@ -355,6 +432,8 @@ module.exports = {
   getUsers,
   getUserDetail,
   deleteUser,
+  blockUser,
+  unblockUser,
   // engagements
   getEngagementStats,
   getEngagements,

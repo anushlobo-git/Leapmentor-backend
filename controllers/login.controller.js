@@ -11,10 +11,18 @@ const login = async (req, res) => {
     }
 
     const normalizedEmail = String(email).toLowerCase().trim();
-    const user = await User.findOne({ email: normalizedEmail });
+    const user = await User.findOne({ email: normalizedEmail })
+      .setOptions({ ignoreIsDeleted: true }); // 👈 bypass middleware so blocked users are found
 
     if (!user || !user.password) {
       return res.status(401).json({ message: "Invalid credentials" });
+    }
+
+    // 👇 NEW: block check — must be after user is found, before password compare
+    if (user.isDeleted) {
+      return res.status(403).json({
+        message: "Your account has been blocked. Please contact support.",
+      });
     }
 
     const ok = await bcrypt.compare(password, user.password);
