@@ -7,7 +7,7 @@ const walletSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
-      unique: true, // one wallet per user
+      
     },
 
     balance: {
@@ -24,5 +24,5 @@ const walletSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
-
+walletSchema.index({ user: 1, role: 1 }, { unique: true });
 module.exports = mongoose.model("Wallet", walletSchema);

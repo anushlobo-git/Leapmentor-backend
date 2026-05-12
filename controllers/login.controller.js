@@ -1,50 +1,23 @@
-const bcrypt = require("bcryptjs");
-const User = require("../models/User");
-const { signToken, sanitizeUser } = require("../utils/auth.utils");
+// controllers/login.controller.js
+const { loginUser } = require("../services/auth.service");
 
 const login = async (req, res) => {
   try {
-    const { email, password } = req.body;
-
-    if (!email || !password) {
-      return res.status(400).json({ message: "email and password are required" });
-    }
-
-    const normalizedEmail = String(email).toLowerCase().trim();
-    const user = await User.findOne({ email: normalizedEmail })
-      .setOptions({ ignoreIsDeleted: true }); // 👈 bypass middleware so blocked users are found
-
-    if (!user || !user.password) {
+    const result = await loginUser(req.body);
+    return res.status(200).json({
+      message: "Login successful",
+      ...result,
+    });
+  } catch (err) {
+    if (err.message === "INVALID_CREDENTIALS") {
       return res.status(401).json({ message: "Invalid credentials" });
     }
-
-    // 👇 NEW: block check — must be after user is found, before password compare
-    if (user.isDeleted) {
-      return res.status(403).json({
-        message: "Your account has been blocked. Please contact support.",
-      });
-    }
-
-    const ok = await bcrypt.compare(password, user.password);
-    if (!ok) {
-      return res.status(401).json({ message: "Invalid credentials" });
-    }
-    if (!user.isEmailVerified) {
+    if (err.message === "EMAIL_NOT_VERIFIED") {
       return res.status(403).json({
         message: "Please verify your email before logging in.",
         isEmailVerified: false,
-        email: user.email,
-        });
-    } 
-
-    const token = signToken(user._id);
-    return res.json({
-      message: "Login successful",
-      token,
-      user: sanitizeUser(user),
-    });
-
-  } catch (err) {
+      });
+    }
     return res.status(500).json({ message: err.message });
   }
 };
