@@ -1,18 +1,13 @@
-// services/admin.verification.service.js
-const MentorProfile = require("../models/MentorProfile");
+const {
+  findAllMentorProfiles,
+  findMentorProfileById,
+  findMentorProfileByIdWithUser,
+  saveMentorProfile,
+} = require("../repositories/mentor.repository");
 const { sendMentorVerifiedEmail } = require("../utils/sendNotificationEmail");
 
 const getAllMentorVerificationsService = async () => {
-  const mentorProfiles = await MentorProfile.find({})
-    .populate("user", "name email createdAt")
-    .select(
-      "user verificationStatus phoneNumber resumeDocument workExperienceDocuments " +
-        "profilePicture bio skills currentRole company industry yearsOfExperience " +
-        "languages averageRating totalSessions points",
-    )
-    .sort({ createdAt: -1 })
-    .lean();
-
+  const mentorProfiles = await findAllMentorProfiles();
   return mentorProfiles.map((profile) => ({
     user: profile.user,
     mentorProfile: { ...profile, user: undefined },
@@ -20,9 +15,7 @@ const getAllMentorVerificationsService = async () => {
 };
 
 const getMentorVerificationByIdService = async (mentorProfileId) => {
-  const profile = await MentorProfile.findById(mentorProfileId)
-    .populate("user", "name email createdAt")
-    .lean();
+  const profile = await findMentorProfileById(mentorProfileId);
   if (!profile) throw new Error("PROFILE_NOT_FOUND");
 
   return {
@@ -32,18 +25,14 @@ const getMentorVerificationByIdService = async (mentorProfileId) => {
 };
 
 const verifyMentorService = async (mentorProfileId) => {
-  const profile = await MentorProfile.findById(mentorProfileId).populate(
-    "user",
-    "name email",
-  );
+  const profile = await findMentorProfileByIdWithUser(mentorProfileId);
   if (!profile) throw new Error("PROFILE_NOT_FOUND");
   if (profile.verificationStatus === "verified")
     throw new Error("ALREADY_VERIFIED");
 
   profile.verificationStatus = "verified";
-  await profile.save();
+  await saveMentorProfile(profile);
 
-  // email notification (non-blocking)
   sendMentorVerifiedEmail({
     mentorName: profile.user.name,
     mentorEmail: profile.user.email,
@@ -59,16 +48,13 @@ const verifyMentorService = async (mentorProfileId) => {
 };
 
 const revokeMentorVerificationService = async (mentorProfileId) => {
-  const profile = await MentorProfile.findById(mentorProfileId).populate(
-    "user",
-    "name email",
-  );
+  const profile = await findMentorProfileByIdWithUser(mentorProfileId);
   if (!profile) throw new Error("PROFILE_NOT_FOUND");
   if (profile.verificationStatus === "unverified")
     throw new Error("ALREADY_UNVERIFIED");
 
   profile.verificationStatus = "unverified";
-  await profile.save();
+  await saveMentorProfile(profile);
 
   return {
     mentorProfileId: profile._id,

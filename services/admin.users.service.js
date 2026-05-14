@@ -1,8 +1,26 @@
-// services/admin.users.service.js
-const User = require("../models/User");
-const MentorProfile = require("../models/MentorProfile");
-const MenteeProfile = require("../models/MenteeProfile");
-const ConnectRequest = require("../models/ConnectRequest");
+const {
+  countUsersWithFilter,
+  findUsers,
+  findUserById,
+  findUserByIdRaw,
+  deleteUserById,
+  blockUser,
+  unblockUser,
+} = require("../repositories/user.repository");
+const {
+  findMentorProfilesByUserIds,
+  findMentorProfileByUserId,
+  deleteMentorProfileByUserId,
+} = require("../repositories/mentor.repository");
+const {
+  findMenteeProfilesByUserIds,
+  findMenteeProfileByUserId,
+  deleteMenteeProfileByUserId,
+} = require("../repositories/mentee.repository");
+const {
+  countCompletedSessionsByUser,
+  deleteManyByUser,
+} = require("../repositories/connectRequest.repository");
 
 const getUsersService = async ({
   search,
@@ -14,33 +32,21 @@ const getUsersService = async ({
   const filter = {};
 
   filter.isDeleted = deleted === "true" ? true : { $ne: true };
-
   if (role && ["mentor", "mentee"].includes(role)) filter.roles = role;
-
   if (search && search.trim()) {
     const regex = new RegExp(search.trim(), "i");
     filter.$or = [{ name: regex }, { email: regex }];
   }
 
   const skip = (Number(page) - 1) * Number(limit);
-  const total = await User.countDocuments(filter, { ignoreIsDeleted: true });
-
-  const users = await User.find(filter, null, { ignoreIsDeleted: true })
-    .select("-password")
-    .sort({ createdAt: -1 })
-    .skip(skip)
-    .limit(Number(limit))
-    .lean();
+  const total = await countUsersWithFilter(filter);
+  const users = await findUsers(filter, { skip, limit: Number(limit) });
 
   const userIds = users.map((u) => u._id);
 
   const [mentorProfiles, menteeProfiles] = await Promise.all([
-    MentorProfile.find({ user: { $in: userIds } })
-      .select("user isProfileComplete isProfilePublished")
-      .lean(),
-    MenteeProfile.find({ user: { $in: userIds } })
-      .select("user isProfileComplete isProfilePublished")
-      .lean(),
+    findMentorProfilesByUserIds(userIds),
+    findMenteeProfilesByUserIds(userIds),
   ]);
 
   const mentorMap = Object.fromEntries(
@@ -67,59 +73,43 @@ const getUsersService = async ({
 };
 
 const getUserDetailService = async (userId) => {
-  const user = await User.findById(userId)
-    .select("-password")
-    .setOptions({ ignoreIsDeleted: true })
-    .lean();
+  const user = await findUserById(userId);
   if (!user) throw new Error("USER_NOT_FOUND");
 
   const isMentor = user.roles.includes("mentor");
 
   const [profile, sessionCount] = await Promise.all([
     isMentor
-      ? MentorProfile.findOne({ user: userId }).lean()
-      : MenteeProfile.findOne({ user: userId }).lean(),
-    ConnectRequest.countDocuments({
-      $or: [{ mentor: userId }, { mentee: userId }],
-      status: "completed",
-    }),
+      ? findMentorProfileByUserId(userId)
+      : findMenteeProfileByUserId(userId),
+    countCompletedSessionsByUser(userId),
   ]);
 
   return { user, profile, sessionCount };
 };
 
 const deleteUserService = async (userId) => {
-  const user = await User.findById(userId);
+  const user = await findUserByIdRaw(userId);
   if (!user) throw new Error("USER_NOT_FOUND");
 
   await Promise.all([
-    User.findByIdAndDelete(userId),
-    MentorProfile.findOneAndDelete({ user: userId }),
-    MenteeProfile.findOneAndDelete({ user: userId }),
-    ConnectRequest.deleteMany({
-      $or: [{ mentor: userId }, { mentee: userId }],
-    }),
+    deleteUserById(userId),
+    deleteMentorProfileByUserId(userId),
+    deleteMenteeProfileByUserId(userId),
+    deleteManyByUser(userId),
   ]);
 
   return { name: user.name, email: user.email };
 };
 
 const blockUserService = async (userId) => {
-  const user = await User.findByIdAndUpdate(
-    userId,
-    { isDeleted: true, deletedAt: new Date() },
-    { new: true },
-  );
+  const user = await blockUser(userId);
   if (!user) throw new Error("USER_NOT_FOUND");
   return { name: user.name };
 };
 
 const unblockUserService = async (userId) => {
-  const user = await User.findOneAndUpdate(
-    { _id: userId },
-    { isDeleted: false, deletedAt: null },
-    { new: true, ignoreIsDeleted: true },
-  );
+  const user = await unblockUser(userId);
   if (!user) throw new Error("USER_NOT_FOUND");
   return { name: user.name };
 };

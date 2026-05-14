@@ -1,40 +1,34 @@
-// services/admin.payments.service.js
-const Transaction = require("../models/Transaction");
-const Wallet = require("../models/Wallet");
-const ConnectRequest = require("../models/ConnectRequest");
-const AdminUser = require("../models/AdminUser");
-const User = require("../models/User");
+const { findAdminById } = require("../repositories/admin.repository");
+const {
+  findCompletedPaidSessions,
+  countRefundedRequests,
+  findSessionsByMonth,
+} = require("../repositories/connectRequest.repository");
+const { findAllWallets } = require("../repositories/wallet.repository");
+const {
+  countTransactions,
+  findTransactions,
+} = require("../repositories/transaction.repository");
+const { findUsersByName } = require("../repositories/user.repository");
 
 const getPaymentStatsService = async (adminId) => {
-  const adminUser = await AdminUser.findById(adminId)
-    .select("commissionRate")
-    .lean();
+  const adminUser = await findAdminById(adminId);
   const commissionRate = adminUser?.commissionRate ?? 20;
 
-  const completedSessions = await ConnectRequest.find({
-    status: "completed",
-    paymentStatus: "paid",
-    totalAmount: { $gt: 0 },
-  })
-    .select("totalAmount commissionAmount")
-    .lean();
-
+  const completedSessions = await findCompletedPaidSessions();
   const totalRevenue = completedSessions.reduce(
     (s, r) => s + (r.totalAmount || 0),
     0,
   );
-
   const platformCommission = completedSessions.reduce(
     (s, r) => s + (r.commissionAmount || 0),
     0,
   );
 
-  const wallets = await Wallet.find().select("escrow").lean();
+  const wallets = await findAllWallets();
   const pendingPayouts = wallets.reduce((s, w) => s + (w.escrow || 0), 0);
 
-  const refundedRequests = await ConnectRequest.countDocuments({
-    paymentStatus: "refunded",
-  });
+  const refundedRequests = await countRefundedRequests();
 
   return {
     totalRevenue,
@@ -56,13 +50,7 @@ const getRevenueChartService = async () => {
       .toLocaleString("en-US", { month: "short" })
       .toUpperCase();
 
-    const sessions = await ConnectRequest.find({
-      status: "completed",
-      completedAt: { $gte: monthStart, $lt: monthEnd },
-    })
-      .select("totalAmount")
-      .lean();
-
+    const sessions = await findSessionsByMonth(monthStart, monthEnd);
     const amount = sessions.reduce((s, r) => s + (r.totalAmount || 0), 0);
     data.push({ label, amount });
   }
@@ -78,11 +66,7 @@ const getTransactionsService = async ({ page, limit, search, type }) => {
   const filter = {};
 
   if (search?.trim()) {
-    const matchingUsers = await User.find({
-      name: { $regex: search.trim(), $options: "i" },
-    })
-      .select("_id")
-      .lean();
+    const matchingUsers = await findUsersByName(search);
     filter.user = { $in: matchingUsers.map((u) => u._id) };
   }
 
@@ -93,13 +77,8 @@ const getTransactionsService = async ({ page, limit, search, type }) => {
   }
 
   const [totalCount, transactions] = await Promise.all([
-    Transaction.countDocuments(filter),
-    Transaction.find(filter)
-      .populate("user", "name email")
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(safeLimit)
-      .lean(),
+    countTransactions(filter),
+    findTransactions(filter, { skip, limit: safeLimit }),
   ]);
 
   const rows = transactions.map((t) => ({
