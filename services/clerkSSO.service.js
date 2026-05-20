@@ -1,7 +1,6 @@
-// services/clerkSSO.service.js
 const jwt = require("jsonwebtoken");
-const User = require("../models/User");
-const OAuthAccount = require("../models/OAuthAccount");
+const userRepository = require("../repositories/user.repository");
+const oAuthAccountRepository = require("../repositories/oAuthAccount.repository");
 const {
   clerkClient,
   signToken,
@@ -19,11 +18,11 @@ const clerkSSOAuth = async ({ clerkToken, roles, termsAccepted }) => {
   const decoded = jwt.decode(clerkToken);
   if (!decoded?.sub) throw new Error("Invalid Clerk token");
 
-  // fetch user from clerk
+  // ── Fetch user from Clerk ─────────────────────────────────
   let clerkUser;
   try {
     clerkUser = await clerkClient.users.getUser(decoded.sub);
-  } catch (err) {
+  } catch {
     throw new Error("Could not fetch Clerk user");
   }
 
@@ -40,7 +39,8 @@ const clerkSSOAuth = async ({ clerkToken, roles, termsAccepted }) => {
 
   if (!email) throw new Error("No email returned from provider");
 
-  let user = await User.findOne({ email });
+  // ── Find or create user ───────────────────────────────────
+  let user = await userRepository.findUserByEmail(email);
   let isNewUser = false;
 
   if (!user) {
@@ -51,7 +51,7 @@ const clerkSSOAuth = async ({ clerkToken, roles, termsAccepted }) => {
     const { valid, message, uniqueRoles } = validateRoles(incomingRoles);
     if (!valid) throw new Error(message);
 
-    user = await User.create({
+    user = await userRepository.createUser({
       name,
       email,
       roles: uniqueRoles,
@@ -68,7 +68,7 @@ const clerkSSOAuth = async ({ clerkToken, roles, termsAccepted }) => {
       if (mergedRoles.length !== user.roles.length) {
         const addedRoles = roles.filter((r) => !user.roles.includes(r));
         user.roles = mergedRoles;
-        await user.save();
+        await userRepository.saveUser(user);
         for (const role of addedRoles) {
           await createWalletForRole(user._id, role);
         }
@@ -76,11 +76,18 @@ const clerkSSOAuth = async ({ clerkToken, roles, termsAccepted }) => {
     }
   }
 
-  // link OAuth account
+  // ── Link OAuth account ────────────────────────────────────
   if (provider && providerId) {
-    const existingOAuth = await OAuthAccount.findOne({ provider, providerId });
+    const existingOAuth = await oAuthAccountRepository.findOAuthAccount(
+      provider,
+      providerId,
+    );
     if (!existingOAuth) {
-      await OAuthAccount.create({ user: user._id, provider, providerId });
+      await oAuthAccountRepository.createOAuthAccount({
+        user: user._id,
+        provider,
+        providerId,
+      });
     }
   }
 

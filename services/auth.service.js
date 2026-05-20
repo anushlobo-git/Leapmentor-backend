@@ -1,6 +1,6 @@
 // services/auth.service.js
 const bcrypt = require("bcryptjs");
-const User = require("../models/User");
+const userRepository = require("../repositories/user.repository");
 const {
   signToken,
   sanitizeUser,
@@ -11,9 +11,7 @@ const {
   createWalletForRole,
 } = require("./wallet.service");
 
-// ----------------------------------------
-// REGISTER
-// ----------------------------------------
+// ── REGISTER ──────────────────────────────────────────────────
 const registerUser = async ({
   name,
   email,
@@ -32,7 +30,7 @@ const registerUser = async ({
   const { valid, message, uniqueRoles } = validateRoles(roles);
   if (!valid) throw new Error(message);
 
-  const existing = await User.findOne({ email: normalizedEmail });
+  const existing = await userRepository.findUserByEmail(normalizedEmail);
   if (existing) {
     const newRoles = [...new Set([...existing.roles, ...uniqueRoles])];
     const rolesChanged = newRoles.length !== existing.roles.length;
@@ -40,7 +38,7 @@ const registerUser = async ({
     if (rolesChanged) {
       const addedRoles = uniqueRoles.filter((r) => !existing.roles.includes(r));
       existing.roles = newRoles;
-      await existing.save();
+      await userRepository.saveUser(existing);
       for (const role of addedRoles) {
         await createWalletForRole(existing._id, role);
       }
@@ -49,7 +47,7 @@ const registerUser = async ({
   }
 
   const hashed = await bcrypt.hash(password, 10);
-  const user = await User.create({
+  const user = await userRepository.createUser({
     name: String(name).trim(),
     email: normalizedEmail,
     password: hashed,
@@ -64,19 +62,14 @@ const registerUser = async ({
   return { token, user: sanitizeUser(user), isNewUser: true };
 };
 
-// ----------------------------------------
-// LOGIN
-// ----------------------------------------
+// ── LOGIN ─────────────────────────────────────────────────────
 const loginUser = async ({ email, password }) => {
   if (!email || !password) throw new Error("email and password are required");
 
   const normalizedEmail = String(email).toLowerCase().trim();
 
-  // ✅ select("+password") to include the hidden field
-  const user = await User.findOne({ email: normalizedEmail }).select(
-    "+password",
-  );
-
+  const user =
+    await userRepository.findUserByEmailWithPassword(normalizedEmail);
   if (!user || !user.password) throw new Error("INVALID_CREDENTIALS");
 
   const isMatch = await bcrypt.compare(password, user.password);
@@ -87,16 +80,15 @@ const loginUser = async ({ email, password }) => {
   const token = signToken(user._id);
   return { token, user: sanitizeUser(user) };
 };
-// ----------------------------------------
-// CHANGE PASSWORD
-// ----------------------------------------
+
+// ── CHANGE PASSWORD ───────────────────────────────────────────
 const changeUserPassword = async (userId, { currentPassword, newPassword }) => {
   if (!currentPassword || !newPassword)
     throw new Error("All fields are required.");
   if (newPassword.length < 6)
     throw new Error("New password must be at least 6 characters.");
 
-  const user = await User.findById(userId).select("+password");
+  const user = await userRepository.findUserByIdWithPassword(userId);
   if (!user) throw new Error("USER_NOT_FOUND");
 
   const isMatch = await bcrypt.compare(currentPassword, user.password);
@@ -104,7 +96,7 @@ const changeUserPassword = async (userId, { currentPassword, newPassword }) => {
 
   user.password = await bcrypt.hash(newPassword, 12);
   user.passwordChangedAt = new Date();
-  await user.save();
+  await userRepository.saveUser(user);
 };
 
 module.exports = { registerUser, loginUser, changeUserPassword };

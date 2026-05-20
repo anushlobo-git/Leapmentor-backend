@@ -63,6 +63,18 @@ const unblockUser = (id) =>
     { new: true, ignoreIsDeleted: true },
   );
 
+  const findUserByEmail = (email) => User.findOne({ email });
+
+  const findUserByEmailWithPassword = (email) =>
+    User.findOne({ email }).select("+password");
+
+  const findUserByIdWithPassword = (userId) =>
+    User.findById(userId).select("+password");
+
+  const createUser = (data) => User.create(data);
+
+  const saveUser = (user) => user.save();
+
 module.exports = { 
   findUsersBySearchTerm,
   findUsersByName,
@@ -76,5 +88,6 @@ module.exports = {
   deleteUserById,
   blockUser,
   unblockUser,  
+  findUserByEmail,
 
 };
