@@ -3,7 +3,7 @@ const {
   getPaymentStatsService,
   getRevenueChartService,
   getTransactionsService,
-} = require("../../services/admin.payments.service");
+} = require("../services/admin.payments.service");
 
 const getPaymentStats = async (req, res) => {
   try {

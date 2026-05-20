@@ -11,7 +11,7 @@ const {
   addAdmin,
   getCommission,
   updateCommission,
-} = require("../controllers/admin/adminSettings.controller");
+} = require("../controllers/adminSettings.controller");
 
 // All routes protected by adminAuthenticate
 router.use(adminAuthenticate);

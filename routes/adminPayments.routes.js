@@ -6,7 +6,7 @@ const {
   getPaymentStats,
   getRevenueChart,
   getTransactions,
-} = require("../controllers/admin/adminPayments.controller");
+} = require("../controllers/adminPayments.controller");
 
 router.use(adminAuthenticate);
 

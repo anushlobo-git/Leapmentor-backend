@@ -5,7 +5,7 @@ const {
     addAdminService,
     getCommissionService,
     updateCommissionService,
-} = require("../../services/admin.settings.service");
+} = require("../services/admin.settings.service");
 
 const getOverview = async (req, res) => {
     try {
