@@ -1,5 +1,7 @@
 // services/availability.service.js
 const availabilityRepository = require("../repositories/availability.repository");
+const connectRequestRepository = require("../repositories/connectRequest.repository");
+const slotLockRepository = require("../repositories/slotLock.repository");
 const { generateSlotsFromSpecificDates } = require("../utils/generateSlots");
 
 const getMyAvailability = async (mentorId) => {
@@ -40,6 +42,7 @@ const updateAvailability = async (mentorId, body) => {
   const allowedFields = [
     "timezone",
     "sessionDurations",
+    "weeklyHours",
     "specificDates",
     "googleCalendarConnected",
   ];
@@ -94,8 +97,15 @@ const getAvailableSlots = async (mentorId, duration, userId) => {
     throw error;
   }
 
+
+  const [bookedRequests, activeLocks] = await Promise.all([
+    connectRequestRepository.findBookedRequestsByMentor(mentorId),
+    slotLockRepository.findActiveLocksByMentor(mentorId, userId),
+  ]);
+
   // Build booked slots
-  const bookedRequests = await availabilityRepository.findBookedRequests(mentorId);
+  
+  
   const bookedSlots = bookedRequests.flatMap((r) => {
     const slots = r.selectedSlots || (r.selectedSlot ? [r.selectedSlot] : []);
     return slots.map((slot) => ({
@@ -106,7 +116,7 @@ const getAvailableSlots = async (mentorId, duration, userId) => {
   });
 
   // Build locked slots
-  const activeLocks = await availabilityRepository.findActiveLocks(mentorId, userId);
+  
   const lockedSlots = activeLocks.map((l) => ({
     date:      l.date,
     startTime: l.startTime,

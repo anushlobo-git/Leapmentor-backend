@@ -1,17 +1,17 @@
 // services/wallet.service.js
-const Wallet = require("../models/Wallet");
-const Transaction = require("../models/Transaction");
+const walletRepository = require("../repositories/wallet.repository");
+const transactionRepository = require("../repositories/transaction.repository");
 
 const MENTEE_WELCOME_BONUS = 500;
 
 const createWalletForRole = async (userId, role) => {
-  const existing = await Wallet.findOne({ user: userId, role });
+  const existing = await walletRepository.findWalletByUserAndRole(userId, role);
   if (existing) return null;
 
   const isMentee = role === "mentee";
   const startingBalance = isMentee ? MENTEE_WELCOME_BONUS : 0;
 
-  const wallet = await Wallet.create({
+  const wallet = await walletRepository.createWallet({
     user: userId,
     role,
     balance: startingBalance,
@@ -19,7 +19,7 @@ const createWalletForRole = async (userId, role) => {
   });
 
   if (isMentee) {
-    await Transaction.create({
+    await transactionRepository.createTransaction({
       user: userId,
       type: "credit",
       amount: MENTEE_WELCOME_BONUS,

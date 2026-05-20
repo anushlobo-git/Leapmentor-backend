@@ -102,29 +102,6 @@ const findOngoingConnects = async (userId) => {
     .lean();
 };
 
-const findMentorProfile = async (userId) => {
-  return await MentorProfile.findOne({ user: userId })
-    .select("currentRole company profilePicture skills hourlyRate avgRating bio")
-    .lean();
-};
-
-const findMentorProfileFull = async (userId) => {
-  return await MentorProfile.findOne({ user: userId })
-    .select("currentRole company industry bio hourlyRate avgRating yearsOfExperience profilePicture skills")
-    .lean();
-};
-
-const findMenteeProfile = async (userId) => {
-  return await MenteeProfile.findOne({ user: userId })
-    .select("currentRole company profilePicture skills bio interestedFields")
-    .lean();
-};
-
-const findMentorProfileForDetail = async (userId) => {
-  return await MentorProfile.findOne({ user: userId })
-    .select("currentRole company profilePicture skills hourlyRate avgRating bio")
-    .lean();
-};
 
 const countByStatus = (status) => ConnectRequest.countDocuments({ status });
 
@@ -174,6 +151,13 @@ const deleteManyByUser = (userId) =>
     $or: [{ mentor: userId }, { mentee: userId }],
   });
 
+
+const findBookedRequestsByMentor = (mentorId) =>
+  ConnectRequest.find(
+      { mentor: mentorId, status: { $in: ["pending", "accepted", "ongoing"] } },
+      { selectedSlots: 1, selectedSlot: 1 },
+    ).lean();
+
 module.exports = {
   findPendingRequest,
   findSlotConflict,
@@ -188,10 +172,6 @@ module.exports = {
   deleteRequestById,
   findExistingReferral,
   findOngoingConnects,
-  findMentorProfile,
-  findMentorProfileFull,
-  findMenteeProfile,
-  findMentorProfileForDetail,
   findEngagements,
   countByStatus,
   countByFilter, 
@@ -201,4 +181,5 @@ module.exports = {
   countByStatusValue, 
   countCompletedSessionsByUser,
   deleteManyByUser, 
+  findBookedRequestsByMentor,
 };

@@ -1,6 +1,7 @@
 // services/connectRequest.service.js
 const mongoose = require("mongoose");
 const connectRequestRepository = require("../repositories/connectRequest.repository");
+const mentorRepository = require("../repositories/mentor.repository");
 const createNotification        = require("../utils/createNotification");
 const {
   sendConnectRequestEmail,
@@ -105,9 +106,9 @@ const getMyRequests = async (menteeId) => {
 
   return await Promise.all(
     requests.map(async (r) => {
-      const mentorProfile = await connectRequestRepository.findMentorProfile(r.mentor?._id);
+      const mentorProfile = await mentorRepository.findMentorProfile(r.mentor?._id);
       const referredToProfile = r.referredTo
-        ? await connectRequestRepository.findMentorProfileFull(r.referredTo?._id)
+        ? await mentorRepository.findMentorProfileFull(r.referredTo?._id)
         : null;
       return { ...r, mentorProfile: mentorProfile || null, referredToProfile: referredToProfile || null };
     })
@@ -121,7 +122,7 @@ const getIncomingRequests = async (mentorId, status) => {
   return await Promise.all(
     requests.map(async (r) => {
       const referredByProfile = r.referredBy
-        ? await connectRequestRepository.findMentorProfileFull(r.referredBy._id)
+        ? await mentorRepository.findMentorProfileFull(r.referredBy._id)
         : null;
       return { ...r, referredByProfile: referredByProfile || null };
     })
@@ -320,10 +321,10 @@ const getOngoingConnects = async (userId) => {
     requests.map(async (r) => {
       const isMentee = r.mentee._id.toString() === userId.toString();
       if (isMentee) {
-        const mentorProfile = await connectRequestRepository.findMentorProfile(r.mentor._id);
+        const mentorProfile = await mentorRepository.findMentorProfile(r.mentor._id);
         return { ...r, mentorProfile: mentorProfile || null };
       } else {
-        const menteeProfile = await connectRequestRepository.findMenteeProfile(r.mentee._id);
+        const menteeProfile = await menteeRepository.findMenteeProfile(r.mentee._id);
         return { ...r, menteeProfile: menteeProfile || null };
       }
     })
@@ -347,8 +348,8 @@ const getConnectDetail = async (requestId, currentUser) => {
   }
 
   const [mentorProfile, menteeProfile] = await Promise.all([
-    connectRequestRepository.findMentorProfileForDetail(request.mentor._id),
-    connectRequestRepository.findMenteeProfile(request.mentee._id),
+    mentorRepository.findMentorProfileForDetail(request.mentor._id),
+    menteeRepository.findMenteeProfile(request.mentee._id),
   ]);
 
   return {
