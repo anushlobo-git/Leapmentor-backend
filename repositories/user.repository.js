@@ -89,5 +89,9 @@ module.exports = {
   blockUser,
   unblockUser,  
   findUserByEmail,
+  findUserByEmailWithPassword,
+  findUserByIdWithPassword,
+  createUser,
+  saveUser,
 
 };

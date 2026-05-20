@@ -51,12 +51,15 @@ const findMyRequests = async (menteeId) => {
     .lean();
 };
 
-const findIncomingRequests = async (mentorId, status) => {
+const findIncomingRequests = (mentorId, status) => {
   const filter = { mentor: mentorId };
-  if (status && ["pending", "accepted", "rejected", "referred"].includes(status)) {
+  if (
+    status &&
+    ["pending", "accepted", "rejected", "referred"].includes(status)
+  ) {
     filter.status = status;
   }
-  return await ConnectRequest.find(filter)
+  return ConnectRequest.find(filter)
     .populate("mentee", "name email")
     .populate("referredBy", "name email")
     .sort({ requestedAt: -1 })
@@ -158,6 +161,11 @@ const findBookedRequestsByMentor = (mentorId) =>
       { selectedSlots: 1, selectedSlot: 1 },
     ).lean();
 
+
+const findRequestByIdWithMentor = (id) =>
+  ConnectRequest.findById(id).populate("mentor", "name email");
+
+
 module.exports = {
   findPendingRequest,
   findSlotConflict,
@@ -182,4 +190,5 @@ module.exports = {
   countCompletedSessionsByUser,
   deleteManyByUser, 
   findBookedRequestsByMentor,
+  findRequestByIdWithMentor,
 };
