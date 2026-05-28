@@ -59,6 +59,11 @@ const findMentorProfileForDetail = (userId) =>
     )
     .lean();
 
+const findMentorRating = (userId) =>
+  MentorProfile.findOne({ user: userId })
+    .select("avgRating totalSessions")
+    .lean();
+
 
 module.exports = { 
     getMentorIndustryStats,
@@ -72,4 +77,5 @@ module.exports = {
     findMentorProfile,
     findMentorProfileFull,
     findMentorProfileForDetail,
+    findMentorRating,
  };

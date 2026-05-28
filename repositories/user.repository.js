@@ -75,6 +75,11 @@ const unblockUser = (id) =>
 
   const saveUser = (user) => user.save();
 
+  const findUsersByNameSearch = (search) =>
+    User.find({ name: { $regex: search, $options: "i" } })
+      .select("_id")
+      .lean();
+
 module.exports = { 
   findUsersBySearchTerm,
   findUsersByName,
@@ -93,5 +98,6 @@ module.exports = {
   findUserByIdWithPassword,
   createUser,
   saveUser,
+  findUsersByNameSearch
 
 };

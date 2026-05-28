@@ -1,6 +1,8 @@
 // backend/server.js
 //  Entry point — connects DB, starts HTTP server, Socket.io, cron jobs
 // Jest does NOT import this file — it imports app.js directly
+// Leapmentor-backend/server.js 
+//const logtail = require("./utils/logger");
 
 require("dotenv").config();
 const http       = require("http");
@@ -58,6 +60,14 @@ socketHandler(io);
    🔹 START SERVER
 =========================== */
 const PORT = process.env.PORT || 5000;
+
+
+// Leapmentor-backend/server.js 
+// process.on("SIGINT", async () => {
+//   await logtail.flush();
+//   process.exit(0);
+// });
+
 httpServer.listen(PORT, () => {
   console.log(`🔥 Server running on port ${PORT}`);
   console.log(`🔌 Socket.io ready`);

@@ -2,6 +2,7 @@
 // ✅ Pure Express app — no DB connection, no server start, no cron jobs
 // This is what Jest imports for testing
 require("dotenv").config(); 
+//const logtail = require("./utils/logger");
 
 const express = require("express");
 const cors    = require("cors");
@@ -28,6 +29,14 @@ app.use((req, res, next) => {
   }
   next();
 });
+// Leapmentor-backend/app.js  
+// app.use((req, res, next) => {
+//   logtail.info(`${req.method} ${req.url}`, {
+//     ip: req.ip,
+//     userAgent: req.get("User-Agent"),
+//   });
+//   next();
+// });
 
 /* ===========================
    🔹 API v1 ROUTER

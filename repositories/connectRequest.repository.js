@@ -165,6 +165,36 @@ const findBookedRequestsByMentor = (mentorId) =>
 const findRequestByIdWithMentor = (id) =>
   ConnectRequest.findById(id).populate("mentor", "name email");
 
+const findCompletedSessionsByMentor = (mentorId) =>
+  ConnectRequest.find({ mentor: mentorId, status: "completed" }).lean();
+
+const findCompletedSessionsByMentorSince = (mentorId, startDate) =>
+  ConnectRequest.find({
+    mentor: mentorId,
+    status: "completed",
+    completedAt: { $gte: startDate },
+  }).lean();
+
+const findOngoingPaidSessionsByMentor = (mentorId) =>
+  ConnectRequest.find({
+    mentor: mentorId,
+    status: "ongoing",
+    paymentStatus: "paid",
+  }).lean();
+
+const findCompletedSessionsWithMentee = (query, { skip, limit }) =>
+  ConnectRequest.find(query)
+    .populate("mentee", "name email")
+    .select(
+      "mentee confirmedSlot totalAmount paymentStatus completedAt sessionCount sessionRate",
+    )
+    .sort({ completedAt: -1 })
+    .skip(skip)
+    .limit(limit)
+    .lean();
+
+const countCompletedSessions = (query) => ConnectRequest.countDocuments(query);
+
 
 module.exports = {
   findPendingRequest,
@@ -191,4 +221,9 @@ module.exports = {
   deleteManyByUser, 
   findBookedRequestsByMentor,
   findRequestByIdWithMentor,
+  findCompletedSessionsByMentor,
+  findCompletedSessionsByMentorSince,
+  findOngoingPaidSessionsByMentor,
+  findCompletedSessionsWithMentee,
+  countCompletedSessions,
 };
