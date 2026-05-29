@@ -1,12 +1,18 @@
-// services/admin.settings.service.js
-const AdminUser = require("../models/AdminUser");
-const User = require("../models/User");
-const ConnectRequest = require("../models/ConnectRequest");
+const {
+  findAdminById,
+  findAdminByIdLean,
+  findAdminByEmail,
+  saveAdmin,
+  createAdmin,
+  updateAdminById,
+} = require("../repositories/admin.repository");
+const { countAllUsers } = require("../repositories/user.repository");
+const { countByStatus } = require("../repositories/connectRequest.repository");
 
 const getOverviewService = async () => {
   const [totalUsers, activeSessions] = await Promise.all([
-    User.countDocuments(),
-    ConnectRequest.countDocuments({ status: "ongoing" }),
+    countAllUsers(),
+    countByStatus("ongoing"),
   ]);
   return { totalUsers, activeSessions };
 };
@@ -22,14 +28,14 @@ const changeAdminPasswordService = async (
   if (currentPassword === newPassword)
     throw new Error("New password must be different.");
 
-  const admin = await AdminUser.findById(adminId);
+  const admin = await findAdminById(adminId);
   if (!admin) throw new Error("ADMIN_NOT_FOUND");
 
   const isMatch = await admin.comparePassword(currentPassword);
   if (!isMatch) throw new Error("WRONG_PASSWORD");
 
   admin.password = newPassword; // pre-save hook hashes it
-  await admin.save();
+  await saveAdmin(admin);
 };
 
 const addAdminService = async ({ name, email }) => {
@@ -37,12 +43,12 @@ const addAdminService = async ({ name, email }) => {
     throw new Error("Name and email are required.");
 
   const normalizedEmail = email.toLowerCase().trim();
-  const existing = await AdminUser.findOne({ email: normalizedEmail });
+  const existing = await findAdminByEmail(normalizedEmail);
   if (existing) throw new Error("ADMIN_ALREADY_EXISTS");
 
   const tempPassword = Math.random().toString(36).slice(-8) + "A1!";
 
-  const newAdmin = await AdminUser.create({
+  const newAdmin = await createAdmin({
     name: name.trim(),
     email: normalizedEmail,
     password: tempPassword,
@@ -61,9 +67,7 @@ const addAdminService = async ({ name, email }) => {
 };
 
 const getCommissionService = async (adminId) => {
-  const admin = await AdminUser.findById(adminId)
-    .select("commissionRate")
-    .lean();
+  const admin = await findAdminByIdLean(adminId);
   return admin?.commissionRate ?? 20;
 };
 
@@ -72,7 +76,7 @@ const updateCommissionService = async (adminId, commissionRate) => {
   if (isNaN(rate) || rate < 0 || rate > 100)
     throw new Error("Commission rate must be between 0 and 100.");
 
-  await AdminUser.findByIdAndUpdate(adminId, { commissionRate: rate });
+  await updateAdminById(adminId, { commissionRate: rate });
   return rate;
 };
 

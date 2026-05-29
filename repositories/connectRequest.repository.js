@@ -80,10 +80,8 @@ const rejectConflictingSlots = async (requestId, mentorId, confirmedSlot) => {
     { $set: { status: "rejected", respondedAt: new Date() } }
   );
 };
+const deleteRequestById = (id) => ConnectRequest.findByIdAndDelete(id);
 
-const deleteRequestById = async (id) => {
-  return await ConnectRequest.findByIdAndDelete(id);
-};
 
 const findExistingReferral = async (menteeId, mentorId) => {
   return await ConnectRequest.findOne({
@@ -128,6 +126,54 @@ const findMentorProfileForDetail = async (userId) => {
     .lean();
 };
 
+const countByStatus = (status) => ConnectRequest.countDocuments({ status });
+
+const countByFilter = (filter) => ConnectRequest.countDocuments(filter);
+
+const findEngagements = (filter, { skip, limit }) =>
+  ConnectRequest.find(filter)
+    .populate("mentor", "name email")
+    .populate("mentee", "name email")
+    .sort({ requestedAt: -1 })
+    .skip(skip)
+    .limit(limit)
+    .lean();
+
+
+const findCompletedPaidSessions = () =>
+  ConnectRequest.find({
+    status: "completed",
+    paymentStatus: "paid",
+    totalAmount: { $gt: 0 },
+  })
+    .select("totalAmount commissionAmount")
+    .lean();
+
+const countRefundedRequests = () =>
+  ConnectRequest.countDocuments({ paymentStatus: "refunded" });
+
+const findSessionsByMonth = (monthStart, monthEnd) =>
+  ConnectRequest.find({
+    status: "completed",
+    completedAt: { $gte: monthStart, $lt: monthEnd },
+  })
+    .select("totalAmount")
+    .lean();
+
+const countByStatusValue = (status) =>
+  ConnectRequest.countDocuments({ status });
+
+const countCompletedSessionsByUser = (userId) =>
+  ConnectRequest.countDocuments({
+    $or: [{ mentor: userId }, { mentee: userId }],
+    status: "completed",
+  });
+
+const deleteManyByUser = (userId) =>
+  ConnectRequest.deleteMany({
+    $or: [{ mentor: userId }, { mentee: userId }],
+  });
+
 module.exports = {
   findPendingRequest,
   findSlotConflict,
@@ -146,4 +192,13 @@ module.exports = {
   findMentorProfileFull,
   findMenteeProfile,
   findMentorProfileForDetail,
+  findEngagements,
+  countByStatus,
+  countByFilter, 
+  findCompletedPaidSessions,
+  countRefundedRequests,
+  findSessionsByMonth,
+  countByStatusValue, 
+  countCompletedSessionsByUser,
+  deleteManyByUser, 
 };

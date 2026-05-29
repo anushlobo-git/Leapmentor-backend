@@ -1,9 +1,21 @@
-// services/admin.reports.service.js
-const Report = require("../models/Report");
-const User = require("../models/User");
-const Wallet = require("../models/Wallet");
-const Transaction = require("../models/Transaction");
-const ConnectRequest = require("../models/ConnectRequest");
+const {
+  countAllReports,
+  countReportsByFilter,
+  findReports,
+  findReportByIdWithUsers,
+  findReportByIdWithAll,
+  findReportByIdWithConnectFull,
+  saveReport,
+} = require("../repositories/report.repository");
+const { findUsersByName } = require("../repositories/user.repository");
+const {
+  findWalletByUserId,
+  saveWallet,
+} = require("../repositories/wallet.repository");
+const { createTransaction } = require("../repositories/transaction.repository");
+const {
+  deleteRequestById,
+} = require("../repositories/connectRequest.repository");
 const createNotification = require("../utils/createNotification");
 const { sendReportResolvedEmail } = require("../utils/sendNotificationEmail");
 
@@ -13,9 +25,9 @@ const getReportStatsService = async () => {
   today.setHours(0, 0, 0, 0);
 
   const [totalReports, pendingResolution, resolvedToday] = await Promise.all([
-    Report.countDocuments(),
-    Report.countDocuments({ status: { $in: ["open", "under_review"] } }),
-    Report.countDocuments({ status: "resolved", resolvedAt: { $gte: today } }),
+    countAllReports(),
+    countReportsByFilter({ status: { $in: ["open", "under_review"] } }),
+    countReportsByFilter({ status: "resolved", resolvedAt: { $gte: today } }),
   ]);
 
   return { totalReports, pendingResolution, resolvedToday };
@@ -31,11 +43,7 @@ const getReportsService = async ({ page, limit, search, status }) => {
   if (status) filter.status = status;
 
   if (search) {
-    const matchingUsers = await User.find({
-      name: { $regex: search, $options: "i" },
-    })
-      .select("_id")
-      .lean();
+    const matchingUsers = await findUsersByName(search);
     const userIds = matchingUsers.map((u) => u._id);
     filter.$or = [
       { reportedBy: { $in: userIds } },
@@ -44,18 +52,8 @@ const getReportsService = async ({ page, limit, search, status }) => {
   }
 
   const [totalCount, reports] = await Promise.all([
-    Report.countDocuments(filter),
-    Report.find(filter)
-      .populate("reportedBy", "name email")
-      .populate("reportedUser", "name email")
-      .populate(
-        "connectRequest",
-        "status paymentStatus totalAmount sessionRate sessionCount mentee mentor",
-      )
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(safeLimit)
-      .lean(),
+    countReportsByFilter(filter),
+    findReports(filter, { skip, limit: safeLimit }),
   ]);
 
   const rows = reports.map((r) => ({
@@ -105,18 +103,15 @@ const handleReportService = async (
   if (!["resolved", "dismissed"].includes(status))
     throw new Error("INVALID_STATUS");
 
-  const report = await Report.findById(reportId)
-    .populate("reportedBy", "name email")
-    .populate("reportedUser", "name email");
+  const report = await findReportByIdWithUsers(reportId);
   if (!report) throw new Error("REPORT_NOT_FOUND");
 
   report.status = status;
   report.adminNote = adminNote?.trim() || report.adminNote;
   report.resolvedAt = new Date();
   report.resolvedBy = adminId;
-  await report.save();
+  await saveReport(report);
 
-  // in-app notification
   const recipientId = report.reportedBy?._id;
   if (recipientId) {
     const otherPerson = report.reportedUser?.name || "the other user";
@@ -135,7 +130,6 @@ const handleReportService = async (
     });
   }
 
-  // email notification (non-blocking)
   if (report.reportedBy?.email) {
     sendReportResolvedEmail({
       reporterName: report.reportedBy.name,
@@ -159,10 +153,7 @@ const handleReportService = async (
 
 // ── PROCESS REFUND ────────────────────────────────────────────
 const processRefundService = async (reportId, adminNote, adminId) => {
-  const report = await Report.findById(reportId)
-    .populate("reportedBy", "name email")
-    .populate("reportedUser", "name email")
-    .populate("connectRequest");
+  const report = await findReportByIdWithAll(reportId);
   if (!report) throw new Error("REPORT_NOT_FOUND");
 
   if (report.reporterRole !== "mentee") throw new Error("NOT_MENTEE_REPORT");
@@ -176,15 +167,15 @@ const processRefundService = async (reportId, adminNote, adminId) => {
   const menteeId = connectRequest.mentee;
   const totalAmount = connectRequest.totalAmount || 0;
 
-  const menteeWallet = await Wallet.findOne({ user: menteeId });
+  const menteeWallet = await findWalletByUserId(menteeId);
   if (!menteeWallet) throw new Error("WALLET_NOT_FOUND");
 
   const refundAmount = Math.min(totalAmount, menteeWallet.escrow);
   menteeWallet.escrow = Math.max(0, menteeWallet.escrow - refundAmount);
   menteeWallet.balance += refundAmount;
-  await menteeWallet.save();
+  await saveWallet(menteeWallet);
 
-  await Transaction.create({
+  await createTransaction({
     user: menteeId,
     type: "escrow_refund",
     amount: refundAmount,
@@ -204,7 +195,7 @@ const processRefundService = async (reportId, adminNote, adminId) => {
   report.resolvedAt = new Date();
   report.resolvedBy = adminId;
   report.adminNote = resolvedAdminNote;
-  await report.save();
+  await saveReport(report);
 
   await createNotification({
     recipient: menteeId,
@@ -214,7 +205,6 @@ const processRefundService = async (reportId, adminNote, adminId) => {
     metadata: { requestId: connectRequest._id, amount: refundAmount },
   });
 
-  // email notification (non-blocking)
   if (report.reportedBy?.email) {
     sendReportResolvedEmail({
       reporterName: report.reportedBy.name,
@@ -233,16 +223,7 @@ const processRefundService = async (reportId, adminNote, adminId) => {
 
 // ── DELETE SESSION ────────────────────────────────────────────
 const deleteSessionService = async (reportId, adminNote, adminId) => {
-  const report = await Report.findById(reportId)
-    .populate("reportedBy", "name email")
-    .populate("reportedUser", "name email")
-    .populate({
-      path: "connectRequest",
-      populate: [
-        { path: "mentee", select: "name email" },
-        { path: "mentor", select: "name email" },
-      ],
-    });
+  const report = await findReportByIdWithConnectFull(reportId);
   if (!report) throw new Error("REPORT_NOT_FOUND");
 
   const connectRequest = report.connectRequest;
@@ -253,9 +234,8 @@ const deleteSessionService = async (reportId, adminNote, adminId) => {
   const menteeName = connectRequest.mentee?.name || "Mentee";
   const mentorName = connectRequest.mentor?.name || "Mentor";
 
-  await ConnectRequest.findByIdAndDelete(connectRequest._id);
+  await deleteRequestById(connectRequest._id);
 
-  // notify both parties
   if (menteeId) {
     await createNotification({
       recipient: menteeId,
@@ -265,6 +245,7 @@ const deleteSessionService = async (reportId, adminNote, adminId) => {
       metadata: { requestId: connectRequest._id },
     });
   }
+
   if (mentorId) {
     await createNotification({
       recipient: mentorId,
@@ -280,9 +261,8 @@ const deleteSessionService = async (reportId, adminNote, adminId) => {
   report.status = "resolved";
   report.resolvedAt = new Date();
   report.resolvedBy = adminId;
-  await report.save();
+  await saveReport(report);
 
-  // email notification (non-blocking)
   if (report.reportedBy?.email) {
     sendReportResolvedEmail({
       reporterName: report.reportedBy.name,

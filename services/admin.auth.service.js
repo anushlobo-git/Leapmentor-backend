@@ -1,6 +1,8 @@
-// services/admin.auth.service.js
 const jwt = require("jsonwebtoken");
-const AdminUser = require("../models/AdminUser");
+const {
+  findAdminByEmail,
+  saveAdmin,
+} = require("../repositories/admin.repository");
 
 const signAdminToken = (id) =>
   jwt.sign({ id, role: "admin" }, process.env.JWT_SECRET, { expiresIn: "7d" });
@@ -8,7 +10,7 @@ const signAdminToken = (id) =>
 const adminLoginService = async ({ email, password }) => {
   if (!email || !password) throw new Error("Email and password are required.");
 
-  const admin = await AdminUser.findOne({ email });
+  const admin = await findAdminByEmail(email);
   if (!admin) throw new Error("INVALID_CREDENTIALS");
   if (!admin.isActive) throw new Error("ACCOUNT_DEACTIVATED");
 
@@ -16,7 +18,7 @@ const adminLoginService = async ({ email, password }) => {
   if (!isMatch) throw new Error("INVALID_CREDENTIALS");
 
   admin.lastLoginAt = new Date();
-  await admin.save();
+  await saveAdmin(admin);
 
   const token = signAdminToken(admin._id);
   return {

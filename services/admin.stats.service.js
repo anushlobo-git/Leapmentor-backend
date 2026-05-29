@@ -1,6 +1,8 @@
-// services/admin.stats.service.js
-const User = require("../models/User");
-const MentorProfile = require("../models/MentorProfile");
+const {
+  countUsersWithOptions,
+  getUserGrowth,
+} = require("../repositories/user.repository");
+const { getMentorIndustryStats } = require("../repositories/mentor.repository");
 
 const getStatsService = async () => {
   const startOfMonth = new Date();
@@ -15,24 +17,18 @@ const getStatsService = async () => {
     newMentorsThisMonth,
     newMenteesThisMonth,
   ] = await Promise.all([
-    User.countDocuments({}).setOptions({ ignoreIsDeleted: true }),
-    User.countDocuments({ roles: "mentor" }).setOptions({
-      ignoreIsDeleted: true,
-    }),
-    User.countDocuments({ roles: "mentee" }).setOptions({
-      ignoreIsDeleted: true,
-    }),
-    User.countDocuments({ createdAt: { $gte: startOfMonth } }).setOptions({
-      ignoreIsDeleted: true,
-    }),
-    User.countDocuments({
+    countUsersWithOptions({}),
+    countUsersWithOptions({ roles: "mentor" }),
+    countUsersWithOptions({ roles: "mentee" }),
+    countUsersWithOptions({ createdAt: { $gte: startOfMonth } }),
+    countUsersWithOptions({
       roles: "mentor",
       createdAt: { $gte: startOfMonth },
-    }).setOptions({ ignoreIsDeleted: true }),
-    User.countDocuments({
+    }),
+    countUsersWithOptions({
       roles: "mentee",
       createdAt: { $gte: startOfMonth },
-    }).setOptions({ ignoreIsDeleted: true }),
+    }),
   ]);
 
   return {
@@ -49,16 +45,7 @@ const getUserGrowthService = async () => {
   const since = new Date();
   since.setDate(since.getDate() - 90);
 
-  const growth = await User.aggregate([
-    { $match: { createdAt: { $gte: since } } },
-    {
-      $group: {
-        _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
-        count: { $sum: 1 },
-      },
-    },
-    { $sort: { _id: 1 } },
-  ]);
+  const growth = await getUserGrowth(since);
 
   return growth.map((g) => ({
     label: new Date(g._id).toLocaleDateString("en-US", {
@@ -70,13 +57,7 @@ const getUserGrowthService = async () => {
 };
 
 const getMentorIndustryStatsService = async () => {
-  const industries = await MentorProfile.aggregate([
-    { $match: { industry: { $exists: true, $ne: null, $ne: "" } } },
-    { $group: { _id: "$industry", count: { $sum: 1 } } },
-    { $sort: { count: -1 } },
-    { $limit: 12 },
-  ]);
-
+  const industries = await getMentorIndustryStats();
   return industries.map((i) => ({ industry: i._id, count: i.count }));
 };
 
