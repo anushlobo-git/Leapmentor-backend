@@ -5,26 +5,25 @@ const { register } = require("../controllers/register.controller");
 const { login } = require("../controllers/login.controller");
 const { googleAuth } = require("../controllers/googleAuth.controller");
 const { socialAuth } = require("../controllers/socialAuth.controller");
-const { clerkSSO } = require("../controllers/clerkSSO.controller");
 const { changePassword } = require("../controllers/changePassword.controller");
 const { authenticate } = require("../middleware/authenticate");
+const {
+  linkedinRedirect,
+  linkedinCallback,
+  linkedinAuth,
+} = require("../controllers/linkedinAuth.controller");
 
-// POST /api/auth/register
 router.post("/register", register);
-
-// POST /api/auth/login
 router.post("/login", login);
-
-// POST /api/auth/google
 router.post("/google", googleAuth);
-
-// POST /api/auth/social
 router.post("/social", socialAuth);
-
-// POST /api/auth/clerk-sso
-router.post("/clerk-sso", clerkSSO);
-
-// PUT /api/auth/change-password
 router.put("/change-password", authenticate, changePassword);
+
+// LinkedIn OAuth — 3 routes replace /clerk-sso entirely
+router.get("/linkedin", linkedinRedirect);
+router.get("/linkedin/callback", linkedinCallback);
+router.post("/linkedin/token", linkedinAuth);
+
+// DELETED: router.post("/clerk-sso", clerkSSO);
 
 module.exports = router;

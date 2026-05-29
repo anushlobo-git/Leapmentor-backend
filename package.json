@@ -27,6 +27,8 @@
   "dependencies": {
     "@clerk/backend": "^3.0.1",
     "@logtail/node": "^0.5.8",
+    "@sentry/node": "^10.55.0",
+    "axios": "^1.16.1",
     "bcryptjs": "^3.0.3",
     "cloudinary": "^2.9.0",
     "cors": "^2.8.6",

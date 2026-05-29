@@ -3,7 +3,7 @@
 // Jest does NOT import this file — it imports app.js directly
 // Leapmentor-backend/server.js 
 //const logtail = require("./utils/logger");
-
+require("./instrument.js");
 require("dotenv").config();
 const http       = require("http");
 const { Server } = require("socket.io");

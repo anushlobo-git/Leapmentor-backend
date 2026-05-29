@@ -86,7 +86,7 @@ const pay = async (req, res) => {
     }
 
     // ── Find mentee wallet and check balance ──────────────────
-    const menteeWallet = await Wallet.findOne({ user: menteeId }).session(session);
+    const menteeWallet = await Wallet.findOne({ user: menteeId ,role:"mentee"}).session(session);
 
     if (!menteeWallet) {
       await session.abortTransaction();
@@ -270,8 +270,8 @@ const release = async (req, res) => {
 
     // ── Fetch wallets ─────────────────────────────────────────
     const [menteeWallet, mentorWallet] = await Promise.all([
-      Wallet.findOne({ user: menteeId }).session(session),
-      Wallet.findOne({ user: mentorId }).session(session),
+      Wallet.findOne({ user: menteeId ,role:"mentee"}).session(session),
+      Wallet.findOne({ user: mentorId ,role:"mentor"}).session(session),
     ]);
 
     if (!menteeWallet) {

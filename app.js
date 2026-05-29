@@ -1,9 +1,11 @@
 // backend/app.js
 // ✅ Pure Express app — no DB connection, no server start, no cron jobs
 // This is what Jest imports for testing
+require("./instrument.js");
 require("dotenv").config(); 
 //const logtail = require("./utils/logger");
 
+const Sentry = require("@sentry/node");
 const express = require("express");
 const cors    = require("cors");
 
@@ -90,5 +92,8 @@ v1.use("/admin/mentor-verifications", require("./routes/adminVerification.routes
 app.use("/api/v1", v1);
 
 app.get("/", (req, res) => res.send("🚀 LeapMentor API Running..."));
+
+ //must be after all routes, before module.exports
+Sentry.setupExpressErrorHandler(app);
 
 module.exports = app;
