@@ -1,51 +1,32 @@
-// backend/controllers/admin.controller.js
-const jwt            = require("jsonwebtoken");
-const AdminUser      = require("../models/AdminUser");
-const User           = require("../models/User");
-const MentorProfile  = require("../models/MentorProfile");
-const MenteeProfile  = require("../models/MenteeProfile");
-const ConnectRequest = require("../models/ConnectRequest");
+// controllers/admin.controller.js
+const { adminLoginService } = require("../services/admin.auth.service");
+const {
+  getStatsService,
+  getUserGrowthService,
+  getMentorIndustryStatsService,
+} = require("../services/admin.stats.service");
+const {
+  getUsersService,
+  getUserDetailService,
+  deleteUserService,
+  blockUserService,
+  unblockUserService,
+} = require("../services/admin.users.service");
+const {
+  getEngagementStatsService,
+  getEngagementsService,
+} = require("../services/admin.engagements.service");
 
-// ── Token helper ──────────────────────────────────────────────
-const signToken = (id) =>
-  jwt.sign({ id, role: "admin" }, process.env.JWT_SECRET, {
-    expiresIn: "7d",
-  });
-
-// ═════════════════════════════════════════════════════════════
-// AUTH
-// ═════════════════════════════════════════════════════════════
-
+// ── AUTH ──────────────────────────────────────────────────────
 const adminLogin = async (req, res) => {
   try {
-    const { email, password } = req.body;
-    if (!email || !password)
-      return res.status(400).json({ message: "Email and password are required." });
-
-    const admin = await AdminUser.findOne({ email });
-    if (!admin) return res.status(401).json({ message: "Invalid credentials." });
-    if (!admin.isActive) return res.status(403).json({ message: "Admin account is deactivated." });
-
-    const isMatch = await admin.comparePassword(password);
-    if (!isMatch) return res.status(401).json({ message: "Invalid credentials." });
-
-    admin.lastLoginAt = new Date();
-    await admin.save();
-
-    const token = signToken(admin._id);
-    return res.status(200).json({
-      success: true,
-      token,
-      admin: {
-        _id:          admin._id,
-        name:         admin.name,
-        email:        admin.email,
-        isSuperAdmin: admin.isSuperAdmin,
-        lastLoginAt:  admin.lastLoginAt,
-      },
-    });
+    const result = await adminLoginService(req.body);
+    return res.status(200).json({ success: true, ...result });
   } catch (err) {
-    console.error("❌ adminLogin error:", err);
+    if (err.message === "INVALID_CREDENTIALS")
+      return res.status(401).json({ message: "Invalid credentials." });
+    if (err.message === "ACCOUNT_DEACTIVATED")
+      return res.status(403).json({ message: "Admin account is deactivated." });
     return res.status(500).json({ message: "Server error." });
   }
 };
@@ -54,387 +35,127 @@ const adminMe = async (req, res) => {
   return res.status(200).json({ admin: req.admin });
 };
 
-// ═════════════════════════════════════════════════════════════
-// STATS
-// ═════════════════════════════════════════════════════════════
-
+// ── STATS ─────────────────────────────────────────────────────
 const getStats = async (req, res) => {
   try {
-    const startOfMonth = new Date();
-    startOfMonth.setDate(1);
-    startOfMonth.setHours(0, 0, 0, 0);
-
-    // All countDocuments must bypass the middleware to count ALL users
-    const [
-      totalUsers,
-      totalMentors,
-      totalMentees,
-      newUsersThisMonth,
-      newMentorsThisMonth,
-      newMenteesThisMonth,
-    ] = await Promise.all([
-      User.countDocuments({}).setOptions({ ignoreIsDeleted: true }),
-      User.countDocuments({ roles: "mentor" }).setOptions({
-        ignoreIsDeleted: true,
-      }),
-      User.countDocuments({ roles: "mentee" }).setOptions({
-        ignoreIsDeleted: true,
-      }),
-      User.countDocuments({ createdAt: { $gte: startOfMonth } }).setOptions({
-        ignoreIsDeleted: true,
-      }),
-      User.countDocuments({
-        roles: "mentor",
-        createdAt: { $gte: startOfMonth },
-      }).setOptions({ ignoreIsDeleted: true }),
-      User.countDocuments({
-        roles: "mentee",
-        createdAt: { $gte: startOfMonth },
-      }).setOptions({ ignoreIsDeleted: true }),
-    ]);
-
-    return res.status(200).json({
-      totalUsers,
-      totalMentors,
-      totalMentees,
-      newUsersThisMonth,
-      newMentorsThisMonth,
-      newMenteesThisMonth,
-    });
+    const result = await getStatsService();
+    return res.status(200).json(result);
   } catch (err) {
-    console.error("❌ getStats error:", err);
     return res.status(500).json({ message: "Server error." });
   }
 };
 
 const getUserGrowth = async (req, res) => {
   try {
-    const since = new Date();
-    since.setDate(since.getDate() - 90);
-
-    const growth = await User.aggregate([
-      { $match: { createdAt: { $gte: since } } },
-      {
-        $group: {
-          _id:   { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
-          count: { $sum: 1 },
-        },
-      },
-      { $sort: { _id: 1 } },
-    ]);
-
-    const formatted = growth.map((g) => ({
-      label: new Date(g._id).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
-      count: g.count,
-    }));
-
-    res.json(formatted);
+    const result = await getUserGrowthService();
+    return res.json(result);
   } catch (err) {
-    res.status(500).json({ message: "Failed to fetch growth data" });
+    return res.status(500).json({ message: "Failed to fetch growth data" });
   }
 };
 
-// ── NEW: Mentor Industry Distribution ─────────────────────────
 const getMentorIndustryStats = async (req, res) => {
   try {
-    const industries = await MentorProfile.aggregate([
-      {
-        $match: {
-          industry: { $exists: true, $ne: null, $ne: "" },
-        },
-      },
-      {
-        $group: {
-          _id:   "$industry",
-          count: { $sum: 1 },
-        },
-      },
-      { $sort: { count: -1 } },
-      { $limit: 12 },
-    ]);
-
-    const formatted = industries.map((i) => ({
-      industry: i._id,
-      count:    i.count,
-    }));
-
-    return res.status(200).json(formatted);
+    const result = await getMentorIndustryStatsService();
+    return res.status(200).json(result);
   } catch (err) {
-    console.error("❌ getMentorIndustryStats error:", err);
     return res.status(500).json({ message: "Server error." });
   }
 };
 
-// ═════════════════════════════════════════════════════════════
-// USER MANAGEMENT
-// ═════════════════════════════════════════════════════════════
-
+// ── USER MANAGEMENT ───────────────────────────────────────────
 const getUsers = async (req, res) => {
   try {
-    const { search, role, page = 1, limit = 20, deleted } = req.query;
-
-    const filter = {};
-    // NEW: Handle the Active vs Blocked toggle
-    if (deleted === "true") {
-      filter.isDeleted = true; // Show ONLY blocked users
-    } else {
-      filter.isDeleted = { $ne: true }; // Show ONLY active users
-    }
-
-    if (role && ["mentor", "mentee"].includes(role)) {
-      filter.roles = role;
-    }
-
-    if (search && search.trim()) {
-      const regex = new RegExp(search.trim(), "i");
-      filter.$or = [{ name: regex }, { email: regex }];
-    }
-
-    const skip = (Number(page) - 1) * Number(limit);
-    const total = await User.countDocuments(filter, { ignoreIsDeleted: true });
-
-    const users = await User.find(filter, null, { ignoreIsDeleted: true })
-      .select("-password")
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(Number(limit))
-      .lean();
-
-    const userIds = users.map((u) => u._id);
-
-    const [mentorProfiles, menteeProfiles] = await Promise.all([
-      MentorProfile.find({ user: { $in: userIds } })
-        .select("user isProfileComplete isProfilePublished")
-        .lean(),
-      MenteeProfile.find({ user: { $in: userIds } })
-        .select("user isProfileComplete isProfilePublished")
-        .lean(),
-    ]);
-
-    const mentorMap = Object.fromEntries(
-      mentorProfiles.map((p) => [p.user.toString(), p]),
-    );
-    const menteeMap = Object.fromEntries(
-      menteeProfiles.map((p) => [p.user.toString(), p]),
-    );
-
-    const enriched = users.map((u) => ({
-      ...u,
-      profile:
-        mentorMap[u._id.toString()] || menteeMap[u._id.toString()] || null,
-    }));
-
-    return res.status(200).json({
-      users: enriched,
-      pagination: {
-        total,
-        page: Number(page),
-        limit: Number(limit),
-        totalPages: Math.ceil(total / Number(limit)),
-      },
-    });
+    const result = await getUsersService(req.query);
+    return res.status(200).json(result);
   } catch (err) {
-    console.error("❌ getUsers error:", err);
     return res.status(500).json({ message: "Server error." });
   }
 };
 
 const getUserDetail = async (req, res) => {
   try {
-    const { userId } = req.params;
-
-    const user = await User.findById(userId)
-      .select("-password")
-      .setOptions({ ignoreIsDeleted: true }) // ← blocked users are viewable by admin
-      .lean();
-    if (!user) return res.status(404).json({ message: "User not found." });
-
-    const isMentor = user.roles.includes("mentor");
-
-    const [profile, sessionCount] = await Promise.all([
-      isMentor
-        ? MentorProfile.findOne({ user: userId }).lean()
-        : MenteeProfile.findOne({ user: userId }).lean(),
-      ConnectRequest.countDocuments({
-        $or: [{ mentor: userId }, { mentee: userId }],
-        status: "completed",
-      }),
-    ]);
-
-    return res.status(200).json({ user, profile, sessionCount });
+    const result = await getUserDetailService(req.params.userId);
+    return res.status(200).json(result);
   } catch (err) {
-    console.error("❌ getUserDetail error:", err);
+    if (err.message === "USER_NOT_FOUND")
+      return res.status(404).json({ message: "User not found." });
     return res.status(500).json({ message: "Server error." });
   }
 };
 
 const deleteUser = async (req, res) => {
   try {
-    const { userId } = req.params;
-
-    const user = await User.findById(userId);
-    if (!user) return res.status(404).json({ message: "User not found." });
-
-    await Promise.all([
-      User.findByIdAndDelete(userId),
-      MentorProfile.findOneAndDelete({ user: userId }),
-      MenteeProfile.findOneAndDelete({ user: userId }),
-      ConnectRequest.deleteMany({
-        $or: [{ mentor: userId }, { mentee: userId }],
-      }),
-    ]);
-
-    console.log(`🗑️  Admin deleted user: ${user.email} (${userId})`);
-
-    return res.status(200).json({
-      success: true,
-      message: `User ${user.name} (${user.email}) has been permanently deleted.`,
-    });
+    const { name, email } = await deleteUserService(req.params.userId);
+    return res
+      .status(200)
+      .json({
+        success: true,
+        message: `User ${name} (${email}) has been permanently deleted.`,
+      });
   } catch (err) {
-    console.error("❌ deleteUser error:", err);
+    if (err.message === "USER_NOT_FOUND")
+      return res.status(404).json({ message: "User not found." });
     return res.status(500).json({ message: "Server error." });
   }
 };
 
-//blocking user
 const blockUser = async (req, res) => {
   try {
-    const { userId } = req.params; // Note: Ensure your route uses :userId to match this
-
-    const user = await User.findByIdAndUpdate(
-      userId,
-      { isDeleted: true, deletedAt: new Date() },
-      { new: true },
-    );
-
-    if (!user) return res.status(404).json({ message: "User not found." });
-
-    console.log(`🔒 Admin blocked user: ${user.email} (${userId})`);
-
-    return res.status(200).json({
-      success: true,
-      message: `User ${user.name} has been blocked.`,
-    });
+    const { name } = await blockUserService(req.params.userId);
+    return res
+      .status(200)
+      .json({ success: true, message: `User ${name} has been blocked.` });
   } catch (err) {
-    console.error("❌ blockUser error:", err);
+    if (err.message === "USER_NOT_FOUND")
+      return res.status(404).json({ message: "User not found." });
     return res.status(500).json({ message: "Server error." });
   }
 };
 
 const unblockUser = async (req, res) => {
   try {
-    const { userId } = req.params;
-
-    // findByIdAndUpdate triggers pre-hook and can't find blocked users
-    // Switch to findOneAndUpdate with ignoreIsDeleted option
-    const user = await User.findOneAndUpdate(
-      { _id: userId },
-      { isDeleted: false, deletedAt: null },
-      { new: true, ignoreIsDeleted: true }, // ← key fix
-    );
-
-    if (!user) return res.status(404).json({ message: "User not found." });
-
-    console.log(`🔓 Admin unblocked user: ${user.email} (${userId})`);
-
-    return res.status(200).json({
-      success: true,
-      message: `User ${user.name} has been restored.`,
-    });
+    const { name } = await unblockUserService(req.params.userId);
+    return res
+      .status(200)
+      .json({ success: true, message: `User ${name} has been restored.` });
   } catch (err) {
-    console.error("❌ unblockUser error:", err);
+    if (err.message === "USER_NOT_FOUND")
+      return res.status(404).json({ message: "User not found." });
     return res.status(500).json({ message: "Server error." });
   }
 };
-// ═════════════════════════════════════════════════════════════
-// ENGAGEMENTS
-// ═════════════════════════════════════════════════════════════
 
+// ── ENGAGEMENTS ───────────────────────────────────────────────
 const getEngagementStats = async (req, res) => {
   try {
-    const statuses = ["pending", "accepted", "rejected", "referred", "ongoing", "completed"];
-
-    const counts = await Promise.all(
-      statuses.map((s) => ConnectRequest.countDocuments({ status: s }))
-    );
-
-    const stats = Object.fromEntries(statuses.map((s, i) => [s, counts[i]]));
-    stats.total = counts.reduce((a, b) => a + b, 0);
-
-    return res.status(200).json(stats);
+    const result = await getEngagementStatsService();
+    return res.status(200).json(result);
   } catch (err) {
-    console.error("❌ getEngagementStats error:", err);
     return res.status(500).json({ message: "Server error." });
   }
 };
 
 const getEngagements = async (req, res) => {
   try {
-    const { status, search, dateFrom, dateTo, page = 1, limit = 15 } = req.query;
-
-    const filter = {};
-
-    if (status) filter.status = status;
-
-    if (dateFrom || dateTo) {
-      filter.requestedAt = {};
-      if (dateFrom) filter.requestedAt.$gte = new Date(dateFrom);
-      if (dateTo)   filter.requestedAt.$lte = new Date(new Date(dateTo).setHours(23, 59, 59, 999));
-    }
-
-    if (search && search.trim()) {
-      const regex = new RegExp(search.trim(), "i");
-      const matchingUsers = await User.find({
-        $or: [{ name: regex }, { email: regex }],
-      })
-        .select("_id")
-        .lean();
-
-      const ids = matchingUsers.map((u) => u._id);
-      filter.$or = [{ mentor: { $in: ids } }, { mentee: { $in: ids } }];
-    }
-
-    const skip  = (Number(page) - 1) * Number(limit);
-    const total = await ConnectRequest.countDocuments(filter);
-
-    const engagements = await ConnectRequest.find(filter)
-      .populate("mentor", "name email")
-      .populate("mentee", "name email")
-      .sort({ requestedAt: -1 })
-      .skip(skip)
-      .limit(Number(limit))
-      .lean();
-
-    return res.status(200).json({
-      engagements,
-      pagination: {
-        total,
-        page:       Number(page),
-        limit:      Number(limit),
-        totalPages: Math.ceil(total / Number(limit)),
-      },
-    });
+    const result = await getEngagementsService(req.query);
+    return res.status(200).json(result);
   } catch (err) {
-    console.error("❌ getEngagements error:", err);
     return res.status(500).json({ message: "Server error." });
   }
 };
 
 module.exports = {
-  // auth
   adminLogin,
   adminMe,
-  // stats
   getStats,
   getUserGrowth,
-  getMentorIndustryStats,   // ← new
-  // users
+  getMentorIndustryStats,
   getUsers,
   getUserDetail,
   deleteUser,
   blockUser,
   unblockUser,
-  // engagements
   getEngagementStats,
   getEngagements,
 };
