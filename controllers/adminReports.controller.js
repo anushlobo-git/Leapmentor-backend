@@ -5,7 +5,7 @@ const {
   handleReportService,
   processRefundService,
   deleteSessionService,
-} = require("../../services/admin.reports.service");
+} = require("../services/admin.reports.service");
 
 const getReportStats = async (req, res) => {
   try {

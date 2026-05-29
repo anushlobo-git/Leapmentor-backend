@@ -51,12 +51,15 @@ const findMyRequests = async (menteeId) => {
     .lean();
 };
 
-const findIncomingRequests = async (mentorId, status) => {
+const findIncomingRequests = (mentorId, status) => {
   const filter = { mentor: mentorId };
-  if (status && ["pending", "accepted", "rejected", "referred"].includes(status)) {
+  if (
+    status &&
+    ["pending", "accepted", "rejected", "referred"].includes(status)
+  ) {
     filter.status = status;
   }
-  return await ConnectRequest.find(filter)
+  return ConnectRequest.find(filter)
     .populate("mentee", "name email")
     .populate("referredBy", "name email")
     .sort({ requestedAt: -1 })
@@ -102,29 +105,6 @@ const findOngoingConnects = async (userId) => {
     .lean();
 };
 
-const findMentorProfile = async (userId) => {
-  return await MentorProfile.findOne({ user: userId })
-    .select("currentRole company profilePicture skills hourlyRate avgRating bio")
-    .lean();
-};
-
-const findMentorProfileFull = async (userId) => {
-  return await MentorProfile.findOne({ user: userId })
-    .select("currentRole company industry bio hourlyRate avgRating yearsOfExperience profilePicture skills")
-    .lean();
-};
-
-const findMenteeProfile = async (userId) => {
-  return await MenteeProfile.findOne({ user: userId })
-    .select("currentRole company profilePicture skills bio interestedFields")
-    .lean();
-};
-
-const findMentorProfileForDetail = async (userId) => {
-  return await MentorProfile.findOne({ user: userId })
-    .select("currentRole company profilePicture skills hourlyRate avgRating bio")
-    .lean();
-};
 
 const countByStatus = (status) => ConnectRequest.countDocuments({ status });
 
@@ -174,6 +154,48 @@ const deleteManyByUser = (userId) =>
     $or: [{ mentor: userId }, { mentee: userId }],
   });
 
+
+const findBookedRequestsByMentor = (mentorId) =>
+  ConnectRequest.find(
+      { mentor: mentorId, status: { $in: ["pending", "accepted", "ongoing"] } },
+      { selectedSlots: 1, selectedSlot: 1 },
+    ).lean();
+
+
+const findRequestByIdWithMentor = (id) =>
+  ConnectRequest.findById(id).populate("mentor", "name email");
+
+const findCompletedSessionsByMentor = (mentorId) =>
+  ConnectRequest.find({ mentor: mentorId, status: "completed" }).lean();
+
+const findCompletedSessionsByMentorSince = (mentorId, startDate) =>
+  ConnectRequest.find({
+    mentor: mentorId,
+    status: "completed",
+    completedAt: { $gte: startDate },
+  }).lean();
+
+const findOngoingPaidSessionsByMentor = (mentorId) =>
+  ConnectRequest.find({
+    mentor: mentorId,
+    status: "ongoing",
+    paymentStatus: "paid",
+  }).lean();
+
+const findCompletedSessionsWithMentee = (query, { skip, limit }) =>
+  ConnectRequest.find(query)
+    .populate("mentee", "name email")
+    .select(
+      "mentee confirmedSlot totalAmount paymentStatus completedAt sessionCount sessionRate",
+    )
+    .sort({ completedAt: -1 })
+    .skip(skip)
+    .limit(limit)
+    .lean();
+
+const countCompletedSessions = (query) => ConnectRequest.countDocuments(query);
+
+
 module.exports = {
   findPendingRequest,
   findSlotConflict,
@@ -188,10 +210,6 @@ module.exports = {
   deleteRequestById,
   findExistingReferral,
   findOngoingConnects,
-  findMentorProfile,
-  findMentorProfileFull,
-  findMenteeProfile,
-  findMentorProfileForDetail,
   findEngagements,
   countByStatus,
   countByFilter, 
@@ -201,4 +219,11 @@ module.exports = {
   countByStatusValue, 
   countCompletedSessionsByUser,
   deleteManyByUser, 
+  findBookedRequestsByMentor,
+  findRequestByIdWithMentor,
+  findCompletedSessionsByMentor,
+  findCompletedSessionsByMentorSince,
+  findOngoingPaidSessionsByMentor,
+  findCompletedSessionsWithMentee,
+  countCompletedSessions,
 };

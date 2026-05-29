@@ -8,7 +8,7 @@ const {
   handleReport,
   processRefund,
   deleteSession,
-} = require("../controllers/admin/adminReports.controller");
+} = require("../controllers/adminReports.controller");
 
 router.use(adminAuthenticate);
 

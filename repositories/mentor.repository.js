@@ -38,6 +38,32 @@ const findMentorProfileByIdWithUser = (id) =>
 
 const saveMentorProfile = (profile) => profile.save();
 
+const findMentorProfile = (userId) =>
+  MentorProfile.findOne({ user: userId })
+    .select(
+      "currentRole company profilePicture skills hourlyRate avgRating bio",
+    )
+    .lean();
+
+const findMentorProfileFull = (userId) =>
+  MentorProfile.findOne({ user: userId })
+    .select(
+      "currentRole company industry bio hourlyRate avgRating yearsOfExperience profilePicture skills",
+    )
+    .lean();
+
+const findMentorProfileForDetail = (userId) =>
+  MentorProfile.findOne({ user: userId })
+    .select(
+      "currentRole company profilePicture skills hourlyRate avgRating bio",
+    )
+    .lean();
+
+const findMentorRating = (userId) =>
+  MentorProfile.findOne({ user: userId })
+    .select("avgRating totalSessions")
+    .lean();
+
 
 module.exports = { 
     getMentorIndustryStats,
@@ -48,4 +74,8 @@ module.exports = {
     findMentorProfileById,
     findMentorProfileByIdWithUser,
     saveMentorProfile,
+    findMentorProfile,
+    findMentorProfileFull,
+    findMentorProfileForDetail,
+    findMentorRating,
  };

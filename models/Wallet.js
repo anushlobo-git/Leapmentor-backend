@@ -6,22 +6,31 @@ const walletSchema = new mongoose.Schema(
     user: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
-      required: true,     
+      required: true,
+    },
+    
+    role: {
+      type: String,
+      enum: ["mentor", "mentee"],
+      required: true,
     },
 
     balance: {
       type: Number,
       default: 0,
-      min: 0, // can never go negative
+      min: 0,
     },
 
     escrow: {
       type: Number,
       default: 0,
-      min: 0, // points held, not yet released to mentor
+      min: 0,
     },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
+
+// Now this index actually works
 walletSchema.index({ user: 1, role: 1 }, { unique: true });
+
 module.exports = mongoose.model("Wallet", walletSchema);
