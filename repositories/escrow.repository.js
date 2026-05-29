@@ -33,11 +33,11 @@ const saveConnectRequest = (connectRequest, session) =>
   connectRequest.save(session ? { session } : undefined);
 
 // ─── Wallet 
-const findWalletByUser = (userId, session) =>
-  Wallet.findOne({ user: userId }).session(session);
+const findWalletByUser = (userId, session,role="mentee") =>
+  Wallet.findOne({ user: userId,role }).session(session);
 
-const findWalletByUserLean = (userId) =>
-  Wallet.findOne({ user: userId }).select("balance escrow").lean();
+const findWalletByUserLean = (userId, role = "mentee") =>
+  Wallet.findOne({ user: userId ,role }).select("balance escrow").lean();
 
 const saveWallet = (wallet, session) =>
   wallet.save(session ? { session } : undefined);

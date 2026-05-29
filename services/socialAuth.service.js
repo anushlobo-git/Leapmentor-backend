@@ -18,6 +18,14 @@ const socialAuthUser = async ({
   roles,
   termsAccepted,
 }) => {
+
+  console.log("socialAuthUser called with:", {
+    provider,
+    roles,
+    termsAccepted,
+    email,
+  });
+
   if (!ALLOWED_PROVIDERS.includes(provider))
     throw new Error("Invalid provider");
   if (!providerId) throw new Error("providerId is required");
@@ -41,8 +49,11 @@ const socialAuthUser = async ({
   if (!user) {
     if (termsAccepted !== true) throw new Error("TERMS_NOT_ACCEPTED");
 
-    const incomingRoles =
-      Array.isArray(roles) && roles.length ? roles : ["mentee"];
+    const validRoleValues = ["mentor", "mentee"];
+    const filteredRoles = Array.isArray(roles)
+      ? roles.filter((r) => validRoleValues.includes(r))
+      : [];
+    const incomingRoles = filteredRoles.length ? filteredRoles : ["mentee"];
     const { valid, message, uniqueRoles } = validateRoles(incomingRoles);
     if (!valid) throw new Error(message);
 
