@@ -1,9 +1,18 @@
 const { socialAuthUser } = require("../services/socialAuth.service");
+const { setAuthCookies } = require("../utils/auth.cookies");
 
 const socialAuth = async (req, res) => {
   try {
     const result = await socialAuthUser(req.body);
-    return res.json({ message: "Social login successful", ...result });
+
+    // ✅ Set token + role as cookies
+    const role = result.user?.roles?.[0] || null;
+    setAuthCookies(res, result.token, role);
+
+    return res.json({ 
+      message: "Social login successful",
+      user:result.user,
+    });
   } catch (err) {
     if (err.message === "TERMS_NOT_ACCEPTED")
       return res

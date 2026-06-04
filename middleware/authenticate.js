@@ -5,7 +5,9 @@ const User = require("../models/User");
 // ✅ Verifies JWT and attaches fresh user from DB to req.user
 const authenticate = async (req, res, next) => {
   try {
-    const token = req.headers.authorization?.split(" ")[1]; // Bearer <token>
+    const token = req.cookies?.authToken || req.headers.authorization?.split(" ")[1]; // Bearer <token>
+
+
     if (!token) return res.status(401).json({ message: "No token provided" });
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);

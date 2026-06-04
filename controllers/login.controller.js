@@ -1,12 +1,18 @@
 // controllers/login.controller.js
 const { loginUser } = require("../services/auth.service");
+const { setAuthCookies } = require("../utils/auth.cookies");
 
 const login = async (req, res) => {
   try {
     const result = await loginUser(req.body);
+
+    const role = result.user?.roles?.[0] || null;
+    setAuthCookies(res, result.token, role);
+     
+
     return res.status(200).json({
       message: "Login successful",
-      ...result,
+      user: result.user,
     });
   } catch (err) {
     if (err.message === "INVALID_CREDENTIALS") {

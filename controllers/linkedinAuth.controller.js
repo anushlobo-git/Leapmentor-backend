@@ -1,5 +1,6 @@
 const { linkedinAuthUser } = require("../services/linkedinAuth.service");
 const { signState, verifyState } = require("../utils/auth.utils");
+const {setAuthCookies} = require("../utils/auth.cookies");
 
 // Step 1 — Browser hits this to start OAuth
 // Signs state with HMAC so it can't be tampered with
@@ -46,7 +47,15 @@ const linkedinCallback = (req, res) => {
 const linkedinAuth = async (req, res) => {
   try {
     const result = await linkedinAuthUser(req.body);
-    return res.json({ message: "LinkedIn login successful", ...result });
+
+    // ✅ Set token + role as cookies
+    const role = result.user?.roles?.[0] || null;
+    setAuthCookies(res, result.token, role);
+
+    return res.json({ 
+      message: "LinkedIn login successful", 
+      user:result.user,
+    });
   } catch (err) {
     if (err.message === "TERMS_NOT_ACCEPTED")
       return res

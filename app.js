@@ -2,7 +2,8 @@
 // ✅ Pure Express app — no DB connection, no server start, no cron jobs
 // This is what Jest imports for testing
 require("./instrument.js");
-require("dotenv").config(); 
+require("dotenv").config();
+const cookieParser = require("cookie-parser"); 
 //const logtail = require("./utils/logger");
 
 const Sentry = require("@sentry/node");
@@ -14,11 +15,14 @@ const app = express();
 /* ===========================
    🔹 MIDDLEWARE
 =========================== */
-app.use(cors());
-app.use(cors({
-  origin: true,
-  credentials: true,
-}));
+app.use(
+  cors({
+    origin: process.env.APP_BASE_URL || "http://localhost:5173",
+    credentials: true,
+  }),
+);
+
+app.use(cookieParser());
 
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));

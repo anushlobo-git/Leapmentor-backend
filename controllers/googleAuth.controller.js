@@ -1,9 +1,17 @@
 const { googleAuthUser } = require("../services/googleAuth.service");
+const { setAuthCookies } = require("../utils/auth.cookies");
 
 const googleAuth = async (req, res) => {
   try {
     const result = await googleAuthUser(req.body);
-    return res.json({ message: "Google login successful", ...result });
+    // ✅ Set token + role as cookies
+    const role = result.user?.roles?.[0] || null;
+    setAuthCookies(res, result.token, role);
+
+    return res.json({ 
+      message: "Google login successful", 
+      user:result.user,
+     });
   } catch (err) {
     if (err.message === "TERMS_NOT_ACCEPTED")
       return res
