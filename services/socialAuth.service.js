@@ -4,10 +4,13 @@ const oauthAccountRepository = require("../repositories/oauthAccount.repository"
 const {
   signToken,
   sanitizeUser,
+  signAccessToken,
+  signRefreshToken,
   validateRoles,
 } = require("../utils/auth.utils");
 const { createWalletsForRoles } = require("./wallet.service");
 const logger = require("../config/logger");
+
 
 const ALLOWED_PROVIDERS = ["linkedin", "apple"];
 
@@ -67,13 +70,13 @@ const socialAuthUser = async ({
     await createWalletsForRoles(user._id, uniqueRoles);
     logger.info("New user created via social auth", { provider, userId: user._id, role: uniqueRoles[0] });
     isNewUser = true;
+  }
 
   await oauthAccountRepository.createOAuthAccount({ user: user._id, provider, providerId });
 
   const accessToken = signAccessToken(user._id);
   const refreshToken = signRefreshToken(user._id);
   return { accessToken, refreshToken, user: sanitizeUser(user), isNewUser };
-}
 };
 
 module.exports = { socialAuthUser };
