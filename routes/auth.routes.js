@@ -8,12 +8,15 @@ const { socialAuth } = require("../controllers/socialAuth.controller");
 const { changePassword } = require("../controllers/changePassword.controller");
 const { authenticate } = require("../middleware/authenticate");
 const { clearAuthCookies } = require("../utils/auth.cookies");
+const { refreshToken } = require("../controllers/refresh.controller");
+
 const {
   linkedinRedirect,
   linkedinCallback,
   linkedinAuth,
 } = require("../controllers/linkedinAuth.controller");
 
+router.post("/refresh", refreshToken);
 router.post("/register", register);
 router.post("/login", login);
 router.post("/google", googleAuth);

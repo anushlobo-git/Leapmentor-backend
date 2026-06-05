@@ -5,11 +5,14 @@ const {
   signToken,
   sanitizeUser,
   validateRoles,
+  signAccessToken,
+  signRefreshToken,
 } = require("../utils/auth.utils");
 const {
   createWalletsForRoles,
   createWalletForRole,
 } = require("./wallet.service");
+
 
 // ── REGISTER ──────────────────────────────────────────────────
 const registerUser = async ({
@@ -31,8 +34,11 @@ const registerUser = async ({
   if (!valid) throw new Error(message);
 
   const existing = await userRepository.findUserByEmail(normalizedEmail);
-  if (existing) {
-    const newRoles = [...new Set([...existing.roles, ...uniqueRoles])];
+  
+  if (existing) throw new Error("ALREADY_REGISTERED");
+  
+  //in future if we want to allow one email with multiple roles these codes can be used to merge the roles
+    /*const newRoles = [...new Set([...existing.roles, ...uniqueRoles])];
     const rolesChanged = newRoles.length !== existing.roles.length;
 
     if (rolesChanged) {
@@ -42,9 +48,8 @@ const registerUser = async ({
       for (const role of addedRoles) {
         await createWalletForRole(existing._id, role);
       }
-    }
-    throw new Error("ALREADY_REGISTERED");
-  }
+    } */
+   
 
   const hashed = await bcrypt.hash(password, 10);
   const user = await userRepository.createUser({
@@ -58,8 +63,15 @@ const registerUser = async ({
   });
 
   await createWalletsForRoles(user._id, uniqueRoles);
-  const token = signToken(user._id);
-  return { token, user: sanitizeUser(user), isNewUser: true };
+  const token = signToken(user._id); //not using it for the access and refresh token flow,
+  const accessToken = signAccessToken(user._id);
+  const refreshToken = signRefreshToken(user._id);
+  return {
+    accessToken,
+    refreshToken,
+    user: sanitizeUser(user),
+    isNewUser: true,
+  };
 };
 
 // ── LOGIN ─────────────────────────────────────────────────────
@@ -77,8 +89,16 @@ const loginUser = async ({ email, password }) => {
 
   if (!user.isEmailVerified) throw new Error("EMAIL_NOT_VERIFIED");
 
-  const token = signToken(user._id);
-  return { token, user: sanitizeUser(user) };
+  const token = signToken(user._id);  //not using and can delete just look into it 
+  const accessToken = signAccessToken(user._id);
+  const refreshToken = signRefreshToken(user._id);
+  return {
+    accessToken,
+    refreshToken,
+    user: sanitizeUser(user),
+    isNewUser: true,
+  };
+
 };
 
 // ── CHANGE PASSWORD ───────────────────────────────────────────

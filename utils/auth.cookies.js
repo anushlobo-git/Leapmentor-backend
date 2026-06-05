@@ -8,7 +8,7 @@ const BASE_OPTIONS = {
 };
 
 const setAuthCookies = (res, token, role) => {
-  res.cookie("authToken", token, BASE_OPTIONS);
+  res.cookie("refreshToken", token, BASE_OPTIONS);
   if (role) {
     res.cookie("authRole", role, {
       ...BASE_OPTIONS,
@@ -18,7 +18,7 @@ const setAuthCookies = (res, token, role) => {
 };
 
 const clearAuthCookies = (res) => {
-  res.clearCookie("authToken", BASE_OPTIONS);
+  res.clearCookie("refreshToken", BASE_OPTIONS);
   res.clearCookie("authRole", { ...BASE_OPTIONS, httpOnly: false });
 };
 

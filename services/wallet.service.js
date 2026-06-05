@@ -1,11 +1,13 @@
 // services/wallet.service.js
 const walletRepository = require("../repositories/wallet.repository");
 const transactionRepository = require("../repositories/transaction.repository");
+const logger = require("../config/logger");
 
 const MENTEE_WELCOME_BONUS = 500;
 
 const createWalletForRole = async (userId, role) => {
   const existing = await walletRepository.findWalletByUserAndRole(userId, role);
+  logger.info("Wallet created", { userId, role, startingBalance });
   if (existing) return null;
 
   const isMentee = role === "mentee";

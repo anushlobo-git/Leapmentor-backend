@@ -1,6 +1,7 @@
 const { linkedinAuthUser } = require("../services/linkedinAuth.service");
 const { signState, verifyState } = require("../utils/auth.utils");
 const {setAuthCookies} = require("../utils/auth.cookies");
+const logger = require("../config/logger");
 
 // Step 1 — Browser hits this to start OAuth
 // Signs state with HMAC so it can't be tampered with
@@ -16,6 +17,7 @@ const linkedinRedirect = (req, res) => {
     scope: "openid profile email",
     state,
   });
+  logger.info("LinkedIn OAuth redirect initiated", { role });
 
   res.redirect(`https://www.linkedin.com/oauth/v2/authorization?${params}`);
 };
@@ -32,6 +34,7 @@ const linkedinCallback = (req, res) => {
   try {
     verifyState(state); // throws if signature is invalid
   } catch {
+    logger.warn("LinkedIn callback state verification failed");
     return res.redirect(
       `${process.env.CLIENT_URL}/?linkedin=failure&reason=invalid_state`,
     );
@@ -50,13 +53,16 @@ const linkedinAuth = async (req, res) => {
 
     // ✅ Set token + role as cookies
     const role = result.user?.roles?.[0] || null;
-    setAuthCookies(res, result.token, role);
+    setAuthCookies(res, result.refreshtToken, role);
 
-    return res.json({ 
-      message: "LinkedIn login successful", 
-      user:result.user,
+    return res.json({
+      message: "LinkedIn login successful",
+      user: result.user,
+      accessToken: result.accessToken,
+      isNewUser: result.isNewUser,
     });
   } catch (err) {
+    logger.warn("LinkedIn auth failed", { error: err.message });
     if (err.message === "TERMS_NOT_ACCEPTED")
       return res
         .status(400)

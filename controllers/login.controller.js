@@ -7,12 +7,13 @@ const login = async (req, res) => {
     const result = await loginUser(req.body);
 
     const role = result.user?.roles?.[0] || null;
-    setAuthCookies(res, result.token, role);
+    setAuthCookies(res, result.refreshToken, role);
      
 
     return res.status(200).json({
       message: "Login successful",
       user: result.user,
+      accessToken: result.accessToken,
     });
   } catch (err) {
     if (err.message === "INVALID_CREDENTIALS") {

@@ -7,12 +7,13 @@ const register = async (req, res) => {
     const result = await registerUser(req.body);
 
     const role = result.user?.roles?.[0] || null;
-    setAuthCookies(res, result.token, role);
+    setAuthCookies(res, result.refreshToken, role);
 
     return res.status(201).json({
       message: "Registered successfully",
       user:result.user,
       isNewUser:result.isNewUser,
+      accessToken: result.accessToken,
     });
 
   } catch (err) {

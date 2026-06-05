@@ -1,5 +1,4 @@
-// backend/app.js
-// ✅ Pure Express app — no DB connection, no server start, no cron jobs
+
 // This is what Jest imports for testing
 require("./instrument.js");
 require("dotenv").config();
@@ -12,9 +11,8 @@ const cors    = require("cors");
 
 const app = express();
 
-/* ===========================
-   🔹 MIDDLEWARE
-=========================== */
+//MIDDLEWARE
+
 app.use(
   cors({
     origin: process.env.APP_BASE_URL || "http://localhost:5173",
@@ -35,18 +33,8 @@ app.use((req, res, next) => {
   }
   next();
 });
-// Leapmentor-backend/app.js  
-// app.use((req, res, next) => {
-//   logtail.info(`${req.method} ${req.url}`, {
-//     ip: req.ip,
-//     userAgent: req.get("User-Agent"),
-//   });
-//   next();
-// });
 
-/* ===========================
-   🔹 API v1 ROUTER
-=========================== */
+//API v1 ROUTER
 const v1 = express.Router();
 
 v1.use("/ai",               require("./routes/ai.routes"));
@@ -90,9 +78,8 @@ v1.use("/admin/payments",   require("./routes/adminPayments.routes"));
 v1.use("/admin/reports",    require("./routes/adminReports.routes"));
 v1.use("/admin/mentor-verifications", require("./routes/adminVerification.routes"));
 
-/* ===========================
-   🔹 MOUNT VERSIONED ROUTER
-=========================== */
+
+//MOUNT VERSIONED ROUTER
 app.use("/api/v1", v1);
 
 app.get("/", (req, res) => res.send("🚀 LeapMentor API Running..."));

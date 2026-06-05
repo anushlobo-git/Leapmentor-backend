@@ -1,3 +1,4 @@
+//no where used in the application not used at all
 // backend/middleware/noteAccess.js
 const ConnectRequest = require("../models/ConnectRequest");
 const Note           = require("../models/Note");
