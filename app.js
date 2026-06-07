@@ -2,12 +2,15 @@
 // This is what Jest imports for testing
 require("./instrument.js");
 require("dotenv").config();
-const cookieParser = require("cookie-parser"); 
+const cookieParser = require("cookie-parser");
+const compression = require("compression");  
 //const logtail = require("./utils/logger");
 
 const Sentry = require("@sentry/node");
 const express = require("express");
 const cors    = require("cors");
+const { apiLimiter, authLimiter, aiLimiter } = require("./middleware/rateLimiter");
+
 
 const app = express();
 
@@ -20,10 +23,19 @@ app.use(
   }),
 );
 
+app.use(
+  compression({
+    level: 6,
+    threshold: 1024, // only compress responses bigger than 1KB
+  }),
+);
+
 app.use(cookieParser());
 
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
+
+
 
 app.use((req, res, next) => {
   if (req.path.startsWith("/api/v1/google-calendar/callback")) {
@@ -33,6 +45,12 @@ app.use((req, res, next) => {
   }
   next();
 });
+
+
+// RATE LIMITERS
+app.use("/api/v1", apiLimiter);           //  general
+app.use("/api/v1/auth", authLimiter);     //  strict auth
+app.use("/api/v1/ai", aiLimiter);         //  strict AI
 
 //API v1 ROUTER
 const v1 = express.Router();
@@ -81,6 +99,7 @@ v1.use("/admin/mentor-verifications", require("./routes/adminVerification.routes
 
 //MOUNT VERSIONED ROUTER
 app.use("/api/v1", v1);
+ 
 
 app.get("/", (req, res) => res.send("🚀 LeapMentor API Running..."));
 

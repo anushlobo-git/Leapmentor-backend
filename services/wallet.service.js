@@ -7,11 +7,12 @@ const MENTEE_WELCOME_BONUS = 500;
 
 const createWalletForRole = async (userId, role) => {
   const existing = await walletRepository.findWalletByUserAndRole(userId, role);
-  logger.info("Wallet created", { userId, role, startingBalance });
   if (existing) return null;
 
   const isMentee = role === "mentee";
   const startingBalance = isMentee ? MENTEE_WELCOME_BONUS : 0;
+
+  logger.info("Wallet created", { userId, role, startingBalance }); // ✅ after declaration
 
   const wallet = await walletRepository.createWallet({
     user: userId,

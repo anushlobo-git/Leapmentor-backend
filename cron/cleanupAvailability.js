@@ -2,6 +2,7 @@
 const cron          = require("node-cron");
 const Availability  = require("../models/Availability");
 const MentorProfile = require("../models/MentorProfile");
+const logger        = require("../utils/logger"); 
 
 // ── Helper ────────────────────────────────────────────────────
 const getTodayStr = () => {
@@ -13,7 +14,7 @@ const getTodayStr = () => {
 const cleanupAvailability = async () => {
   try {
     const today = getTodayStr();
-    console.log(`[Cron] Running availability cleanup — ${today}`);
+    logger.info("[Cron] Running availability cleanup", { today });;
 
     // Fetch all availability docs that have at least one date
     const allAvailability = await Availability.find({
@@ -48,18 +49,25 @@ const cleanupAvailability = async () => {
             { isProfilePublished: false }
           );
           totalUnpublished += 1;
-          console.log(`[Cron] Auto-unpublished mentor ${avail.mentor} — no future slots left`);
+          logger.info("[Cron] Auto-unpublished mentor", { 
+          mentorId: avail.mentor,
+          reason: "no future slots left"
+        });
         }
       }
     }
 
-    console.log(`[Cron]  Cleanup complete:`);
-    console.log(`[Cron]    • Docs updated    : ${totalDocsUpdated}`);
-    console.log(`[Cron]    • Dates removed   : ${totalDatesRemoved}`);
-    console.log(`[Cron]    • Mentors unpublished: ${totalUnpublished}`);
+     logger.info("[Cron] Cleanup complete", {
+       totalDocsUpdated,
+       totalDatesRemoved,
+       totalUnpublished,
+     });
 
   } catch (err) {
-    console.error("[Cron] ❌ Cleanup error:", err.message);
+    logger.error("[Cron] Cleanup failed", {
+      error: err.message,
+      stack: err.stack,
+    });
   }
 };
 
@@ -70,7 +78,9 @@ const startCleanupCron = () => {
     timezone: "Asia/Kolkata",
   });
 
-  console.log("[Cron]  Availability cleanup scheduled — runs daily at midnight IST");
+  logger.info(
+    "[Cron] Availability cleanup scheduled — runs daily at midnight IST",
+  );
 };
 
 module.exports = { startCleanupCron, cleanupAvailability };

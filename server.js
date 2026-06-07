@@ -20,7 +20,7 @@ const { verifyConnection } = require("./config/cloudinary");
 mongoose
   .connect(process.env.MONGO_URI)
   .then(() => {
-    console.log("✅ MongoDB Connected");
+    console.log(" MongoDB Connected");
     verifyConnection();
   })
   .catch((err) => console.error("❌ MongoDB Error:", err.message));
@@ -63,13 +63,13 @@ const PORT = process.env.PORT || 5000;
 
 
 // Leapmentor-backend/server.js 
-// process.on("SIGINT", async () => {
-//   await logtail.flush();
-//   process.exit(0);
-// });
+process.on("SIGINT", async () => {
+ await logtail.flush();
+  process.exit(0);
+ });
 
 httpServer.listen(PORT, () => {
-  console.log(`🔥 Server running on port ${PORT}`);
-  console.log(`🔌 Socket.io ready`);
-  console.log(`📡 Using Client ID: ${process.env.GOOGLE_CLIENT_ID ? "LOADED" : "NOT FOUND"}`);
+  console.log(` Server running on port ${PORT}`);
+  console.log(` Socket.io ready`);
+  console.log(` Using Client ID: ${process.env.GOOGLE_CLIENT_ID ? "LOADED" : "NOT FOUND"}`);
 });
