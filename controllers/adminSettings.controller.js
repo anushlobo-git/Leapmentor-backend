@@ -1,67 +1,89 @@
-// controllers/admin/adminSettings.controller.js
+/**
+ * @fileoverview Admin Settings Configuration Controller
+ * @description  Thin request/response handlers managing administrative system properties,
+ * credential security lifecycles, and global fee commission structures.
+ */
+
+const catchAsync = require("../utils/catchAsync");
 const {
-    getOverviewService,
-    changeAdminPasswordService,
-    addAdminService,
-    getCommissionService,
-    updateCommissionService,
+  getOverviewService,
+  changeAdminPasswordService,
+  addAdminService,
+  getCommissionService,
+  updateCommissionService,
 } = require("../services/admin.settings.service");
 
-const getOverview = async (req, res) => {
-    try {
-        const result = await getOverviewService();
-        return res.json({ success: true, ...result });
-    } catch (err) {
-        return res.status(500).json({ message: err.message });
-    }
-};
+// ── SYSTEM CONFIGURATION HANDLERS ───────────────────────────
 
-const changePassword = async (req, res) => {
-    try {
-        await changeAdminPasswordService(req.admin._id, req.body);
-        return res.json({ success: true, message: "Password changed successfully." });
-    } catch (err) {
-        if (err.message === "ADMIN_NOT_FOUND") return res.status(404).json({ message: "Admin not found." });
-        if (err.message === "WRONG_PASSWORD")  return res.status(400).json({ message: "Current password is incorrect." });
-        return res.status(400).json({ message: err.message });
-    }
-};
+/**
+ * Fetch high-level overview metrics for the administration settings dashboard.
+ * @route   GET /api/v1/admin/settings/overview
+ * @access  Private (Admin Only)
+ */
+const getOverview = catchAsync(async (req, res) => {
+  const result = await getOverviewService();
+  res.status(200).json({ success: true, ...result });
+});
 
-const addAdmin = async (req, res) => {
-    try {
-        const result = await addAdminService(req.body);
-        return res.status(201).json({
-            success: true,
-            message: `Admin account created for ${req.body.email}.`,
-            ...result,
-        });
-    } catch (err) {
-        if (err.message === "ADMIN_ALREADY_EXISTS")
-            return res.status(409).json({ message: "An admin with this email already exists." });
-        return res.status(400).json({ message: err.message });
-    }
-};
+/**
+ * Modify and update the authenticated administrator's account password.
+ * @route   PUT /api/v1/admin/settings/change-password
+ * @access  Private (Admin Only)
+ */
+const changePassword = catchAsync(async (req, res) => {
+  await changeAdminPasswordService(req.admin._id, req.body);
+  res
+    .status(200)
+    .json({ success: true, message: "Password changed successfully." });
+});
 
-const getCommission = async (req, res) => {
-    try {
-        const commissionRate = await getCommissionService(req.admin._id);
-        return res.json({ success: true, commissionRate });
-    } catch (err) {
-        return res.status(500).json({ message: err.message });
-    }
-};
+/**
+ * Register and provision a brand-new secondary administrative account entity.
+ * @route   POST /api/v1/admin/settings/add-admin
+ * @access  Private (Super Admin Only)
+ */
+const addAdmin = catchAsync(async (req, res) => {
+  const result = await addAdminService(req.body);
+  res.status(201).json({
+    success: true,
+    message: `Admin account created for ${req.body.email}.`,
+    ...result,
+  });
+});
 
-const updateCommission = async (req, res) => {
-    try {
-        const rate = await updateCommissionService(req.admin._id, req.body.commissionRate);
-        return res.json({
-            success: true,
-            message: `Commission rate updated to ${rate}%`,
-            commissionRate: rate,
-        });
-    } catch (err) {
-        return res.status(400).json({ message: err.message });
-    }
-};
+// ── FINANCIAL COMMISSION HANDLERS ───────────────────────────
 
-module.exports = { getOverview, changePassword, addAdmin, getCommission, updateCommission };
+/**
+ * Fetch current platform-wide matching fee commission rate details.
+ * @route   GET /api/v1/admin/settings/commission
+ * @access  Private (Admin Only)
+ */
+const getCommission = catchAsync(async (req, res) => {
+  const commissionRate = await getCommissionService(req.admin._id);
+  res.status(200).json({ success: true, commissionRate });
+});
+
+/**
+ * Update global platform-wide financial fee commission parameters.
+ * @route   PUT /api/v1/admin/settings/commission
+ * @access  Private (Admin Only)
+ */
+const updateCommission = catchAsync(async (req, res) => {
+  const rate = await updateCommissionService(
+    req.admin._id,
+    req.body.commissionRate,
+  );
+  res.status(200).json({
+    success: true,
+    message: `Commission rate updated to ${rate}%`,
+    commissionRate: rate,
+  });
+});
+
+module.exports = {
+  getOverview,
+  changePassword,
+  addAdmin,
+  getCommission,
+  updateCommission,
+};

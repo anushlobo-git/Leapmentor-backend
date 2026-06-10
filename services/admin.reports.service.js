@@ -1,3 +1,4 @@
+const AppError = require("../utils/AppError");
 const {
   countAllReports,
   countReportsByFilter,
@@ -19,7 +20,6 @@ const {
 const createNotification = require("../utils/createNotification");
 const { sendReportResolvedEmail } = require("../utils/sendNotificationEmail");
 
-// ── STATS ─────────────────────────────────────────────────────
 const getReportStatsService = async () => {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -33,7 +33,6 @@ const getReportStatsService = async () => {
   return { totalReports, pendingResolution, resolvedToday };
 };
 
-// ── GET REPORTS ───────────────────────────────────────────────
 const getReportsService = async ({ page, limit, search, status }) => {
   const safePage = Math.max(1, parseInt(page) || 1);
   const safeLimit = Math.min(20, parseInt(limit) || 10);
@@ -94,17 +93,16 @@ const getReportsService = async ({ page, limit, search, status }) => {
   };
 };
 
-// ── HANDLE REPORT ─────────────────────────────────────────────
 const handleReportService = async (
   reportId,
   { status, adminNote },
   adminId,
 ) => {
   if (!["resolved", "dismissed"].includes(status))
-    throw new Error("INVALID_STATUS");
+    throw new AppError("Status must be resolved or dismissed.", 400);
 
   const report = await findReportByIdWithUsers(reportId);
-  if (!report) throw new Error("REPORT_NOT_FOUND");
+  if (!report) throw new AppError("Report not found.", 404);
 
   report.status = status;
   report.adminNote = adminNote?.trim() || report.adminNote;
@@ -139,7 +137,7 @@ const handleReportService = async (
       adminNote: adminNote?.trim() || "",
       reporterRole: report.reporterRole,
     }).catch((err) =>
-      console.error("❌ sendReportResolvedEmail failed:", err.message),
+      logger.error("sendReportResolvedEmail failed", { error: err.message }),
     );
   }
 
@@ -151,24 +149,26 @@ const handleReportService = async (
   };
 };
 
-// ── PROCESS REFUND ────────────────────────────────────────────
 const processRefundService = async (reportId, adminNote, adminId) => {
   const report = await findReportByIdWithAll(reportId);
-  if (!report) throw new Error("REPORT_NOT_FOUND");
-
-  if (report.reporterRole !== "mentee") throw new Error("NOT_MENTEE_REPORT");
-  if (report.complaintType !== "refund") throw new Error("NOT_REFUND_REPORT");
-  if (report.refundProcessed) throw new Error("ALREADY_REFUNDED");
+  if (!report) throw new AppError("Report not found.", 404);
+  if (report.reporterRole !== "mentee")
+    throw new AppError("Only mentees can request refunds.", 403);
+  if (report.complaintType !== "refund")
+    throw new AppError("This report is not a refund request.", 400);
+  if (report.refundProcessed)
+    throw new AppError("Refund already processed.", 400);
 
   const connectRequest = report.connectRequest;
-  if (!connectRequest) throw new Error("SESSION_NOT_FOUND");
-  if (connectRequest.paymentStatus !== "paid") throw new Error("NOT_PAID");
+  if (!connectRequest) throw new AppError("Session not found.", 404);
+  if (connectRequest.paymentStatus !== "paid")
+    throw new AppError("Session has not been paid.", 400);
 
   const menteeId = connectRequest.mentee;
   const totalAmount = connectRequest.totalAmount || 0;
 
   const menteeWallet = await findWalletByUserId(menteeId);
-  if (!menteeWallet) throw new Error("WALLET_NOT_FOUND");
+  if (!menteeWallet) throw new AppError("Mentee wallet not found.", 404);
 
   const refundAmount = Math.min(totalAmount, menteeWallet.escrow);
   menteeWallet.escrow = Math.max(0, menteeWallet.escrow - refundAmount);
@@ -214,21 +214,22 @@ const processRefundService = async (reportId, adminNote, adminId) => {
       adminNote: resolvedAdminNote,
       reporterRole: report.reporterRole,
     }).catch((err) =>
-      console.error("❌ sendReportResolvedEmail (refund) failed:", err.message),
+      logger.error("sendReportResolvedEmail (refund) failed", {
+        error: err.message,
+      }),
     );
   }
 
   return { refundAmount };
 };
 
-// ── DELETE SESSION ────────────────────────────────────────────
 const deleteSessionService = async (reportId, adminNote, adminId) => {
   const report = await findReportByIdWithConnectFull(reportId);
-  if (!report) throw new Error("REPORT_NOT_FOUND");
+  if (!report) throw new AppError("Report not found.", 404);
+  if (!report.connectRequest)
+    throw new AppError("Session not found or already deleted.", 404);
 
   const connectRequest = report.connectRequest;
-  if (!connectRequest) throw new Error("SESSION_NOT_FOUND");
-
   const menteeId = connectRequest.mentee?._id || connectRequest.mentee;
   const mentorId = connectRequest.mentor?._id || connectRequest.mentor;
   const menteeName = connectRequest.mentee?.name || "Mentee";
@@ -272,10 +273,9 @@ const deleteSessionService = async (reportId, adminNote, adminId) => {
       adminNote: resolvedAdminNote,
       reporterRole: report.reporterRole,
     }).catch((err) =>
-      console.error(
-        "❌ sendReportResolvedEmail (deleteSession) failed:",
-        err.message,
-      ),
+      logger.error("sendReportResolvedEmail (deleteSession) failed", {
+        error: err.message,
+      }),
     );
   }
 };

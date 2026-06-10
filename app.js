@@ -1,10 +1,13 @@
 
 // This is what Jest imports for testing
-require("./instrument.js");
+
 require("dotenv").config();
+
+require("./instrument.js");
+const errorHandler = require("./middleware/errorHandler");
 const cookieParser = require("cookie-parser");
 const compression = require("compression");  
-//const logtail = require("./utils/logger");
+const logtail = require("./config/logger");
 
 const Sentry = require("@sentry/node");
 const express = require("express");
@@ -103,7 +106,11 @@ app.use("/api/v1", v1);
 
 app.get("/", (req, res) => res.send("🚀 LeapMentor API Running..."));
 
+
  //must be after all routes, before module.exports
 Sentry.setupExpressErrorHandler(app);
+
+app.use(errorHandler);
+
 
 module.exports = app;

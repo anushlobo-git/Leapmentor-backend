@@ -1,4 +1,11 @@
-// routes/connectRequest.routes.js
+/**
+ * @fileoverview Connection Request Routes
+ * @description  Orchestrates structural configurations, cancellation loops, status updates,
+ * and mentor referrals for mentorship connection engagements.
+ * @prefix       /api/v1/connect-requests
+ * @access       Private (User / Mentor)
+ */
+
 const express = require("express");
 const router = express.Router();
 const {
@@ -14,22 +21,44 @@ const {
 const { getSimilarMentors } = require("../controllers/mentorRefer.controller");
 const { authenticate, requireRole } = require("../middleware/authenticate");
 
-// ✅ Mentee routes
-router.post("/",           authenticate, sendConnectRequest);
+// ── MENTEE ENDPOINTS ──────────────────────────────────────────
+
+// @route   POST /api/v1/connect-requests
+router.post("/", authenticate, sendConnectRequest);
+
+// @route   GET /api/v1/connect-requests/my-requests
 router.get("/my-requests", authenticate, getMyRequests);
-router.delete("/:id",      authenticate, cancelRequest);
 
-// ✅ Mentor routes
-router.get("/incoming",    authenticate, getIncomingRequests);
+// @route   DELETE /api/v1/connect-requests/:id
+router.delete("/:id", authenticate, cancelRequest);
 
-// ✅ SPECIFIC routes BEFORE generic /:id  <-- THIS WAS THE BUG
-router.get("/:id/similar-mentors", authenticate, requireRole("mentor"), getSimilarMentors);
-router.patch("/:id/refer",         authenticate, requireRole("mentor"), referRequest);
-router.get("/:id/detail",          authenticate, getConnectDetail); // ✅ add this
+// ── MENTOR ENDPOINTS ──────────────────────────────────────────
 
+// @route   GET /api/v1/connect-requests/incoming
+router.get("/incoming", authenticate, getIncomingRequests);
+
+// ── SPECIFIC ROUTE MATCHES (Must execute before generic /:id) ──
+
+// @route   GET /api/v1/connect-requests/:id/similar-mentors
+router.get(
+  "/:id/similar-mentors",
+  authenticate,
+  requireRole("mentor"),
+  getSimilarMentors,
+);
+
+// @route   PATCH /api/v1/connect-requests/:id/refer
+router.patch("/:id/refer", authenticate, requireRole("mentor"), referRequest);
+
+// @route   GET /api/v1/connect-requests/:id/detail
+router.get("/:id/detail", authenticate, getConnectDetail);
+
+// @route   GET /api/v1/connect-requests/ongoing
 router.get("/ongoing", authenticate, getOngoingConnects);
 
-// ✅ Generic /:id LAST
-router.patch("/:id",       authenticate, respondToRequest);
+// ── GENERIC FALLBACK ENDPOINTS ────────────────────────────────
+
+// @route   PATCH /api/v1/connect-requests/:id
+router.patch("/:id", authenticate, respondToRequest);
 
 module.exports = router;

@@ -1,7 +1,11 @@
-// controllers/admin.controller.js
 
+/**
+ * @fileoverview Admin Controller Dashboard
+ * @description  Consolidated thin request/response handlers for admin authentication, 
+ * platform telemetry statistics, user interventions, and connection metrics.
+ */
 
-
+const catchAsync = require("../utils/catchAsync");
 const { adminLoginService } = require("../services/admin.auth.service");
 const {
   getStatsService,
@@ -20,136 +24,163 @@ const {
   getEngagementsService,
 } = require("../services/admin.engagements.service");
 
-// ── AUTH ──────────────────────────────────────────────────────
-const adminLogin = async (req, res) => {
-  try {
-    const result = await adminLoginService(req.body);
-    return res.status(200).json({ success: true, ...result });
-  } catch (err) {
-    if (err.message === "INVALID_CREDENTIALS")
-      return res.status(401).json({ message: "Invalid credentials." });
-    if (err.message === "ACCOUNT_DEACTIVATED")
-      return res.status(403).json({ message: "Admin account is deactivated." });
-    return res.status(500).json({ message: "Server error." });
-  }
+// Configured tracking constants
+const MAX_COOKIE_AGE_HOURS = 8;
+const ADMIN_COOKIE_OPTIONS = {
+  httpOnly: true,
+  secure: process.env.NODE_ENV === "production",
+  sameSite: "lax",
+  maxAge: MAX_COOKIE_AGE_HOURS * 60 * 60 * 1000,
 };
 
-const adminMe = async (req, res) => {
-  return res.status(200).json({ admin: req.admin });
+// ── AUTHENTICATION HANDLERS ───────────────────────────────────
+
+/**
+ * Authenticate administrative credentials and issue a secure cookie session.
+ * @route   POST /api/v1/admin/auth/login
+ * @access  Public
+ */
+const adminLogin = catchAsync(async (req, res) => {
+  const { token, admin } = await adminLoginService(req.body);
+  res.cookie("adminToken", token, ADMIN_COOKIE_OPTIONS);
+  res.status(200).json({ success: true, admin });
+});
+
+/**
+ * Destroy the active administrative cookie session.
+ * @route   POST /api/v1/admin/auth/logout
+ * @access  Private (Admin)
+ */
+const adminLogout = (req, res) => {
+  res.clearCookie("adminToken", {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "strict",
+  });
+  res.status(200).json({ success: true, message: "Logged out." });
 };
 
-// ── STATS ─────────────────────────────────────────────────────
-const getStats = async (req, res) => {
-  try {
-    const result = await getStatsService();
-    return res.status(200).json(result);
-  } catch (err) {
-    return res.status(500).json({ message: "Server error." });
-  }
-};
+/**
+ * Fetch the profile data of the currently authenticated administrator.
+ * @route   GET /api/v1/admin/auth/me
+ * @access  Private (Admin)
+ */
+const adminMe = catchAsync(async (req, res) => {
+  res.status(200).json({ admin: req.admin });
+});
 
-const getUserGrowth = async (req, res) => {
-  try {
-    const result = await getUserGrowthService();
-    return res.json(result);
-  } catch (err) {
-    return res.status(500).json({ message: "Failed to fetch growth data" });
-  }
-};
+// ── TELEMETRY STATS HANDLERS ──────────────────────────────────
 
-const getMentorIndustryStats = async (req, res) => {
-  try {
-    const result = await getMentorIndustryStatsService();
-    return res.status(200).json(result);
-  } catch (err) {
-    return res.status(500).json({ message: "Server error." });
-  }
-};
+/**
+ * Retrieve high-level operational user counts and current month statistics.
+ * @route   GET /api/v1/admin/stats
+ * @access  Private (Admin)
+ */
+const getStats = catchAsync(async (req, res) => {
+  const result = await getStatsService();
+  res.status(200).json(result);
+});
 
-// ── USER MANAGEMENT ───────────────────────────────────────────
-const getUsers = async (req, res) => {
-  try {
-    const result = await getUsersService(req.query);
-    return res.status(200).json(result);
-  } catch (err) {
-    return res.status(500).json({ message: "Server error." });
-  }
-};
+/**
+ * Retrieve aggregated user onboarding metrics across the past quarter.
+ * @route   GET /api/v1/admin/stats/user-growth
+ * @access  Private (Admin)
+ */
+const getUserGrowth = catchAsync(async (req, res) => {
+  const result = await getUserGrowthService();
+  res.status(200).json(result);
+});
 
-const getUserDetail = async (req, res) => {
-  try {
-    const result = await getUserDetailService(req.params.userId);
-    return res.status(200).json(result);
-  } catch (err) {
-    if (err.message === "USER_NOT_FOUND")
-      return res.status(404).json({ message: "User not found." });
-    return res.status(500).json({ message: "Server error." });
-  }
-};
+/**
+ * Retrieve breakdowns of registered mentors indexed by operational industry.
+ * @route   GET /api/v1/admin/stats/mentor-industries
+ * @access  Private (Admin)
+ */
+const getMentorIndustryStats = catchAsync(async (req, res) => {
+  const result = await getMentorIndustryStatsService();
+  res.status(200).json(result);
+});
 
-const deleteUser = async (req, res) => {
-  try {
-    const { name, email } = await deleteUserService(req.params.userId);
-    return res
-      .status(200)
-      .json({
-        success: true,
-        message: `User ${name} (${email}) has been permanently deleted.`,
-      });
-  } catch (err) {
-    if (err.message === "USER_NOT_FOUND")
-      return res.status(404).json({ message: "User not found." });
-    return res.status(500).json({ message: "Server error." });
-  }
-};
+// ── USER MANAGEMENT HANDLERS ─────────────────────────────────
 
-const blockUser = async (req, res) => {
-  try {
-    const { name } = await blockUserService(req.params.userId);
-    return res
-      .status(200)
-      .json({ success: true, message: `User ${name} has been blocked.` });
-  } catch (err) {
-    if (err.message === "USER_NOT_FOUND")
-      return res.status(404).json({ message: "User not found." });
-    return res.status(500).json({ message: "Server error." });
-  }
-};
+/**
+ * Fetch a query-filtered, paginated ledger of platform users.
+ * @route   GET /api/v1/admin/users
+ * @access  Private (Admin)
+ */
+const getUsers = catchAsync(async (req, res) => {
+  const result = await getUsersService(req.query);
+  res.status(200).json(result);
+});
 
-const unblockUser = async (req, res) => {
-  try {
-    const { name } = await unblockUserService(req.params.userId);
-    return res
-      .status(200)
-      .json({ success: true, message: `User ${name} has been restored.` });
-  } catch (err) {
-    if (err.message === "USER_NOT_FOUND")
-      return res.status(404).json({ message: "User not found." });
-    return res.status(500).json({ message: "Server error." });
-  }
-};
+/**
+ * Fetch detailed biographical and performance information for an isolated profile record.
+ * @route   GET /api/v1/admin/users/:userId
+ * @access  Private (Admin)
+ */
+const getUserDetail = catchAsync(async (req, res) => {
+  const result = await getUserDetailService(req.params.userId);
+  res.status(200).json(result);
+});
 
-// ── ENGAGEMENTS ───────────────────────────────────────────────
-const getEngagementStats = async (req, res) => {
-  try {
-    const result = await getEngagementStatsService();
-    return res.status(200).json(result);
-  } catch (err) {
-    return res.status(500).json({ message: "Server error." });
-  }
-};
+/**
+ * Hard-delete a targeted user record along with all associated structural profile ties.
+ * @route   DELETE /api/v1/admin/users/:userId
+ * @access  Private (Super Admin Only)
+ */
+const deleteUser = catchAsync(async (req, res) => {
+  const { name, email } = await deleteUserService(req.params.userId);
+  res.status(200).json({
+    success: true,
+    message: `User ${name} (${email}) has been permanently deleted.`,
+  });
+});
 
-const getEngagements = async (req, res) => {
-  try {
-    const result = await getEngagementsService(req.query);
-    return res.status(200).json(result);
-  } catch (err) {
-    return res.status(500).json({ message: "Server error." });
-  }
-};
+/**
+ * Restrict platform system access permissions for a specific user ID.
+ * @route   PATCH /api/v1/admin/users/:userId/block
+ * @access  Private (Admin)
+ */
+const blockUser = catchAsync(async (req, res) => {
+  const { name } = await blockUserService(req.params.userId);
+  res.status(200).json({ success: true, message: `User ${name} has been blocked.` });
+});
+
+/**
+ * Restore standard account access capabilities for a flagged, blocked user ID.
+ * @route   PATCH /api/v1/admin/users/:userId/unblock
+ * @access  Private (Admin)
+ */
+const unblockUser = catchAsync(async (req, res) => {
+  const { name } = await unblockUserService(req.params.userId);
+  res.status(200).json({ success: true, message: `User ${name} has been restored.` });
+});
+
+// ── SYSTEM ENGAGEMENT HANDLERS ────────────────────────────────
+
+/**
+ * Fetch quantitative volumes of connection requests indexed by operational lifecycle statuses.
+ * @route   GET /api/v1/admin/engagements/stats
+ * @access  Private (Admin)
+ */
+const getEngagementStats = catchAsync(async (req, res) => {
+  const result = await getEngagementStatsService();
+  res.status(200).json(result);
+});
+
+/**
+ * Fetch a paginated, date-bounded history of connection engagements.
+ * @route   GET /api/v1/admin/engagements
+ * @access  Private (Admin)
+ */
+const getEngagements = catchAsync(async (req, res) => {
+  const result = await getEngagementsService(req.query);
+  res.status(200).json(result);
+});
 
 module.exports = {
   adminLogin,
+  adminLogout,
   adminMe,
   getStats,
   getUserGrowth,
@@ -162,3 +193,4 @@ module.exports = {
   getEngagementStats,
   getEngagements,
 };
+

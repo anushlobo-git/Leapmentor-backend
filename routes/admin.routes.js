@@ -9,6 +9,7 @@ const {
   getStats,
   getUsers,
   getUserDetail,
+  adminLogout,
   deleteUser,
   blockUser,
   unblockUser,
@@ -19,14 +20,12 @@ const {
 } = require("../controllers/admin.controller");
 
 const {
-  getAllRequests,
   getPendingCount,
-  approveRequest,
-  rejectRequest,
 } = require("../controllers/leapRequest.controller");
 
 // ── Auth (public) ─────────────────────────────────────────────
 router.post("/auth/login", adminLogin);
+router.post("/auth/logout", adminLogout);
 router.get ("/auth/me",    adminAuthenticate, adminMe);
 
 // ── Stats ─────────────────────────────────────────────────────
@@ -48,9 +47,6 @@ router.get("/stats/mentor-industries", adminAuthenticate, getMentorIndustryStats
 router.get("/engagements",       adminAuthenticate, getEngagements);
 
 // ── Leap / Wallet Requests ─────────────────────────────────────
-router.get  ("/leap-requests",              adminAuthenticate, getAllRequests);
 router.get  ("/leap-requests/pending-count",adminAuthenticate, getPendingCount);
-router.patch("/leap-requests/:id/approve",  adminAuthenticate, approveRequest);
-router.patch("/leap-requests/:id/reject",   adminAuthenticate, rejectRequest);
 
 module.exports = router;

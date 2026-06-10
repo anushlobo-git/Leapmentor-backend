@@ -1,32 +1,66 @@
-// services/availability.service.js
+/**
+ * @fileoverview Mentor Availability Service
+ * @description  Business logic orchestration engine managing scheduling constraints,
+ * fallback preferences configuration, runtime window splitting, and transaction blocking profiles.
+ */
+
+const AppError = require("../utils/AppError");
 const availabilityRepository = require("../repositories/availability.repository");
 const connectRequestRepository = require("../repositories/connectRequest.repository");
 const slotLockRepository = require("../repositories/slotLock.repository");
 const { generateSlotsFromSpecificDates } = require("../utils/generateSlots");
 
+// Configuration Constants
+const DEFAULT_TIMEZONE = "Asia/Kolkata";
+const DEFAULT_DURATIONS = [30, 60];
+const ALLOWED_DURATIONS = [30, 45, 60];
+
+const ALLOWED_UPDATE_FIELDS = [
+  "timezone",
+  "sessionDurations",
+  "weeklyHours",
+  "specificDates",
+  "googleCalendarConnected",
+];
+
+/**
+ * Retrieve the authenticated mentor's availability record or returns fallback default configurations.
+ * @param {string} mentorId    - Unique identifier database key of the mentor.
+ * @returns {Promise<Object>}  The existing availability record entity or a localized default structure profile.
+ */
 const getMyAvailability = async (mentorId) => {
-  const availability = await availabilityRepository.findAvailabilityByMentor(mentorId);
+  const availability =
+    await availabilityRepository.findAvailabilityByMentor(mentorId);
 
   if (!availability) {
     return {
-      mentor:                  mentorId,
-      timezone:                "Asia/Kolkata",
-      sessionDurations:        [30, 60],
+      mentor: mentorId,
+      timezone: DEFAULT_TIMEZONE,
+      sessionDurations: DEFAULT_DURATIONS,
       googleCalendarConnected: false,
-      specificDates:           [],
-      isNew:                   true,
+      specificDates: [],
+      isNew: true,
     };
   }
 
   return availability;
 };
 
+/**
+ * Provision a brand new availability schedule profile configuration.
+ * @param {string} mentorId    - Unique identifier database key of the mentor.
+ * @param {Object} body        - Payload structure mapping configuration boundaries.
+ * @throws {AppError} 409      - If an availability config documentation ledger already exists for the mentor.
+ * @returns {Promise<Object>}  The newly initialized data model document fields confirmation payload.
+ */
 const createAvailability = async (mentorId, body) => {
-  const existing = await availabilityRepository.findAvailabilityByMentor(mentorId);
+  const existing =
+    await availabilityRepository.findAvailabilityByMentor(mentorId);
   if (existing) {
-    const error = new Error("Availability already exists. Use PATCH /api/availability/me to update.");
-    error.statusCode = 409;
-    throw error;
+    throw new AppError(
+      "Availability already exists. Use PATCH /api/availability/me to update.",
+      409,
+    );
   }
 
   const { timezone, sessionDurations, specificDates } = body;
@@ -38,111 +72,121 @@ const createAvailability = async (mentorId, body) => {
   });
 };
 
+/**
+ * Update explicit tracking configuration blocks inside an existing availability document.
+ * @param {string} mentorId    - Unique identifier database key of the mentor.
+ * @param {Object} body        - Data property updates mapping new preferences.
+ * @throws {AppError} 400      - If the payload data attributes match no permitted configuration keys.
+ * @returns {Promise<Object>}  The updated tracking confirmation database snapshot.
+ */
 const updateAvailability = async (mentorId, body) => {
-  const allowedFields = [
-    "timezone",
-    "sessionDurations",
-    "weeklyHours",
-    "specificDates",
-    "googleCalendarConnected",
-  ];
-
   const updates = {};
-  allowedFields.forEach((field) => {
+
+  ALLOWED_UPDATE_FIELDS.forEach((field) => {
     if (body[field] !== undefined) {
       updates[field] = body[field];
     }
   });
 
   if (Object.keys(updates).length === 0) {
-    const error = new Error("No valid fields provided to update");
-    error.statusCode = 400;
-    throw error;
+    throw new AppError("No valid fields provided to update", 400);
   }
 
   return await availabilityRepository.updateAvailability(mentorId, updates);
 };
 
+/**
+ * Retrieve public availability constraints for an external mentor visualization query.
+ * @param {string} mentorId    - Unique identifier database key of the mentor.
+ * @throws {AppError} 404      - If the target entity returns no documentation fields.
+ * @returns {Promise<Object>}  Subset metadata dictionary highlighting active timeline parameters.
+ */
 const getMentorAvailability = async (mentorId) => {
-  const availability = await availabilityRepository.findAvailabilityByMentor(mentorId);
+  const availability =
+    await availabilityRepository.findAvailabilityByMentor(mentorId);
 
   if (!availability) {
-    const error = new Error("Availability not set by this mentor");
-    error.statusCode = 404;
-    throw error;
+    throw new AppError("Availability not set by this mentor", 404);
   }
 
   return {
-    timezone:         availability.timezone,
+    timezone: availability.timezone,
     sessionDurations: availability.sessionDurations,
-    specificDates:    availability.specificDates,
+    specificDates: availability.specificDates,
   };
 };
 
+/**
+ * Clear out an availability configuration ledger matching a specific mentor identity.
+ * @param {string} mentorId   - Unique identifier database key of the mentor.
+ * @returns {Promise<void>}
+ */
 const deleteAvailability = async (mentorId) => {
   await availabilityRepository.deleteAvailability(mentorId);
 };
 
+/**
+ * Calculate empty schedulable time interval windows based on timeline constraints.
+ * @description Validates duration inputs, gathers data records spanning active bookings
+ * and short-term slot locks, combines blocked timelines, and calculates open appointment intervals.
+ * @param {string} mentorId    - Unique identifier database key of the target mentor.
+ * @param {number} duration    - Selected time interval slice segment constraint (minutes).
+ * @param {string} userId      - Unique identifier database key of the inquiring user.
+ * @throws {AppError} 400      - If the requested duration configuration does not match strict intervals.
+ * @throws {AppError} 404      - If target availability data fields cannot be located.
+ * @returns {Promise<Object>}  Dynamic collection list array displaying grouped open slot segments.
+ */
 const getAvailableSlots = async (mentorId, duration, userId) => {
-  if (![30, 45, 60].includes(duration)) {
-    const error = new Error("Duration must be 30, 45, or 60 minutes");
-    error.statusCode = 400;
-    throw error;
+  if (!ALLOWED_DURATIONS.includes(duration)) {
+    throw new AppError("Duration must be 30, 45, or 60 minutes", 400);
   }
 
-  const availability = await availabilityRepository.findAvailabilityByMentor(mentorId);
+  const availability =
+    await availabilityRepository.findAvailabilityByMentor(mentorId);
   if (!availability) {
-    const error = new Error("Availability not set by this mentor");
-    error.statusCode = 404;
-    throw error;
+    throw new AppError("Availability not set by this mentor", 404);
   }
-
 
   const [bookedRequests, activeLocks] = await Promise.all([
     connectRequestRepository.findBookedRequestsByMentor(mentorId),
     slotLockRepository.findActiveLocksByMentor(mentorId, userId),
   ]);
 
-  // Build booked slots
-  
-  
   const bookedSlots = bookedRequests.flatMap((r) => {
     const slots = r.selectedSlots || (r.selectedSlot ? [r.selectedSlot] : []);
     return slots.map((slot) => ({
-      date:      slot.date,
+      date: slot.date,
       startTime: slot.startTime,
-      endTime:   slot.endTime,
+      endTime: slot.endTime,
     }));
   });
 
-  // Build locked slots
-  
   const lockedSlots = activeLocks.map((l) => ({
-    date:      l.date,
+    date: l.date,
     startTime: l.startTime,
-    endTime:   l.endTime,
+    endTime: l.endTime,
   }));
 
   const allBlockedSlots = [...bookedSlots, ...lockedSlots];
 
   if (!availability.specificDates?.length) {
     return {
-      timezone:         availability.timezone,
+      timezone: availability.timezone,
       sessionDurations: availability.sessionDurations,
-      slots:            [],
+      slots: [],
     };
   }
 
   const grouped = generateSlotsFromSpecificDates(
     availability.specificDates,
     duration,
-    allBlockedSlots
+    allBlockedSlots,
   );
 
   return {
-    timezone:         availability.timezone,
+    timezone: availability.timezone,
     sessionDurations: availability.sessionDurations,
-    slots:            grouped,
+    slots: grouped,
   };
 };
 

@@ -1,4 +1,5 @@
 const jwt = require("jsonwebtoken");
+const AppError = require("../utils/AppError");
 const {
   findAdminByEmail,
   saveAdmin,
@@ -8,14 +9,15 @@ const signAdminToken = (id) =>
   jwt.sign({ id, role: "admin" }, process.env.JWT_SECRET, { expiresIn: "7d" });
 
 const adminLoginService = async ({ email, password }) => {
-  if (!email || !password) throw new Error("Email and password are required.");
+  if (!email || !password)
+    throw new AppError("Email and password are required.", 400);
 
   const admin = await findAdminByEmail(email);
-  if (!admin) throw new Error("INVALID_CREDENTIALS");
-  if (!admin.isActive) throw new Error("ACCOUNT_DEACTIVATED");
+  if (!admin) throw new AppError("Invalid credentials.", 401);
+  if (!admin.isActive) throw new AppError("Admin account is deactivated.", 403);
 
   const isMatch = await admin.comparePassword(password);
-  if (!isMatch) throw new Error("INVALID_CREDENTIALS");
+  if (!isMatch) throw new AppError("Invalid credentials.", 401);
 
   admin.lastLoginAt = new Date();
   await saveAdmin(admin);

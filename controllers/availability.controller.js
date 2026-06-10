@@ -1,88 +1,102 @@
-// controllers/availability.controller.js
-const service = require("../services/availability.service");
+/**
+ * @fileoverview Mentor Availability Controller
+ * @description  Thin request/response gateway handling setup, modification,
+ * queries, and window chunk slotting evaluations for mentor availability profiles.
+ */
 
-const respond = (res, data, status = 200) => res.status(status).json(data);
+const catchAsync = require("../utils/catchAsync");
+const availabilityService = require("../services/availability.service");
 
-const handleError = (res, err) =>
-  respond(res, { message: err.message }, err.statusCode || 500);
+// Configured layout constants
+const DEFAULT_DURATION_MINUTES = 60;
 
-// GET /api/availability/me
-const getMyAvailability = async (req, res) => {
-  try {
-    const data = await service.getMyAvailability(req.user._id);
-    respond(res, data);
-  } catch (err) {
-    handleError(res, err);
-  }
-};
+/**
+ * Fetch the current authenticated user's availability settings.
+ * @route   GET /api/v1/availability/me
+ * @access  Private (Mentor)
+ */
+const getMyAvailability = catchAsync(async (req, res) => {
+  const data = await availabilityService.getMyAvailability(req.user._id);
+  res.status(200).json(data);
+});
 
-// POST /api/availability
-const createAvailability = async (req, res) => {
-  try {
-    const availability = await service.createAvailability(
-      req.user._id,
-      req.body,
-    );
-    respond(
-      res,
-      { message: "Availability created successfully", availability },
-      201,
-    );
-  } catch (err) {
-    handleError(res, err);
-  }
-};
+/**
+ * Create a new availability schedule configuration.
+ * @route   POST /api/v1/availability
+ * @access  Private (Mentor)
+ */
+const createAvailability = catchAsync(async (req, res) => {
+  const availability = await availabilityService.createAvailability(
+    req.user._id,
+    req.body,
+  );
 
-// PATCH /api/availability/me
-const updateAvailability = async (req, res) => {
-  try {
-    const availability = await service.updateAvailability(
-      req.user._id,
-      req.body,
-    );
-    respond(res, {
-      message: "Availability updated successfully",
-      availability,
-    });
-  } catch (err) {
-    handleError(res, err);
-  }
-};
+  res.status(201).json({
+    success: true,
+    message: "Availability created successfully",
+    availability,
+  });
+});
 
-// GET /api/availability/:mentorId  (public)
-const getMentorAvailability = async (req, res) => {
-  try {
-    const data = await service.getMentorAvailability(req.params.mentorId);
-    respond(res, data);
-  } catch (err) {
-    handleError(res, err);
-  }
-};
+/**
+ * Update the current authenticated user's availability schedule blocks.
+ * @route   PATCH /api/v1/availability/me
+ * @access  Private (Mentor)
+ */
+const updateAvailability = catchAsync(async (req, res) => {
+  const availability = await availabilityService.updateAvailability(
+    req.user._id,
+    req.body,
+  );
 
-// DELETE /api/availability/me
-const deleteAvailability = async (req, res) => {
-  try {
-    await service.deleteAvailability(req.user._id);
-    respond(res, { message: "Availability cleared successfully" });
-  } catch (err) {
-    handleError(res, err);
-  }
-};
+  res.status(200).json({
+    success: true,
+    message: "Availability updated successfully",
+    availability,
+  });
+});
 
-// GET /api/availability/:mentorId/slots?duration=60
-const getAvailableSlots = async (req, res) => {
-  try {
-    const duration = parseInt(req.query.duration) || 60;
-    const data = await service.getAvailableSlots(
-      req.params.mentorId,
-      duration,
-      req.user._id,
-    );
-    respond(res, data);
-  } catch (err) {
-    handleError(res, err);
-  }
-};
+/**
+ * Fetch a specific mentor's public availability profile configurations.
+ * @route   GET /api/v1/availability/:mentorId
+ * @access  Public
+ */
+const getMentorAvailability = catchAsync(async (req, res) => {
+  const data = await availabilityService.getMentorAvailability(
+    req.params.mentorId,
+  );
+  res.status(200).json(data);
+});
+
+/**
+ * Delete or completely clear the authenticated user's availability schedules.
+ * @route   DELETE /api/v1/availability/me
+ * @access  Private (Mentor)
+ */
+const deleteAvailability = catchAsync(async (req, res) => {
+  await availabilityService.deleteAvailability(req.user._id);
+
+  res.status(200).json({
+    success: true,
+    message: "Availability cleared successfully",
+  });
+});
+
+/**
+ * Generate list of empty schedulable time slots based on timeline durations.
+ * @route   GET /api/v1/availability/:mentorId/slots
+ * @access  Private (User)
+ */
+const getAvailableSlots = catchAsync(async (req, res) => {
+  const duration = parseInt(req.query.duration, 10) || DEFAULT_DURATION_MINUTES;
+  const data = await availabilityService.getAvailableSlots(
+    req.params.mentorId,
+    duration,
+    req.user._id,
+  );
+
+  res.status(200).json(data);
+});
 
 module.exports = {
   getMyAvailability,

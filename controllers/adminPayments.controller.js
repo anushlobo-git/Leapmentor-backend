@@ -1,41 +1,48 @@
-// controllers/admin/adminPayments.controller.js
+/**
+ * @fileoverview Admin Payments Controller
+ * @description  Thin request/response handlers delivering administrative payment telemetry,
+ * platform financial distribution charts, and paginated audit ledgers.
+ */
+
+const catchAsync = require("../utils/catchAsync");
 const {
   getPaymentStatsService,
   getRevenueChartService,
   getTransactionsService,
 } = require("../services/admin.payments.service");
 
-const getPaymentStats = async (req, res) => {
-  try {
-    const result = await getPaymentStatsService(req.admin._id);
-    return res.json({ success: true, ...result });
-  } catch (err) {
-    return res.status(500).json({
-      message: "Failed to fetch payment stats. Please try again.",
-    });
-  }
-};
+/**
+ * Retrieve high-level platform escrow metrics and overall financial volume snapshots.
+ * @route   GET /api/v1/admin/payments/stats
+ * @access  Private (Admin Only)
+ */
+const getPaymentStats = catchAsync(async (req, res) => {
+  const result = await getPaymentStatsService(req.admin._id);
+  res.json({ success: true, ...result });
+});
 
-const getRevenueChart = async (req, res) => {
-  try {
-    const data = await getRevenueChartService();
-    return res.json({ success: true, data });
-  } catch (err) {
-    return res.status(500).json({
-      message: "Failed to fetch revenue chart. Please try again.",
-    });
-  }
-};
+/**
+ * Fetch aggregated platform revenue and earnings historical trend charts.
+ * @route   GET /api/v1/admin/payments/chart
+ * @access  Private (Admin Only)
+ */
+const getRevenueChart = catchAsync(async (req, res) => {
+  const data = await getRevenueChartService();
+  res.json({ success: true, data });
+});
 
-const getTransactions = async (req, res) => {
-  try {
-    const result = await getTransactionsService(req.query);
-    return res.json({ success: true, ...result });
-  } catch (err) {
-    return res.status(500).json({
-      message: "Failed to fetch transactions. Please try again.",
-    });
-  }
-};
+/**
+ * Fetch a query-filtered, paginated global stream log of system transaction events.
+ * @route   GET /api/v1/admin/payments/transactions
+ * @access  Private (Admin Only)
+ */
+const getTransactions = catchAsync(async (req, res) => {
+  const result = await getTransactionsService(req.query);
+  res.json({ success: true, ...result });
+});
 
-module.exports = { getPaymentStats, getRevenueChart, getTransactions };
+module.exports = {
+  getPaymentStats,
+  getRevenueChart,
+  getTransactions,
+};
