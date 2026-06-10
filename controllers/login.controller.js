@@ -1,32 +1,32 @@
-// controllers/login.controller.js
+/**
+ * @fileoverview User Login Controller
+ * @description  Thin request/response handlers verifying active client profiles,
+ * managing secure state cookies, and returning application authentication session keys.
+ */
+
+const catchAsync = require("../utils/catchAsync");
 const { loginUser } = require("../services/auth.service");
 const { setAuthCookies } = require("../utils/auth.cookies");
 
-const login = async (req, res) => {
-  try {
-    const result = await loginUser(req.body);
+// ── AUTHENTICATION HANDLERS ──────────────────────────────────
 
-    const role = result.user?.roles?.[0] || null;
-    setAuthCookies(res, result.refreshToken, role);
-     
+/**
+ * Verify provided credentials to authenticate a platform user session.
+ * @route   POST /api/v1/auth/login
+ * @access  Public
+ */
+const login = catchAsync(async (req, res) => {
+  const result = await loginUser(req.body);
 
-    return res.status(200).json({
-      message: "Login successful",
-      user: result.user,
-      accessToken: result.accessToken,
-    });
-  } catch (err) {
-    if (err.message === "INVALID_CREDENTIALS") {
-      return res.status(401).json({ message: "Invalid credentials" });
-    }
-    if (err.message === "EMAIL_NOT_VERIFIED") {
-      return res.status(403).json({
-        message: "Please verify your email before logging in.",
-        isEmailVerified: false,
-      });
-    }
-    return res.status(500).json({ message: err.message });
-  }
-};
+  const role = result.user?.roles?.[0] || null;
+  setAuthCookies(res, result.refreshToken, role);
+
+  res.status(200).json({
+    success: true,
+    message: "Login successful",
+    user: result.user,
+    accessToken: result.accessToken,
+  });
+});
 
 module.exports = { login };

@@ -2,7 +2,7 @@
 const cron          = require("node-cron");
 const Availability  = require("../models/Availability");
 const MentorProfile = require("../models/MentorProfile");
-const logger        = require("../utils/logger"); 
+const logger        = require("../config/logger"); 
 
 // ── Helper ────────────────────────────────────────────────────
 const getTodayStr = () => {

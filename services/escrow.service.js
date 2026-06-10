@@ -288,15 +288,16 @@ const refundSlot = async ({ connectRequestId, slotIndex, cancelledBy }) => {
     if (connectRequest.paymentStatus !== "paid")
       throw Object.assign(new Error("No paid escrow found for this session"), { status: 400 });
 
-    const { totalAmount, sessionCount, mentee: menteeId } = connectRequest;
+    const { totalAmount, mentee: menteeId, selectedSlots } = connectRequest;
 
-    // Need sessionCount to calculate per-slot value
-    if (!sessionCount || sessionCount < 1)
-      throw Object.assign(new Error("Session count missing on connect request"), { status: 400 });
+    const totalSlotCount = selectedSlots.length;
 
-    // Per-slot refund = totalAmount ÷ sessionCount
-    // Math.floor — platform keeps fractional tokens (no over-refund)
-    const perSlotRefund = Math.floor(totalAmount / sessionCount);
+    if (!totalSlotCount || totalSlotCount < 1)
+      throw Object.assign(new Error("No slots found on connect request"), {
+        status: 400,
+      });
+
+    const perSlotRefund = Math.floor(totalAmount / totalSlotCount);
 
     if (perSlotRefund < 1)
       throw Object.assign(new Error("Slot refund amount is too small to process"), { status: 400 });

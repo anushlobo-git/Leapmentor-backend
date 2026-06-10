@@ -4,7 +4,7 @@ const rateLimit = require("express-rate-limit");
 // All routes — generous limit, just stops abuse
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // 100 requests per 15 min per IP
+  max: 1000, // 100 requests per 15 min per IP
   message: {
     success: false,
     message: "Too many requests, please try again later.",
@@ -17,7 +17,7 @@ const apiLimiter = rateLimit({
 // Login, register, forgot password — strict
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 10, // only 10 attempts per 15 min
+  max: 1000, // only 10 attempts per 15 min
   message: {
     success: false,
     message: "Too many auth attempts, please try again in 15 minutes.",

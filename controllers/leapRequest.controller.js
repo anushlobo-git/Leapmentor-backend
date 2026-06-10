@@ -45,7 +45,7 @@ const createRequest = async (req, res) => {
 
 const getAllRequests = async (req, res) => {
   try {
-    const requests = await getAllRequestsService();
+    const requests = await getAllRequestsService(req.query.status);
     return res.json({ requests });
   } catch (err) {
     return res.status(500).json({ message: err.message });

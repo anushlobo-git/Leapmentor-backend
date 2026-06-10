@@ -39,11 +39,11 @@ const createRequestService = async (menteeId) => {
 
 // ── ADMIN ─────────────────────────────────────────────────────
 
-const getAllRequestsService = async () => {
-  const requests = await LeapRequest.find()
+const getAllRequestsService = async (status) => {
+  const filter = status ? { status } : {};
+  const requests = await LeapRequest.find(filter)
     .populate("mentee", "name email profilePicture")
     .sort({ createdAt: -1 });
-
   return requests;
 };
 

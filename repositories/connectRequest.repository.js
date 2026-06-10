@@ -1,8 +1,6 @@
 // repositories/connectRequest.repository.js
 const mongoose = require("mongoose");
 const ConnectRequest = require("../models/ConnectRequest");
-const MentorProfile  = require("../models/MentorProfile");
-const MenteeProfile  = require("../models/MenteeProfile");
 
 const findPendingRequest = async (menteeId, mentorId) => {
   return await ConnectRequest.findOne({
@@ -195,6 +193,16 @@ const findCompletedSessionsWithMentee = (query, { skip, limit }) =>
 
 const countCompletedSessions = (query) => ConnectRequest.countDocuments(query);
 
+const countPayoutHistory = (filter) => ConnectRequest.countDocuments(filter);
+
+const findPayoutHistory = (filter, { skip, limit }) =>
+  ConnectRequest.find(filter)
+    .populate("mentee", "name email")
+    .select("completedAt totalAmount paymentStatus confirmedSlot mentee")
+    .sort({ completedAt: -1 })
+    .skip(skip)
+    .limit(limit)
+    .lean();
 
 module.exports = {
   findPendingRequest,
@@ -226,4 +234,7 @@ module.exports = {
   findOngoingPaidSessionsByMentor,
   findCompletedSessionsWithMentee,
   countCompletedSessions,
+  countPayoutHistory,
+  findPayoutHistory,
+
 };

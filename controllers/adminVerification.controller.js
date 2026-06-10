@@ -1,4 +1,10 @@
-// controllers/adminVerification.controller.js
+/**
+ * @fileoverview Admin Mentor Verification Controller
+ * @description  Thin request/response handlers for evaluating, approving, and revoking 
+ * mentor identity verification applications.
+ */
+
+const catchAsync = require("../utils/catchAsync");
 const {
   getAllMentorVerificationsService,
   getMentorVerificationByIdService,
@@ -6,65 +12,57 @@ const {
   revokeMentorVerificationService,
 } = require("../services/admin.verification.service");
 
-const getAllMentorVerifications = async (req, res) => {
-  try {
-    const mentors = await getAllMentorVerificationsService();
-    return res.status(200).json({ mentors, total: mentors.length });
-  } catch (err) {
-    return res
-      .status(500)
-      .json({ message: "Failed to fetch mentor verifications" });
-  }
-};
+/**
+ * Fetch all pending and processed mentor verification requests.
+ * @route   GET /api/v1/admin/mentor-verifications
+ * @access  Private (Admin)
+ */
+const getAllMentorVerifications = catchAsync(async (req, res) => {
+  const mentors = await getAllMentorVerificationsService();
+  res.status(200).json({ success: true, mentors, total: mentors.length });
+});
 
-const getMentorVerificationById = async (req, res) => {
-  try {
-    const result = await getMentorVerificationByIdService(
-      req.params.mentorProfileId,
-    );
-    return res.status(200).json(result);
-  } catch (err) {
-    if (err.message === "PROFILE_NOT_FOUND")
-      return res.status(404).json({ message: "Mentor profile not found" });
-    return res.status(500).json({ message: "Failed to fetch mentor profile" });
-  }
-};
+/**
+ * Retrieve details of an isolated mentor verification profile.
+ * @route   GET /api/v1/admin/mentor-verifications/:mentorProfileId
+ * @access  Private (Admin)
+ */
+const getMentorVerificationById = catchAsync(async (req, res) => {
+  const result = await getMentorVerificationByIdService(req.params.mentorProfileId);
+  res.status(200).json({ success: true, ...result });
+});
 
-const verifyMentor = async (req, res) => {
-  try {
-    const result = await verifyMentorService(req.params.mentorProfileId);
-    return res.status(200).json({
-      message: `${result.mentorName || "Mentor"} has been verified successfully`,
-      mentorProfileId: result.mentorProfileId,
-      verificationStatus: result.verificationStatus,
-    });
-  } catch (err) {
-    if (err.message === "PROFILE_NOT_FOUND")
-      return res.status(404).json({ message: "Mentor profile not found" });
-    if (err.message === "ALREADY_VERIFIED")
-      return res.status(400).json({ message: "Mentor is already verified" });
-    return res.status(500).json({ message: "Failed to verify mentor" });
-  }
-};
+/**
+ * Approve and verify a mentor profile submission.
+ * @route   PATCH /api/v1/admin/mentor-verifications/:mentorProfileId/verify
+ * @access  Private (Admin)
+ */
+const verifyMentor = catchAsync(async (req, res) => {
+  const result = await verifyMentorService(req.params.mentorProfileId);
+  
+  res.status(200).json({
+    success: true,
+    message: `${result.mentorName || "Mentor"} has been verified successfully`,
+    mentorProfileId: result.mentorProfileId,
+    verificationStatus: result.verificationStatus,
+  });
+});
 
-const revokeMentorVerification = async (req, res) => {
-  try {
-    const result = await revokeMentorVerificationService(
-      req.params.mentorProfileId,
-    );
-    return res.status(200).json({
-      message: `Verification revoked for ${result.mentorName || "mentor"}`,
-      mentorProfileId: result.mentorProfileId,
-      verificationStatus: result.verificationStatus,
-    });
-  } catch (err) {
-    if (err.message === "PROFILE_NOT_FOUND")
-      return res.status(404).json({ message: "Mentor profile not found" });
-    if (err.message === "ALREADY_UNVERIFIED")
-      return res.status(400).json({ message: "Mentor is already unverified" });
-    return res.status(500).json({ message: "Failed to revoke verification" });
-  }
-};
+/**
+ * Revoke an existing verification status from a mentor profile.
+ * @route   PATCH /api/v1/admin/mentor-verifications/:mentorProfileId/revoke
+ * @access  Private (Admin)
+ */
+const revokeMentorVerification = catchAsync(async (req, res) => {
+  const result = await revokeMentorVerificationService(req.params.mentorProfileId);
+  
+  res.status(200).json({
+    success: true,
+    message: `Verification revoked for ${result.mentorName || "mentor"}`,
+    mentorProfileId: result.mentorProfileId,
+    verificationStatus: result.verificationStatus,
+  });
+});
 
 module.exports = {
   getAllMentorVerifications,

@@ -2,7 +2,7 @@
 const cron            = require("node-cron");
 const ConnectRequest  = require("../models/ConnectRequest");
 const createNotification = require("../utils/createNotification");
-const logger          = require("../utils/logger");
+const logger          = require("../config/logger");
 
 // ── Helper: convert "YYYY-MM-DD" + "HH:MM" to a JS Date in IST ──
 const toISTDate = (dateStr, timeStr) => {

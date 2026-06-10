@@ -8,13 +8,13 @@ const walletSchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
-    
+
     role: {
       type: String,
       enum: ["mentor", "mentee"],
-      required: true,
+      required: false,
     },
-
+    //required: true,
     balance: {
       type: Number,
       default: 0,

@@ -2,9 +2,13 @@
 //  Entry point — connects DB, starts HTTP server, Socket.io, cron jobs
 // Jest does NOT import this file — it imports app.js directly
 // Leapmentor-backend/server.js 
-//const logtail = require("./utils/logger");
-require("./instrument.js");
+
+
 require("dotenv").config();
+
+require("./instrument.js");
+
+
 const http       = require("http");
 const { Server } = require("socket.io");
 const mongoose   = require("mongoose");
@@ -13,6 +17,8 @@ const app                  = require("./app");
 const socketAuth           = require("./socket/socketAuth");
 const socketHandler        = require("./socket/socketHandler");
 const { verifyConnection } = require("./config/cloudinary");
+const logger = require("./config/logger");
+
 
 /* ===========================
    🔹 DATABASE CONNECTION
@@ -64,7 +70,6 @@ const PORT = process.env.PORT || 5000;
 
 // Leapmentor-backend/server.js 
 process.on("SIGINT", async () => {
- await logtail.flush();
   process.exit(0);
  });
 

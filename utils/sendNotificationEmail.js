@@ -1,5 +1,6 @@
 // backend/utils/sendNotificationEmail.js
 const nodemailer = require("nodemailer");
+const logger =require("../config/logger");
 
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST,
@@ -201,7 +202,7 @@ const sendConnectRequestEmail = async ({
     html,
   });
 
-  console.log(`✅ Connect request email sent to mentor: ${mentorEmail}`);
+  logger.info("Connect request email sent to mentor:" , {mentorEmail});
 };
 
 // ─────────────────────────────────────────────────────────────
@@ -269,7 +270,7 @@ const sendRequestAcceptedEmail = async ({
     html,
   });
 
-  console.log(`✅ Request accepted email sent to mentee: ${menteeEmail}`);
+  logger.info("✅ Request accepted email sent to mentee:",{menteeEmail});
 };
 
 // ─────────────────────────────────────────────────────────────
@@ -355,7 +356,7 @@ ${FOOTER}
     html,
   });
 
-  console.log(`✅ Payment received email sent to mentor: ${mentorEmail}`);
+  logger.info(" Payment received email sent to mentor:",{mentorEmail});
 };
 
 // ─────────────────────────────────────────────────────────────
@@ -400,7 +401,7 @@ const sendSupportResolvedEmail = async ({ toEmail, subject }) => {
     html,
   });
 
-  console.log(`✅ Support resolved email sent to: ${toEmail}`);
+  logger.info("Support resolved email sent to:", {toEmail});
 };
 
 // ─────────────────────────────────────────────────────────────
@@ -490,7 +491,7 @@ const sendSlotCancelledEmail = async ({
     }),
   ]);
 
-  console.log(`✅ Slot cancelled emails sent to mentor (${mentorEmail}) and mentee (${menteeEmail})`);
+  logger.info(" Slot cancelled emails sent to mentor mentorEmail and mentee", {mentorEmail,menteeEmail});
 };
 
 // ─────────────────────────────────────────────────────────────
@@ -583,7 +584,7 @@ const sendSlotRescheduledEmail = async ({
     }),
   ]);
 
-  console.log(`✅ Slot rescheduled emails sent to mentor (${mentorEmail}) and mentee (${menteeEmail})`);
+  logger.info(`✅ Slot rescheduled emails sent to mentor (${mentorEmail}) and mentee (${menteeEmail})`);
 };
 
 // ─────────────────────────────────────────────────────────────
@@ -662,7 +663,7 @@ const sendAdditionalSlotEmail = async ({
     }),
   ]);
 
-  console.log(`✅ Additional slot emails sent to mentor (${mentorEmail}) and mentee (${menteeEmail})`);
+  logger.info(`✅ Additional slot emails sent to mentor (${mentorEmail}) and mentee (${menteeEmail})`);
 };
 
 // ─────────────────────────────────────────────────────────────
@@ -742,7 +743,7 @@ const sendDocumentsSubmittedEmail = async ({ mentorName, mentorEmail }) => {
     html,
   });
 
-  console.log(`✅ Documents submitted email sent to mentor: ${mentorEmail}`);
+  logger.info(`✅ Documents submitted email sent to mentor: ${mentorEmail}`);
 };
 
 // ─────────────────────────────────────────────────────────────
@@ -826,7 +827,7 @@ const sendMentorVerifiedEmail = async ({ mentorName, mentorEmail }) => {
     html,
   });
 
-  console.log(`✅ Mentor verified email sent to: ${mentorEmail}`);
+  logger.info(`✅ Mentor verified email sent to: ${mentorEmail}`);
 };
 // ─────────────────────────────────────────────────────────────
 // Email 10: Reporter notified when they successfully submit a report
@@ -893,7 +894,7 @@ const sendReportSubmittedEmail = async ({ reporterName, reporterEmail, complaint
     html,
   });
 
-  console.log(`✅ Report submitted email sent to: ${reporterEmail}`);
+  logger.info(" Report submitted email sent to:", {reporterEmail});
 };
 
 // ─────────────────────────────────────────────────────────────
@@ -978,7 +979,10 @@ const sendReportResolvedEmail = async ({ reporterName, reporterEmail, complaintT
     html,
   });
 
-  console.log(`✅ Report ${statusLabel.toLowerCase()} email sent to: ${reporterEmail}`);
+  logger.info("Report resolved email sent", {
+    reporterEmail,
+    status: statusLabel,
+  });
 };
 
 module.exports = {
