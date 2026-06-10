@@ -58,9 +58,19 @@ const updateAvailability = (mentorId, updates) =>
 const deleteAvailability = (mentorId) =>
   Availability.findOneAndDelete({ mentor: mentorId });
 
+/**
+ * Finds a mentor's availability configuration by their user ID.
+ * @param {string} mentorId
+ * @returns {Promise<Availability|null>}
+ */
+const findByMentorId = (mentorId) => {
+  return Availability.findOne({ mentor: mentorId });
+};
+
 module.exports = {
   findAvailabilityByMentor,
   createAvailability,
   updateAvailability,
   deleteAvailability,
+  findByMentorId,
 };

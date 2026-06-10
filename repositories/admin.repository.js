@@ -58,6 +58,31 @@ const createAdmin = (data) => AdminUser.create(data);
 const updateAdminById = (id, data) =>
   AdminUser.findByIdAndUpdate(id, data, { new: true, runValidators: true });
 
+/**
+ * Finds the single active platform administrator.
+ * @param {ClientSession} [session]
+ * @returns {Promise<AdminUser|null>}
+ */
+const findActiveAdmin = (session) => {
+  return AdminUser.findOne({ isActive: true })
+    .select("commissionRate walletBalance")
+    .session(session);
+};
+
+/**
+ * Increments the wallet balance of a specific admin by ID.
+ * @param {string} adminId
+ * @param {number} amount
+ * @returns {Promise<AdminUser|null>}
+ */
+const incrementWalletBalance = (adminId, amount) => {
+  return AdminUser.findByIdAndUpdate(
+    adminId,
+    { $inc: { walletBalance: amount } },
+    { new: true }
+  );
+};
+
 module.exports = {
   findAdminByEmail,
   saveAdmin,
@@ -65,4 +90,8 @@ module.exports = {
   findAdminByIdLean,
   createAdmin,
   updateAdminById,
+  findActiveAdmin,
+  incrementWalletBalance,
+
+
 };

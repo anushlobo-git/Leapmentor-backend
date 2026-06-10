@@ -1,3 +1,4 @@
+//location ../utils/AppError
 class AppError extends Error {
   constructor(message, statusCode) {
     super(message);

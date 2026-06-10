@@ -56,6 +56,37 @@ const findWalletByUserAndRole = (userId, role) =>
  */
 const createWallet = (data) => Wallet.create(data);
 
+/**
+ * Finds a specific user's wallet using an active transaction session.
+ * @param {string} userId
+ * @param {ClientSession} [session]
+ * @returns {Promise<Wallet|null>}
+ */
+const findByUserId = (userId, session) => {
+  return Wallet.findOne({ user: userId }).session(session);
+};
+
+/**
+ * Finds a user's wallet filtered strictly by role constraints.
+ * @param {string} userId
+ * @param {string} role
+ * @param {ClientSession} [session]
+ * @returns {Promise<Wallet|null>}
+ */
+const findByUserIdAndRole = (userId, role, session) => {
+  return Wallet.findOne({ user: userId, role }).session(session);
+};
+
+/**
+ * Saves a wallet document instance to the database.
+ * @param {Object} doc
+ * @param {ClientSession} [session]
+ * @returns {Promise<Object>}
+ */
+const save = (doc, session) => {
+  return doc.save({ session });
+};
+
 module.exports = {
   findAllWallets,
   findWalletByUserId,
@@ -64,4 +95,7 @@ module.exports = {
   findWalletByUserMutable,
   findWalletByUserAndRole,
   createWallet,
+  findByUserId,
+  findByUserIdAndRole,
+  save,
 };

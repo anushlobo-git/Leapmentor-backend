@@ -204,6 +204,43 @@ const findPayoutHistory = (filter, { skip, limit }) =>
     .limit(limit)
     .lean();
 
+
+/**
+ * Finds a connect request by ID with populated mentee and mentor info.
+ * @param {string} id
+ * @param {ClientSession} [session]
+ * @returns {Promise<ConnectRequest|null>}
+ */
+const findByIdWithParticipants = (id, session) => {
+  return ConnectRequest.findById(id)
+    .populate("mentee", "name email")
+    .populate("mentor", "name email")
+    .session(session);
+};
+
+/**
+ * Finds a raw connect request by ID without deep populations.
+ * @param {string} id
+ * @param {ClientSession} [session]
+ * @returns {Promise<ConnectRequest|null>}
+ */
+const findByIdRaw = (id, session) => {
+  return ConnectRequest.findById(id).session(session);
+};
+
+/**
+ * Saves a connect request document instance to the database.
+ * @param {Object} doc
+ * @param {ClientSession} [session]
+ * @returns {Promise<Object>}
+ */
+const save = (doc, session) => {
+  return doc.save({ session, validateBeforeSave: false });
+};
+
+
+
+
 module.exports = {
   findPendingRequest,
   findSlotConflict,
@@ -236,5 +273,8 @@ module.exports = {
   countCompletedSessions,
   countPayoutHistory,
   findPayoutHistory,
+  findByIdWithParticipants,
+  findByIdRaw,
+  save,
 
 };
