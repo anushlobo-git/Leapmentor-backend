@@ -1,17 +1,15 @@
-// services/googleAuth.service.js
 const jwt = require("jsonwebtoken");
-const User = require("../models/User");
-const OAuthAccount = require("../models/OAuthAccount");
+const userRepository = require("../repositories/user.repository");
+const oauthAccountRepository = require("../repositories/oauthAccount.repository");
 const {
   googleClient,
-  signToken,
+  signAccessToken,
+  signRefreshToken,
   sanitizeUser,
   validateRoles,
 } = require("../utils/auth.utils");
-const {
-  createWalletsForRoles,
-  createWalletForRole,
-} = require("./wallet.service");
+const { createWalletsForRoles } = require("./wallet.service");
+const logger = require("../config/logger");
 
 const googleAuthUser = async ({ credential, roles, termsAccepted }) => {
   if (!credential) throw new Error("Missing Google credential");
@@ -20,7 +18,6 @@ const googleAuthUser = async ({ credential, roles, termsAccepted }) => {
   const envAudience = process.env.GOOGLE_CLIENT_ID?.trim();
   if (!envAudience) throw new Error("GOOGLE_CLIENT_ID is undefined in .env");
 
-  // verify token with google
   const ticket = await googleClient.verifyIdToken({
     idToken: credential,
     audience: [envAudience, decodedToken?.aud],
@@ -34,11 +31,10 @@ const googleAuthUser = async ({ credential, roles, termsAccepted }) => {
 
   if (!email || !googleSub) throw new Error("Invalid Google payload");
 
-  let user = await User.findOne({ email });
+  let user = await userRepository.findUserByEmail(email);
   let isNewUser = false;
 
   if (!user) {
-    // new user — terms and roles required
     if (termsAccepted !== true) throw new Error("TERMS_NOT_ACCEPTED");
 
     const incomingRoles =
@@ -46,7 +42,7 @@ const googleAuthUser = async ({ credential, roles, termsAccepted }) => {
     const { valid, message, uniqueRoles } = validateRoles(incomingRoles);
     if (!valid) throw new Error(message);
 
-    user = await User.create({
+    user = await userRepository.createUser({
       name,
       email,
       roles: uniqueRoles,
@@ -56,37 +52,30 @@ const googleAuthUser = async ({ credential, roles, termsAccepted }) => {
     });
 
     await createWalletsForRoles(user._id, uniqueRoles);
+    logger.info("New user registered via Google", {
+      userId: user._id,
+      role: uniqueRoles[0],
+    });
     isNewUser = true;
   } else {
-    // existing user — merge roles if new ones sent
-    if (Array.isArray(roles) && roles.length) {
-      const mergedRoles = [...new Set([...user.roles, ...roles])];
-      if (mergedRoles.length !== user.roles.length) {
-        const addedRoles = roles.filter((r) => !user.roles.includes(r));
-        user.roles = mergedRoles;
-        await user.save();
-        for (const role of addedRoles) {
-          await createWalletForRole(user._id, role);
-        }
-      }
-    }
+    logger.info("Existing user logged in via Google", { userId: user._id });
   }
 
-  // link OAuth account if not already linked
-  const existingOAuth = await OAuthAccount.findOne({
-    provider: "google",
-    providerId: googleSub,
-  });
+  const existingOAuth = await oauthAccountRepository.findOAuthAccount(
+    "google",
+    googleSub,
+  );
   if (!existingOAuth) {
-    await OAuthAccount.create({
+    await oauthAccountRepository.createOAuthAccount({
       user: user._id,
       provider: "google",
       providerId: googleSub,
     });
   }
 
-  const token = signToken(user._id);
-  return { token, user: sanitizeUser(user), isNewUser };
+  const accessToken = signAccessToken(user._id);
+  const refreshToken = signRefreshToken(user._id);
+  return { accessToken, refreshToken, user: sanitizeUser(user), isNewUser };
 };
 
 module.exports = { googleAuthUser };

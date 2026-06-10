@@ -1,7 +1,7 @@
 const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
 const { OAuth2Client } = require("google-auth-library");
-
+const logger = require("../config/logger");
 // auth.utils.js  — add this line near the top, after the requires
 const STATE_SECRET = process.env.STATE_SECRET || process.env.JWT_SECRET;
 
@@ -9,11 +9,17 @@ const STATE_SECRET = process.env.STATE_SECRET || process.env.JWT_SECRET;
 
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
-const signToken = (userId) => {
+const signToken = (userId) => {      
   return jwt.sign({ id: userId }, process.env.JWT_SECRET, {
     expiresIn: process.env.JWT_EXPIRES_IN || "7d",
   });
 };
+
+const signAccessToken = (userId) =>
+  jwt.sign({ id: userId }, process.env.JWT_ACCESS_SECRET, { expiresIn: "15m" });
+
+const signRefreshToken = (userId) =>
+  jwt.sign({ id: userId }, process.env.JWT_REFRESH_SECRET, { expiresIn: "7d" });
 
 const sanitizeUser = (user) => {
   const obj = user.toObject ? user.toObject() : user;
@@ -63,6 +69,6 @@ module.exports = {
   validateRoles,
   signState,
   verifyState,
-  // DELETED: createClerkClient — no longer needed after LinkedIn migration
-  // DELETED: clerkClient
+  signAccessToken,
+  signRefreshToken,
 };
