@@ -44,13 +44,6 @@ const releaseEscrow = async (connectRequestId, mongoSession) => {
   if (!menteeWallet) throw new Error("Mentee wallet not found");
   if (!mentorWallet) throw new Error("Mentor wallet not found");
 
-  // Allow small floating point tolerance (±1 token)
-  if (menteeWallet.escrow < expectedEscrow - 1) {
-    throw new Error(
-      `Escrow balance mismatch. Expected ~${expectedEscrow}, found ${menteeWallet.escrow}. Contact support.`
-    );
-  }
-
   // ── Settle wallets ────────────────────────────────────────
   menteeWallet.escrow -= menteeWallet.escrow;   // drain whatever remains (handles rounding)
   mentorWallet.balance += adjustedPayout;
