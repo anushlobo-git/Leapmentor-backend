@@ -1,19 +1,44 @@
+/**
+ * @fileoverview Session Token Refresh Controller
+ * @description  Thin request/response handlers validating long-lived rotation tokens
+ * to securely extend active client authorization sessions.
+ */
+
 const jwt = require("jsonwebtoken");
+const catchAsync = require("../utils/catchAsync");
+const AppError = require("../utils/AppError");
 const { signAccessToken } = require("../utils/auth.utils");
 
-const refreshToken = (req, res) => {
-  const token = req.cookies.refreshToken;
-  if (!token) return res.status(401).json({ message: "No refresh token" });
+// ── SESSION MANAGEMENT HANDLERS ───────────────────────────────
+
+/**
+ * Evaluate an incoming rotation cookie token to issue a fresh short-term access key.
+ * @route   POST /api/v1/auth/refresh
+ * @access  Public
+ */
+const refreshToken = catchAsync(async (req, res) => {
+  const token = req.cookies?.refreshToken;
+  if (!token) {
+    throw new AppError(
+      "Refresh token parameter missing from secure payload contexts.",
+      401,
+    );
+  }
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_REFRESH_SECRET);
     const accessToken = signAccessToken(decoded.id);
-    return res.status(200).json({ accessToken });
+
+    res.status(200).json({
+      success: true,
+      accessToken,
+    });
   } catch (err) {
-    return res
-      .status(403)
-      .json({ message: "Invalid or expired refresh token" });
+    throw new AppError(
+      "Invalid or expired session refresh token reference.",
+      403,
+    );
   }
-};
+});
 
 module.exports = { refreshToken };

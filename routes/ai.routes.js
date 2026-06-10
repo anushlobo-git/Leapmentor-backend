@@ -1,33 +1,42 @@
-// backend/routes/ai.route.js
-const express = require("express");
-const router  = express.Router();
-
-console.log("GROQ KEY LOADED:", process.env.GROQ_API_KEY ? "YES ✅" : "NO ❌");
-
 /**
- * POST /api/ai/chat
- * Body: { messages: [...], systemPrompt: "..." }
- * Proxies to Groq (free, fast LLM API)
+ * @fileoverview AI Assistance and Chat Proxy Routes
+ * @description  Proxies client conversations to the Groq API engine using fast LLM models
+ * to power the interactive help desk and support chat interfaces.
+ * @prefix       /api/v1/ai
+ * @access       Private (User)
  */
-router.post("/chat", async (req, res) => {
-  try {
+const express = require("express");
+const router = express.Router();
+const catchAsync = require("../utils/catchAsync");
+const AppError = require("../utils/AppError");
+
+// ── Groq API Gateway Configuration ───────────────────────────
+const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
+const TARGET_AI_MODEL = "llama-3.1-8b-instant";
+const MAX_TOKEN_LIMIT = 1000;
+const DEFAULT_SYSTEM_PROMPT = "You are a helpful platform support assistant.";
+
+// ── AI ASSISTANCE ENDPOINTS ───────────────────────────────────
+router.post(
+  "/chat",
+  catchAsync(async (req, res) => {
     const { messages, systemPrompt } = req.body;
 
     if (!messages || !Array.isArray(messages)) {
-      return res.status(400).json({ error: "messages array is required" });
+      throw new AppError("Messages array is required.", 400);
     }
 
-    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+    const response = await fetch(GROQ_API_URL, {
       method: "POST",
       headers: {
-        "Content-Type":  "application/json",
-        "Authorization": `Bearer ${process.env.GROQ_API_KEY}`,
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
       },
       body: JSON.stringify({
-        model:      "llama-3.1-8b-instant",
-        max_tokens: 1000,
+        model: TARGET_AI_MODEL,
+        max_tokens: MAX_TOKEN_LIMIT,
         messages: [
-          { role: "system", content: systemPrompt },
+          { role: "system", content: systemPrompt || DEFAULT_SYSTEM_PROMPT },
           ...messages,
         ],
       }),
@@ -36,18 +45,14 @@ router.post("/chat", async (req, res) => {
     const data = await response.json();
 
     if (!response.ok) {
-      console.error("Groq error:", JSON.stringify(data));
-      return res.status(response.status).json({ error: data });
+      throw new AppError("AI gateway failure.", response.status);
     }
 
-    // Reformat to match shape HelpCenter.jsx expects
     const text = data.choices?.[0]?.message?.content || "";
-    res.json({ content: [{ type: "text", text }] });
-
-  } catch (err) {
-    console.error("AI proxy error:", err);
-    res.status(500).json({ error: "AI service unavailable" });
-  }
-});
+    res.status(200).json({
+      content: [{ type: "text", text }],
+    });
+  }),
+);
 
 module.exports = router;
