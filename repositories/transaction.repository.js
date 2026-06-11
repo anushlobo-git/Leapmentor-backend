@@ -36,8 +36,19 @@ const findTransactions = (filter, { skip, limit }) =>
  */
 const createTransaction = (data) => Transaction.create(data);
 
+/**
+ * Batches and writes new transactions into the database logs.
+ * @param {Array<Object>} transactionData
+ * @param {ClientSession} [session]
+ * @returns {Promise<Array<Object>>}
+ */
+const createMany = (transactionData, session) => {
+  return Transaction.create(transactionData, { session });
+};
+
 module.exports = {
   countTransactions,
   findTransactions,
   createTransaction,
+  createMany,
 };

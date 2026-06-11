@@ -1,13 +1,22 @@
-// backend/routes/feedback.routes.js
-const express  = require("express");
-const router   = express.Router();
-const { authenticate }                  = require("../middleware/authenticate");
-const { submitFeedback, getFeedback }   = require("../controllers/feedback.controller");
+/**
+ * @fileoverview Feedback Routes
+ * @description  Handles peer evaluations and performance review submissions for completed session blocks.
+ * @prefix       /api/v1/feedback
+ * @access       Private (User)
+ */
 
-// POST /api/feedback                        — submit feedback for a completed session
-router.post("/",                      authenticate, submitFeedback);
+const express = require("express");
+const router = express.Router();
+const { authenticate } = require("../middleware/authenticate");
+const {
+  createFeedback,
+  getFeedback,
+} = require("../controllers/feedback.controller");
 
-// GET  /api/feedback/:connectRequestId      — get my + their feedback for a session
-router.get("/:connectRequestId",      authenticate, getFeedback);
+// @route   POST /api/v1/feedback
+router.post("/", authenticate, createFeedback);
+
+// @route   GET /api/v1/feedback/:connectRequestId
+router.get("/:connectRequestId", authenticate, getFeedback);
 
 module.exports = router;

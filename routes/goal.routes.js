@@ -1,27 +1,43 @@
-const express          = require("express");
-const router           = express.Router();
+/**
+ * @fileoverview Goals and Milestones Tracking Routes
+ * @description  Handles structural milestone roadmaps, targets creation pipelines, states revisions, and real-time completions.
+ * @prefix       /api/v1/goals
+ * @access       Private (Authenticated Users)
+ */
+
+const express = require("express");
+const router = express.Router();
 const { authenticate } = require("../middleware/authenticate");
-
-const controllers = require("../controllers/goal.controller"); // ✅ assign first
-
 const {
   createGoal,
   getGoal,
   updateGoal,
-  addMilestone,
+  createMilestone,
   updateMilestone,
   deleteMilestone,
-} = controllers;
+} = require("../controllers/goal.controller");
 
-// Goal routes
-router.post(  "/",                        authenticate, createGoal);
-router.get(   "/:connectRequestId",       authenticate, getGoal);
-router.patch( "/:goalId",                 authenticate, updateGoal);
+// All goals and milestones endpoint triggers require a verified identity token lock
+router.use(authenticate);
 
-// Milestone routes
-router.post(  "/:goalId/milestones",      authenticate, addMilestone);
-router.patch( "/milestones/:milestoneId", authenticate, updateMilestone);
-router.delete("/milestones/:milestoneId", authenticate, deleteMilestone);
+// --- Master Objectives Mappings ---
+// @route   POST /api/v1/goals
+router.post("/", createGoal);
+
+// @route   GET /api/v1/goals/:connectRequestId
+router.get("/:connectRequestId", getGoal);
+
+// @route   PATCH /api/v1/goals/:goalId
+router.patch("/:goalId", updateGoal);
+
+// --- Incremental Checkpoints Mappings ---
+// @route   POST /api/v1/goals/:goalId/milestones
+router.post("/:goalId/milestones", createMilestone);
+
+// @route   PATCH /api/v1/goals/milestones/:milestoneId
+router.patch("/milestones/:milestoneId", updateMilestone);
+
+// @route   DELETE /api/v1/goals/milestones/:milestoneId
+router.delete("/milestones/:milestoneId", deleteMilestone);
 
 module.exports = router;
-

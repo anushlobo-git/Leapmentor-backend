@@ -1,39 +1,63 @@
-// backend/repositories/feedback.repository.js
-// ── Touches ONLY the Feedback model ───────────────────────────
+/**
+ * @fileoverview Feedback Repository
+ * @description Direct database access layer for the Feedback model.
+ */
 const Feedback = require("../models/Feedback");
 
-// Check for an existing submission — scoped to slot if provided
-const findDuplicate = ({ connectRequestId, userId, slotIndex }) =>
-  Feedback.findOne({
-    connectRequest: connectRequestId,
-    from: userId,
-    ...(slotIndex !== undefined && slotIndex !== null ? { slotIndex } : {}),
-  });
+/**
+ * Finds a single feedback document matching a specific query.
+ * @param {Object} query
+ * @returns {Promise<Feedback|null>}
+ */
+const findOne = (query) => {
+  return Feedback.findOne(query);
+};
 
-// All feedback entries for a session (both sides), with from populated
-const findAllForSession = (connectRequestId) =>
-  Feedback.find({ connectRequest: connectRequestId })
-    .populate("from", "name email")
-    .lean();
+/**
+ * Creates a new feedback document.
+ * @param {Object} data
+ * @returns {Promise<Feedback>}
+ */
+const create = (data) => {
+  return Feedback.create(data);
+};
 
-// All feedback received by a user — used to recalculate avgRating
-const findAllForRecipient = (toUserId) =>
-  Feedback.find({ to: toUserId }).lean();
-
-// Create a single feedback document
-const create = (data) => Feedback.create(data);
-
-// Fetch a single feedback with from + to populated (post-create response)
-const findByIdPopulated = (id) =>
-  Feedback.findById(id)
+/**
+ * Finds a feedback document by ID and populates standard participant information.
+ * @param {string} id
+ * @returns {Promise<Feedback|null>}
+ */
+const findByIdAndPopulateParticipants = (id) => {
+  return Feedback.findById(id)
     .populate("from", "name email")
     .populate("to", "name email")
     .lean();
+};
+
+/**
+ * Finds all feedback entries recorded for a specific connection request.
+ * @param {string} connectRequestId
+ * @returns {Promise<Array<Feedback>>}
+ */
+const findAllByConnectRequest = (connectRequestId) => {
+  return Feedback.find({ connectRequest: connectRequestId })
+    .populate("from", "name email")
+    .lean();
+};
+
+/**
+ * Finds all feedback entries targeted toward a specific user ID.
+ * @param {string} targetUserId
+ * @returns {Promise<Array<Feedback>>}
+ */
+const findAllByTargetUser = (targetUserId) => {
+  return Feedback.find({ to: targetUserId }).lean();
+};
 
 module.exports = {
-  findDuplicate,
-  findAllForSession,
-  findAllForRecipient,
+  findOne,
   create,
-  findByIdPopulated,
+  findByIdAndPopulateParticipants,
+  findAllByConnectRequest,
+  findAllByTargetUser,
 };

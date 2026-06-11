@@ -1,11 +1,19 @@
-// backend/routes/invoice.routes.js
+/**
+ * @fileoverview Invoice Retrieval Routes
+ * @description  Handles authorization checks and document dispatch processes matching payment logs.
+ * @prefix       /api/v1/invoices
+ * @access       Private (Mentee Only)
+ */
+
 const express = require("express");
-const { downloadInvoice } = require("../controllers/invoice.controller");
-const {authenticate} = require("../middleware/authenticate"); // adjust path if different
-
 const router = express.Router();
+const { downloadInvoice } = require("../controllers/invoice.controller");
+const { authenticate } = require("../middleware/authenticate");
 
-// GET /api/invoices/:connectRequestId  — download invoice PDF
-router.get("/:connectRequestId", authenticate, downloadInvoice);
+// All billing statements and accounting sheets require a valid user session signature
+router.use(authenticate);
+
+// @route   GET /api/v1/invoices/:connectRequestId
+router.get("/:connectRequestId", downloadInvoice);
 
 module.exports = router;

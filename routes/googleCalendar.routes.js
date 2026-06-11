@@ -1,6 +1,13 @@
-// routes/googleCalendar.routes.js
+/**
+ * @fileoverview Google Calendar Integration Routes
+ * @description  Configures federated credential bindings, token exchanges, and live busy scheduling synchronizations.
+ * @prefix       /api/v1/google-calendar
+ * @access       Public / Private (User)
+ */
+
 const express = require("express");
 const router = express.Router();
+const { authenticate } = require("../middleware/authenticate");
 const {
   getAuthUrl,
   handleCallback,
@@ -8,21 +15,25 @@ const {
   getBusySlots,
   getEvents,
 } = require("../controllers/googleCalendar.controller");
-const { authenticate: protect } = require("../middleware/authenticate");
 
-// Get OAuth URL to open in popup
-router.get("/auth-url",   protect, getAuthUrl);
+// --- PUBLIC THIRD-PARTY OAUTH CALL CHANNELS ---
 
-// Google redirects here after consent — no auth middleware (Google calls this)
-router.get("/callback",   handleCallback);
+// @route   GET /api/v1/google-calendar/callback
+router.get("/callback", handleCallback);
 
-// Disconnect Google Calendar
-router.post("/disconnect", protect, disconnect);
+// --- SECURE DOMAIN OPERATIONAL PIPELINES ---
+router.use(authenticate);
 
-// Fetch busy windows for a date range (used by slot busy badge)
-router.get("/busy",       protect, getBusySlots);
+// @route   GET /api/v1/google-calendar/auth-url
+router.get("/auth-url", getAuthUrl);
 
-// Fetch event names for a date range (used by calendar grid tooltip)
-router.get("/events",     protect, getEvents);
+// @route   POST /api/v1/google-calendar/disconnect
+router.post("/disconnect", disconnect);
+
+// @route   GET /api/v1/google-calendar/busy
+router.get("/busy", getBusySlots);
+
+// @route   GET /api/v1/google-calendar/events
+router.get("/events", getEvents);
 
 module.exports = router;
