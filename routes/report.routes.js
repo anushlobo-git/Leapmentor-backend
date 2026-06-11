@@ -1,9 +1,13 @@
-// backend/routes/report.routes.js
+/**
+ * @fileoverview Compliance Tracking and Incident Dispute Resolution Systems Routes Blueprint
+ * @prefix       /api/v1/reports
+ * @access       Private (Authenticated Dashboard Sessions Only)
+ */
 const express = require("express");
-const router  = express.Router();
+const router = express.Router();
 
 const { authenticate, requireRole } = require("../middleware/authenticate");
-const { upload }                    = require("../middleware/upload.middleware");
+const { upload } = require("../middleware/upload.middleware");
 const {
   submitReport,
   getMyReport,
@@ -11,41 +15,32 @@ const {
   updateReportStatus,
 } = require("../controllers/report.controller");
 
-// ── User routes (mentor / mentee) ─────────────────────────────
+// Establish baseline platform passport verification boundaries rules processing
+router.use(authenticate);
 
-// Submit a report (with optional screenshot upload)
+// --- USER TRACKS ENDPOINTS (MENTOR / MENTEE ACCESS PRIVILEGES) ---
+// @route   POST /api/v1/reports
 router.post(
   "/",
-  authenticate,
   requireRole("mentor", "mentee"),
   upload.single("screenshot"),
-  submitReport
+  submitReport,
 );
 
-// Get current user's own report for a connect request
+// @route   GET /api/v1/reports/my/:connectRequestId
 router.get(
   "/my/:connectRequestId",
-  authenticate,
   requireRole("mentor", "mentee"),
-  getMyReport
+  getMyReport,
 );
 
-// ── Admin routes ──────────────────────────────────────────────
+// --- COMPLIANCE PANELS TRACKS ENDPOINTS (EXCLUSIVE ADMINISTRATOR FIREWALL GATES) ---
+router.use(requireRole("admin"));
 
-// List all reports (paginated, filterable by status)
-router.get(
-  "/admin",
-  authenticate,
-  requireRole("admin"),
-  getAllReports
-);
+// @route   GET /api/v1/reports/admin
+router.get("/admin", getAllReports);
 
-// Update report status / add admin note
-router.patch(
-  "/admin/:reportId",
-  authenticate,
-  requireRole("admin"),
-  updateReportStatus
-);
+// @route   PATCH /api/v1/reports/admin/:reportId
+router.patch("/admin/:reportId", updateReportStatus);
 
 module.exports = router;

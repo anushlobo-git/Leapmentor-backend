@@ -270,6 +270,15 @@ const findByIdForFeedback = (id) => {
     .lean();
 };
 
+/**
+ * Finds a connect request by ID without executing default populations.
+ * @param {string} id
+ * @returns {Promise<ConnectRequest|null>}
+ */
+const findByIdWithMentorId = (id) => {
+  return ConnectRequest.findById(id).select("mentor status");
+};
+
 
 
 
@@ -311,5 +320,7 @@ module.exports = {
   findByIdWithParticipantsLean,
   findById,
   findByIdForFeedback,
+  findByIdWithMentorId,
+
 
 };

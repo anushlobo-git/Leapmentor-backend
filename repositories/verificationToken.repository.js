@@ -2,6 +2,8 @@
 // ── Touches ONLY the VerificationToken model ──────────────────
 const VerificationToken = require("../models/VerificationToken");
 
+
+
 // Wipe all tokens for a user (before issuing a new one, or after reset)
 const deleteAllForUser = (userId) =>
   VerificationToken.deleteMany({ user: userId });

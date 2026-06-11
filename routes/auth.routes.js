@@ -1,6 +1,7 @@
 /**
  * @fileoverview User Authentication Framework Routes
- * @description  Handles structural user registration, local access tokens management, and third-party social integrations.
+ * @description  Handles core account registration, secure login/logout sessions, session token refreshing,
+ * password modification updates, and third-party social OAuth integrations (Google, LinkedIn).
  * @prefix       /api/v1/auth
  * @access       Public / Private (User)
  */

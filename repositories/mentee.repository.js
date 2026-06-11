@@ -42,9 +42,69 @@ const findMenteeProfile = (userId) =>
     .select("currentRole company profilePicture skills bio interestedFields")
     .lean();
 
+
+/**
+ * Finds a mentee profile by the associated user ID.
+ * @param {string} userId
+ * @returns {Promise<MenteeProfile|null>}
+ */
+const findByUserId = (userId) => {
+  return MenteeProfile.findOne({ user: userId });
+};
+
+/**
+ * Finds a mentee profile by user ID with populated account details.
+ * @param {string} userId
+ * @returns {Promise<MenteeProfile|null>}
+ */
+const findByUserIdWithAccountInfo = (userId) => {
+  return MenteeProfile.findOne({ user: userId })
+    .populate("user", "name email isEmailVerified");
+};
+
+/**
+ * Finds a published public profile with basic user info population.
+ * @param {string} userId
+ * @returns {Promise<MenteeProfile|null>}
+ */
+const findPublishedByUserId = (userId) => {
+  return MenteeProfile.findOne({
+    user: userId,
+    isProfilePublished: true,
+  }).populate("user", "name email");
+};
+
+/**
+ * Creates and persists a new mentee profile document.
+ * @param {Object} profileData
+ * @returns {Promise<MenteeProfile>}
+ */
+const create = (profileData) => {
+  return MenteeProfile.create(profileData);
+};
+
+/**
+ * Atomic find and update operational query execution wrapper.
+ * @param {string} userId
+ * @param {Object} updateData
+ * @returns {Promise<MenteeProfile|null>}
+ */
+const findOneAndUpdateByUserId = (userId, updateData) => {
+  return MenteeProfile.findOneAndUpdate(
+    { user: userId },
+    { $set: updateData },
+    { new: true, runValidators: true }
+  );
+};
+
 module.exports = {
   findMenteeProfilesByUserIds,
   findMenteeProfileByUserId,
   deleteMenteeProfileByUserId,
   findMenteeProfile,
+  findByUserId,
+  findByUserIdWithAccountInfo,
+  findPublishedByUserId,
+  create,
+  findOneAndUpdateByUserId,
 };

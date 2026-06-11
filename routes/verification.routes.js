@@ -1,3 +1,8 @@
+/**
+ * @fileoverview User Account Verification and Core Communications Channels Delivery Routes Framework
+ * @prefix       /api/v1/verification
+ * @access       Public
+ */
 const express = require("express");
 const router = express.Router();
 const {
@@ -7,9 +12,16 @@ const {
   verifyLink,
 } = require("../controllers/verification.controller");
 
-router.post("/send", sendVerification);       // POST /api/verification/send
-router.post("/resend", resendVerification);   // POST /api/verification/resend
-router.post("/verify-otp", verifyOtp);        // POST /api/verification/verify-otp
-router.get("/verify/:token", verifyLink);     // GET  /api/verification/verify/:token?email=...
+// @route   POST /api/v1/verification/send
+router.post("/send", sendVerification);
+
+// @route   POST /api/v1/verification/resend
+router.post("/resend", resendVerification);
+
+// @route   POST /api/v1/verification/verify-otp
+router.post("/verify-otp", verifyOtp);
+
+// @route   GET /api/v1/verification/verify/:token
+router.get("/verify/:token", verifyLink);
 
 module.exports = router;

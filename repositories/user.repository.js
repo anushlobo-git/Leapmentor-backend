@@ -184,6 +184,21 @@ const saveUser = (userInstance) => {
   return userInstance.save();
 };
 
+/**
+ * Finds user accounts matching specified roles and a regex name pattern.
+ * @param {string} namePattern - Raw string token to apply to regex.
+ * @param {Array<string>} roles - Array of target user role filters.
+ * @returns {Promise<Array<Object>>} Lean list of matching user IDs.
+ */
+const findUsersByRoleAndNameRegex = (namePattern, roles) => {
+  return User.find({
+    name: { $regex: namePattern, $options: "i" },
+    roles: { $in: roles },
+  })
+    .select("_id name")
+    .lean();
+};
+
 module.exports = {
   findUsersBySearchTerm,
   findUsersByName,
@@ -203,4 +218,5 @@ module.exports = {
   createUser,
   saveUser,
   findUsersByNameSearch,
+  findUsersByRoleAndNameRegex,
 };
