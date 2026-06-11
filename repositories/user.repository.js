@@ -133,13 +133,6 @@ const unblockUser = (id) =>
   );
 
 /**
- * Find a single user profile matching an explicit email address string.
- * @param {string} email - Search phrase mapping email.
- * @returns {Promise<Object|null>}
- */
-const findUserByEmail = (email) => User.findOne({ email });
-
-/**
  * Fetch a single user profile including its hidden password hash string.
  * @param {string} email - Search phrase mapping email.
  * @returns {Promise<Object|null>}
@@ -163,13 +156,6 @@ const findUserByIdWithPassword = (userId) =>
 const createUser = (data) => User.create(data);
 
 /**
- * Persist updates made directly upon a tracked Mongoose document instance.
- * @param {Object} user - Tracked live schema document entity.
- * @returns {Promise<Object>}
- */
-const saveUser = (user) => user.save();
-
-/**
  * Fetch query matching identifiers evaluating case-insensitive name constraints.
  * @param {string} search - Search phrase query criteria parameter.
  * @returns {Promise<Array<Object>>} Lean projected collection containing unique IDs.
@@ -178,6 +164,25 @@ const findUsersByNameSearch = (search) =>
   User.find({ name: { $regex: search, $options: "i" } })
     .select("_id")
     .lean();
+
+
+/**
+ * Finds a user account by email address.
+ * @param {string} email
+ * @returns {Promise<User|null>}
+ */
+const findUserByEmail = (email) => {
+  return User.findOne({ email });
+};
+
+/**
+ * Persists modifications on a specific user document instance.
+ * @param {Object} userInstance
+ * @returns {Promise<User>}
+ */
+const saveUser = (userInstance) => {
+  return userInstance.save();
+};
 
 module.exports = {
   findUsersBySearchTerm,

@@ -1,20 +1,25 @@
-// backend/routes/forgotPassword.routes.js
+/**
+ * @fileoverview Password Recovery Routes
+ * @description  Handles verification token generations, OTP authentications, and user password reset operations.
+ * @prefix       /api/v1/auth
+ * @access       Public
+ */
+
 const express = require("express");
+const router = express.Router();
 const {
-  sendForgotPasswordOTP,
-  verifyResetOTP,
+  sendForgotPasswordOtp,
+  verifyResetOtp,
   resetPassword,
 } = require("../controllers/forgotPassword.controller");
 
-const router = express.Router();
+// @route   POST /api/v1/auth/forgot-password
+router.post("/forgot-password", sendForgotPasswordOtp);
 
-// POST /api/auth/forgot-password    → send OTP to email
-router.post("/forgot-password", sendForgotPasswordOTP);
+// @route   POST /api/v1/auth/verify-reset-otp
+router.post("/verify-reset-otp", verifyResetOtp);
 
-// POST /api/auth/verify-reset-otp   → verify OTP
-router.post("/verify-reset-otp", verifyResetOTP);
-
-// POST /api/auth/reset-password     → set new password
+// @route   POST /api/v1/auth/reset-password
 router.post("/reset-password", resetPassword);
 
 module.exports = router;

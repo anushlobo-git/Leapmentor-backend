@@ -7,7 +7,7 @@ const sessionService = require("../services/session.service");
 
 /**
  * Returns structured parameters tracking all nested slot components relating to the targeted appointment context.
- * @route   GET /api/sessions/:connectRequestId/slots
+ * @route   GET /api/v1/sessions/:connectRequestId/slots
  * @access  Private (User)
  */
 const getSlots = catchAsync(async (req, res) => {
@@ -20,7 +20,7 @@ const getSlots = catchAsync(async (req, res) => {
 
 /**
  * Updates individual secure meeting address spaces allocated cross scheduled components.
- * @route   PATCH /api/sessions/:connectRequestId/slots/:slotIndex/meeting-link
+ * @route   PATCH /api/v1/sessions/:connectRequestId/slots/:slotIndex/meeting-link
  * @access  Private (User)
  */
 const setMeetingLink = catchAsync(async (req, res) => {
@@ -37,7 +37,7 @@ const setMeetingLink = catchAsync(async (req, res) => {
 
 /**
  * Submits execution confirmations confirming real performance completion milestones.
- * @route   PATCH /api/sessions/:connectRequestId/slots/:slotIndex/mark-complete
+ * @route   PATCH /api/v1/sessions/:connectRequestId/slots/:slotIndex/mark-complete
  * @access  Private (User)
  */
 const markSlotComplete = catchAsync(async (req, res) => {
@@ -51,7 +51,7 @@ const markSlotComplete = catchAsync(async (req, res) => {
 
 /**
  * Extends scheduling chains appending newly requested single slot block structures.
- * @route   POST /api/sessions/:connectRequestId/add-slot
+ * @route   POST /api/v1/sessions/:connectRequestId/add-slot
  * @access  Private (User)
  */
 const addSlot = catchAsync(async (req, res) => {
@@ -73,7 +73,7 @@ const addSlot = catchAsync(async (req, res) => {
 
 /**
  * Breaks off targeting scheduled item indices and triggers necessary proportional escrow returns back.
- * @route   PATCH /api/sessions/:connectRequestId/slots/:slotIndex/cancel
+ * @route   PATCH /api/v1/sessions/:connectRequestId/slots/:slotIndex/cancel
  * @access  Private (User)
  */
 const cancelSlot = catchAsync(async (req, res) => {
@@ -90,7 +90,7 @@ const cancelSlot = catchAsync(async (req, res) => {
 
 /**
  * Reconfigures individual calendar parameters shifting item coordinates without altering active holdings.
- * @route   PATCH /api/sessions/:connectRequestId/slots/:slotIndex/reschedule
+ * @route   PATCH /api/v1/sessions/:connectRequestId/slots/:slotIndex/reschedule
  * @access  Private (Mentee Only)
  */
 const rescheduleSlot = catchAsync(async (req, res) => {
@@ -113,7 +113,7 @@ const rescheduleSlot = catchAsync(async (req, res) => {
 
 /**
  * Exposes active availability configurations mapped natively against current reservations tracker indexes.
- * @route   GET /api/sessions/:connectRequestId/mentor-availability
+ * @route   GET /api/v1/sessions/:connectRequestId/mentor-availability
  * @access  Private (User)
  */
 const getMentorAvailability = catchAsync(async (req, res) => {

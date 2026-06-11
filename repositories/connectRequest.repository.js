@@ -238,6 +238,38 @@ const save = (doc, session) => {
   return doc.save({ session, validateBeforeSave: false });
 };
 
+/**
+ * Finds a connect request by ID with populated mentee and mentor info.
+ * @param {string} id
+ * @returns {Promise<ConnectRequest|null>}
+ */
+const findByIdWithParticipantsLean = (id) => {
+  return ConnectRequest.findById(id)
+    .populate("mentee", "name email")
+    .populate("mentor", "name email")
+    .lean();
+};
+
+/**
+ * Finds a connect request document by ID.
+ * @param {string} id
+ * @returns {Promise<ConnectRequest|null>}
+ */
+const findById = (id) => {
+  return ConnectRequest.findById(id).lean();
+};
+
+/**
+ * Finds a connect request by ID with limited, optimized fields.
+ * @param {string} id
+ * @returns {Promise<ConnectRequest|null>}
+ */
+const findByIdForFeedback = (id) => {
+  return ConnectRequest.findById(id)
+    .select("mentor mentee status selectedSlots")
+    .lean();
+};
+
 
 
 
@@ -276,5 +308,8 @@ module.exports = {
   findByIdWithParticipants,
   findByIdRaw,
   save,
+  findByIdWithParticipantsLean,
+  findById,
+  findByIdForFeedback,
 
 };

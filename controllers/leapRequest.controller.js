@@ -1,98 +1,84 @@
-// controllers/leapRequest.controller.js
-const {
-  getMyRequestService,
-  createRequestService,
-  getAllRequestsService,
-  getPendingCountService,
-  approveRequestService,
-  rejectRequestService,
-} = require("../services/leapRequest.service");
+/**
+ * @fileoverview Leap Request Domain Controller
+ * @description Processes incoming HTTP entry requests, routing variables straight down to point grant calculation handlers.
+ */
+const catchAsync = require("../utils/catchAsync");
+const leapRequestService = require("../services/leapRequest.service");
 
-// ── MENTEE ────────────────────────────────────────────────────
+/**
+ * Retrieves the active outstanding request filed by the executing mentee.
+ * @route   GET /api/v1/leap-requests/my-request
+ * @access  Private (User)
+ */
+const getMyRequest = catchAsync(async (req, res) => {
+  const request = await leapRequestService.getMyPendingRequest(req.user._id);
+  res.status(200).json(request);
+});
 
-const getMyRequest = async (req, res) => {
-  try {
-    const request = await getMyRequestService(req.user._id);
-    return res.json(request);
-  } catch (err) {
-    if (err.message === "NO_PENDING_REQUEST")
-      return res.status(404).json({ message: "No pending request" });
-    return res.status(500).json({ message: err.message });
-  }
-};
+/**
+ * Submits a new points provision request context block into processing tracks.
+ * @route   POST /api/v1/leap-requests
+ * @access  Private (User)
+ */
+const createRequest = catchAsync(async (req, res) => {
+  const request = await leapRequestService.createLeapRequest(req.user._id);
+  res.status(201).json({
+    message: "Request submitted successfully.",
+    request,
+  });
+});
 
-const createRequest = async (req, res) => {
-  try {
-    const request = await createRequestService(req.user._id);
-    return res.status(201).json({
-      message: "Request submitted successfully.",
-      request,
-    });
-  } catch (err) {
-    if (err.message === "PENDING_REQUEST_EXISTS")
-      return res
-        .status(400)
-        .json({ message: "A pending request already exists." });
-    if (err.message === "SUFFICIENT_BALANCE")
-      return res
-        .status(400)
-        .json({ message: "You still have Leap Points remaining." });
-    return res.status(500).json({ message: err.message });
-  }
-};
+/**
+ * Returns summary application collections matching filtering conditions.
+ * @route   GET /api/v1/leap-requests
+ * @access  Private (Admin Only)
+ */
+const getAllRequests = catchAsync(async (req, res) => {
+  const requests = await leapRequestService.getAllLeapRequests(
+    req.query.status,
+  );
+  res.status(200).json({ requests });
+});
 
-// ── ADMIN ─────────────────────────────────────────────────────
+/**
+ * Tallies total tracking numbers monitoring outstanding pending requests.
+ * @route   GET /api/v1/leap-requests/pending-count
+ * @access  Private (Admin Only)
+ */
+const getPendingCount = catchAsync(async (req, res) => {
+  const count = await leapRequestService.getPendingCount();
+  res.status(200).json({ count });
+});
 
-const getAllRequests = async (req, res) => {
-  try {
-    const requests = await getAllRequestsService(req.query.status);
-    return res.json({ requests });
-  } catch (err) {
-    return res.status(500).json({ message: err.message });
-  }
-};
+/**
+ * Confirms points awards and updates targeting mentee balances.
+ * @route   PATCH /api/v1/leap-requests/:id/approve
+ * @access  Private (Admin Only)
+ */
+const approveRequest = catchAsync(async (req, res) => {
+  const { newBalance, request } = await leapRequestService.approveLeapRequest(
+    req.params.id,
+    req.admin?._id,
+  );
+  res.status(200).json({
+    message: "500 LP added successfully.",
+    newBalance,
+    request,
+  });
+});
 
-const getPendingCount = async (req, res) => {
-  try {
-    const count = await getPendingCountService();
-    return res.json({ count });
-  } catch (err) {
-    return res.status(500).json({ message: err.message });
-  }
-};
-
-const approveRequest = async (req, res) => {
-  try {
-    const { newBalance, request } = await approveRequestService(
-      req.params.id,
-      req.admin?._id,
-    );
-    return res.json({
-      message: "500 LP added successfully.",
-      newBalance,
-      request,
-    });
-  } catch (err) {
-    if (err.message === "REQUEST_NOT_FOUND")
-      return res.status(404).json({ message: "Request not found." });
-    if (err.message === "ALREADY_PROCESSED")
-      return res.status(400).json({ message: "Request already processed." });
-    return res.status(500).json({ message: err.message });
-  }
-};
-
-const rejectRequest = async (req, res) => {
-  try {
-    const request = await rejectRequestService(req.params.id, req.admin?._id);
-    return res.json({ message: "Request rejected.", request });
-  } catch (err) {
-    if (err.message === "REQUEST_NOT_FOUND")
-      return res.status(404).json({ message: "Request not found." });
-    if (err.message === "ALREADY_PROCESSED")
-      return res.status(400).json({ message: "Request already processed." });
-    return res.status(500).json({ message: err.message });
-  }
-};
+/**
+ * Denies point provisions requests closing out tracking sheets.
+ * @route   PATCH /api/v1/leap-requests/:id/reject
+ * @access  Private (Admin Only)
+ */
+const rejectRequest = catchAsync(async (req, res) => {
+  const request = await leapRequestService.rejectLeapRequest(
+    req.params.id,
+    req.admin?._id,
+  );
+  res.status(200).json({ message: "Request rejected.", request });
+});
 
 module.exports = {
   getMyRequest,
@@ -102,4 +88,3 @@ module.exports = {
   approveRequest,
   rejectRequest,
 };
- 

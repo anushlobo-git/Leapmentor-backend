@@ -17,4 +17,49 @@ const findByUser = (userId) => VerificationToken.findOne({ user: userId });
 const extendExpiry = (recordId, newExpiresAt) =>
   VerificationToken.findByIdAndUpdate(recordId, { expiresAt: newExpiresAt });
 
-module.exports = { deleteAllForUser, create, findByUser, extendExpiry };
+/**
+ * Deletes all existing verification token entries associated with a user ID.
+ * @param {string} userId
+ * @returns {Promise<Object>}
+ */
+const deleteTokensByUserId = (userId) => {
+  return VerificationToken.deleteMany({ user: userId });
+};
+
+/**
+ * Creates and persists a new verification token record.
+ * @param {Object} tokenData
+ * @returns {Promise<VerificationToken>}
+ */
+const createToken = (tokenData) => {
+  return VerificationToken.create(tokenData);
+};
+
+/**
+ * Finds a verification token record by user ID.
+ * @param {string} userId
+ * @returns {Promise<VerificationToken|null>}
+ */
+const findTokenByUserId = (userId) => {
+  return VerificationToken.findOne({ user: userId });
+};
+
+/**
+ * Persists updates made to an active token document instance.
+ * @param {Object} tokenInstance
+ * @returns {Promise<VerificationToken>}
+ */
+const saveToken = (tokenInstance) => {
+  return tokenInstance.save();
+};
+
+module.exports = { 
+  deleteAllForUser, 
+  create, 
+  findByUser, 
+  extendExpiry,
+  deleteTokensByUserId,
+  createToken,
+  findTokenByUserId,
+  saveToken,
+};

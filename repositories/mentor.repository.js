@@ -131,6 +131,20 @@ const findMentorRating = (userId) =>
     .select("avgRating totalSessions")
     .lean();
 
+/**
+ * Updates the calculated aggregate average rating of a mentor profile by user ID.
+ * @param {string} userId
+ * @param {number} avgRating
+ * @returns {Promise<MentorProfile|null>}
+ */
+const updateAvgRating = (userId, avgRating) => {
+  return MentorProfile.findOneAndUpdate(
+    { user: userId },
+    { $set: { avgRating } },
+    { new: true }
+  );
+};
+
 module.exports = {
   getMentorIndustryStats,
   findMentorProfilesByUserIds,
@@ -144,4 +158,5 @@ module.exports = {
   findMentorProfileFull,
   findMentorProfileForDetail,
   findMentorRating,
+  updateAvgRating,
 };

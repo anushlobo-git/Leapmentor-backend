@@ -67,10 +67,35 @@ const findByMentorId = (mentorId) => {
   return Availability.findOne({ mentor: mentorId });
 };
 
+/**
+ * Updates or creates a mentor's Google Calendar configuration properties.
+ * @param {string} mentorId
+ * @param {Object} updateData
+ * @returns {Promise<Availability>}
+ */
+const updateGoogleCalendarConfig = (mentorId, updateData) => {
+  return Availability.findOneAndUpdate(
+    { mentor: mentorId },
+    updateData,
+    { upsert: true, new: true }
+  );
+};
+
+/**
+ * Finds a mentor's availability mapping, explicitly fetching the hidden calendar token.
+ * @param {string} mentorId
+ * @returns {Promise<Availability|null>}
+ */
+const findWithCalendarToken = (mentorId) => {
+  return Availability.findOne({ mentor: mentorId }).select("+googleCalendarToken");
+};
+
 module.exports = {
   findAvailabilityByMentor,
   createAvailability,
   updateAvailability,
   deleteAvailability,
   findByMentorId,
+  updateGoogleCalendarConfig,
+  findWithCalendarToken,
 };

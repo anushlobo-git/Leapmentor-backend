@@ -1,7 +1,6 @@
 /**
- * @fileoverview User Authentication and Authorization Routes
- * @description  Handles core account registration, secure login/logout sessions, session token refreshing,
- * password modification updates, and third-party social OAuth integrations (Google, LinkedIn).
+ * @fileoverview User Authentication Framework Routes
+ * @description  Handles structural user registration, local access tokens management, and third-party social integrations.
  * @prefix       /api/v1/auth
  * @access       Public / Private (User)
  */
@@ -23,7 +22,7 @@ const {
   linkedinAuth,
 } = require("../controllers/linkedinAuth.controller");
 
-// ── LOCAL AUTHENTICATION & SESSION MANAGEMENT ────────────────
+// --- LOCAL AUTHENTICATION & SESSION MANAGEMENT ---
 
 // @route   POST /api/v1/auth/register
 router.post("/register", register);
@@ -45,7 +44,7 @@ router.post("/logout", (req, res) => {
 // @route   PUT /api/v1/auth/change-password
 router.put("/change-password", authenticate, changePassword);
 
-// ── THIRD-PARTY OAUTH INTEGRATIONS ───────────────────────────
+// --- THIRD-PARTY OAUTH INTEGRATIONS ---
 
 // @route   POST /api/v1/auth/google
 router.post("/google", googleAuth);

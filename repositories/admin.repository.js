@@ -83,6 +83,16 @@ const incrementWalletBalance = (adminId, amount) => {
   );
 };
 
+/**
+ * Finds the single active platform administrator.
+ * @returns {Promise<AdminUser|null>}
+ */
+const findActiveAdminLean = () => {
+  return AdminUser.findOne({ isActive: true })
+    .select("commissionRate")
+    .lean();
+};
+
 module.exports = {
   findAdminByEmail,
   saveAdmin,
@@ -92,6 +102,6 @@ module.exports = {
   updateAdminById,
   findActiveAdmin,
   incrementWalletBalance,
-
+  findActiveAdminLean,
 
 };

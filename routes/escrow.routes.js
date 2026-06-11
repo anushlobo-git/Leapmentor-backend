@@ -1,35 +1,45 @@
-// backend/routes/escrow.routes.js
+/**
+ * @fileoverview Escrow Ledger Routes
+ * @description  Handles secure mentee token locks, complete settlement releases, and transactional refund operations.
+ * @prefix       /api/v1/escrow
+ * @access       Private (Authenticated Users)
+ */
+
 const express = require("express");
 const router = express.Router();
 const { authenticate } = require("../middleware/authenticate");
-const { pay, release, refund, getStatus, getMyWallet, payAdditional, getCommissionRate } = require("../controllers/escrow.controller");
+const {
+  pay,
+  payAdditional,
+  release,
+  refund,
+  getStatus,
+  getMyWallet,
+  getCommissionRate,
+} = require("../controllers/escrow.controller");
 
-// All escrow routes are protected
+// All escrow endpoints require a verified identity signature
 router.use(authenticate);
 
-// POST /api/escrow/pay
-// Mentee locks tokens into escrow after request is accepted
+// @route   POST /api/v1/escrow/pay
 router.post("/pay", pay);
 
-// POST /api/escrow/release/:requestId
-// Mentee confirms session complete — tokens released to mentor
+// @route   POST /api/v1/escrow/pay-additional
+router.post("/pay-additional", payAdditional);
+
+// @route   POST /api/v1/escrow/release/:requestId
 router.post("/release/:requestId", release);
-// GET /api/escrow/commission-rate
-router.get("/commission-rate", getCommissionRate);
-// POST /api/escrow/refund/:requestId
-// Either party cancels — tokens returned to mentee
+
+// @route   POST /api/v1/escrow/refund/:requestId
 router.post("/refund/:requestId", refund);
 
-// GET /api/escrow/status/:requestId
-// Get payment + escrow status for a connect request
+// @route   GET /api/v1/escrow/status/:requestId
 router.get("/status/:requestId", getStatus);
 
-// GET /api/escrow/wallet
-// Get logged in user's wallet balance
+// @route   GET /api/v1/escrow/wallet
 router.get("/wallet", getMyWallet);
 
-// POST /api/escrow/pay-additional
-// Mentee locks tokens for a single additional session slot
-router.post("/pay-additional", payAdditional);
+// @route   GET /api/v1/escrow/commission-rate
+router.get("/commission-rate", getCommissionRate);
 
 module.exports = router;
