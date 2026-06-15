@@ -13,6 +13,8 @@ const Sentry = require("@sentry/node");
 const express = require("express");
 const cors    = require("cors");
 const { apiLimiter, authLimiter, aiLimiter } = require("./middleware/rateLimiter");
+const requestId = require("./middleware/requestId");
+const requestLogger = require("./middleware/requestLogger");
 
 
 const app = express();
@@ -34,7 +36,8 @@ app.use(
 );
 
 app.use(cookieParser());
-
+app.use(requestId);
+app.use(requestLogger);
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
