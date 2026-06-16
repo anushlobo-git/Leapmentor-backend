@@ -15,7 +15,7 @@ const cors    = require("cors");
 const { apiLimiter, authLimiter, aiLimiter } = require("./middleware/rateLimiter");
 const requestId = require("./middleware/requestId");
 const requestLogger = require("./middleware/requestLogger");
-
+const { errors } = require("celebrate");
 
 const app = express();
 
@@ -113,6 +113,7 @@ app.get("/", (req, res) => res.send("🚀 LeapMentor API Running..."));
  //must be after all routes, before module.exports
 Sentry.setupExpressErrorHandler(app);
 
+app.use(errors());
 app.use(errorHandler);
 
 

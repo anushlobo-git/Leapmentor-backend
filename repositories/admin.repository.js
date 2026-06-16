@@ -20,14 +20,6 @@ const findAdminByEmail = (email) => AdminUser.findOne({ email });
  */
 const saveAdmin = (admin) => admin.save();
 
-/**
- * Retrieve a complete, operational Mongoose document instance for a specific administrator ID.
- * @description Excludes lean optimization to preserve custom schema document prototype methods
- * (e.g., password comparison hooks).
- * @param {string} id - Unique database identifier key of the administrator.
- * @returns {Promise<Object|null>} Executable administrator document registry map or null.
- */
-const findAdminById = (id) => AdminUser.findById(id);
 
 /**
  * Fetch a optimized, read-only administrative snapshot containing only the platform commission rate.
@@ -96,7 +88,6 @@ const findActiveAdminLean = () => {
 module.exports = {
   findAdminByEmail,
   saveAdmin,
-  findAdminById,
   findAdminByIdLean,
   createAdmin,
   updateAdminById,

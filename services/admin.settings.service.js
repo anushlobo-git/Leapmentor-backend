@@ -6,7 +6,6 @@
 
 const AppError = require("../utils/AppError");
 const {
-  findAdminById,
   findAdminByIdLean,
   findAdminByEmail,
   saveAdmin,
@@ -36,6 +35,8 @@ const getOverviewService = async () => {
   return { totalUsers, activeSessions };
 };
 
+
+//This function can be deleted cause its not used 
 /**
  * Modify and update an authenticated administrator's secure password credentials.
  * @param {string} adminId                 - Unique identifier database key of the administrator.
@@ -46,6 +47,8 @@ const getOverviewService = async () => {
  * @throws {AppError} 404                  - If target administrator lookup returns empty.
  * @returns {Promise<void>}
  */
+
+/*
 const changeAdminPasswordService = async (
   adminId,
   { currentPassword, newPassword },
@@ -79,6 +82,8 @@ const changeAdminPasswordService = async (
   admin.password = newPassword; // Document middleware pre-save hook handles cryptography hashing
   await saveAdmin(admin);
 };
+*/
+
 
 /**
  * Register and provision a brand-new secondary system administrative entity.
@@ -158,7 +163,7 @@ const updateCommissionService = async (adminId, commissionRate) => {
 
 module.exports = {
   getOverviewService,
-  changeAdminPasswordService,
+  //changeAdminPasswordService,
   addAdminService,
   getCommissionService,
   updateCommissionService,

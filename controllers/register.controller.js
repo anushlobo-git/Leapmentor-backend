@@ -1,30 +1,33 @@
-// controllers/register.controller.js
+/**
+ * @fileoverview User Account Registration Controller
+ * @description  Thin request/response handlers orchestrating new user account provisioning,
+ * secure asset wallet setups, and initial authentication session issuing.
+ */
+
+const catchAsync = require("../utils/catchAsync");
 const { registerUser } = require("../services/auth.service");
 const { setAuthCookies } = require("../utils/auth.cookies");
 
-const register = async (req, res) => {
-  try {
-    const result = await registerUser(req.body);
+// ── REGISTRATION HANDLERS ────────────────────────────────────
 
-    const role = result.user?.roles?.[0] || null;
-    setAuthCookies(res, result.refreshToken, role);
+/**
+ * Register and provision a brand-new user profile account.
+ * @route   POST /api/v1/auth/register
+ * @access  Public
+ */
+const register = catchAsync(async (req, res) => {
+  const result = await registerUser(req.body);
 
-    return res.status(201).json({
-      message: "Registered successfully",
-      user:result.user,
-      isNewUser:result.isNewUser,
-      accessToken: result.accessToken,
-    });
+  const role = result.user?.roles?.[0] || null;
+  setAuthCookies(res, result.refreshToken, role);
 
-  } catch (err) {
-    // handle specific known errors
-    if (err.message === "ALREADY_REGISTERED") {
-      return res.status(400).json({
-        message: "This email is already registered. Please login instead.",
-      });
-    }
-    return res.status(500).json({ message: err.message });
-  }
-};
+  res.status(201).json({
+    success: true,
+    message: "Registered successfully",
+    user: result.user,
+    isNewUser: result.isNewUser,
+    accessToken: result.accessToken,
+  });
+});
 
 module.exports = { register };

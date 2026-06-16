@@ -17,6 +17,7 @@ const { changePassword } = require("../controllers/changePassword.controller");
 const { authenticate } = require("../middleware/authenticate");
 const { clearAuthCookies } = require("../utils/auth.cookies");
 const { refreshToken } = require("../controllers/refresh.controller");
+const { registerValidation, loginValidation } = require("../validations/auth.validation");
 const {
   linkedinRedirect,
   linkedinCallback,
@@ -26,10 +27,10 @@ const {
 // --- LOCAL AUTHENTICATION & SESSION MANAGEMENT ---
 
 // @route   POST /api/v1/auth/register
-router.post("/register", register);
+router.post("/register", registerValidation, register);
 
 // @route   POST /api/v1/auth/login
-router.post("/login", login);
+router.post("/login", loginValidation, login);
 
 // @route   POST /api/v1/auth/refresh
 router.post("/refresh", refreshToken);
