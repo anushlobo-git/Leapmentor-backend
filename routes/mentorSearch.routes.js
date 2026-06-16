@@ -7,7 +7,6 @@ const express = require("express");
 const router = express.Router();
 const {
   searchMentors,
-  autocompleteMentors,
 } = require("../controllers/mentorSearch.controller");
 const { authenticate, requireRole } = require("../middleware/authenticate");
 
@@ -17,7 +16,5 @@ router.use(authenticate, requireRole("mentee"));
 // @route   GET /api/v1/mentors/search
 router.get("/search", searchMentors);
 
-// @route   GET /api/v1/mentors/autocomplete
-router.get("/autocomplete", autocompleteMentors);
 
 module.exports = router;

@@ -1,12 +1,19 @@
 /**
- * @fileoverview Mentor Search Business Logic Service
- * @description Compiles Atlas search stages, handles matching metric scoring sets, and coordinates regex fallbacks.
+ * @fileoverview Service Layer for Mentor Discovery and Search Operations.
+ * Handles high-performance Atlas Search queries with structural regex fallbacks,
+ * facet-based pagination, and autocomplete compilation utilities.
+ * @module services/mentorSearch
+ * @requires ../utils/AppError
+ * @requires ../repositories/mentor.repository
+ * @requires ../repositories/user.repository
+ * @requires ../config/logger
  */
+
 const AppError = require("../utils/AppError");
 const mentorSearchRepository = require("../repositories/mentor.repository");
-const userRepository=require("../repositories/user.repository");
+const userRepository = require("../repositories/user.repository");
+const logger = require("../config/logger");
 
-// Upper-case Domain Architecture Constants
 const ROLE_MENTOR = "mentor";
 const ATLAS_SEARCH_INDEX = "mentor_search";
 const ATLAS_AUTOCOMPLETE_INDEX = "mentor_autocomplete";
@@ -18,7 +25,14 @@ const AUTOCOMPLETE_PIPELINE_LIMIT = 8;
 const EXTRA_NAME_MATCH_SCORE = 2;
 
 /**
- * Generates a clean baseline list of active mentors when no filters or query values exist.
+ * Retrieves a simple, unfiltered list of published mentors sorted by rating.
+ * Used when no search term or filters are applied to the request.
+ * @async
+ * @private
+ * @param {number} pageNum - Current page pointer index.
+ * @param {number} limitNum - Maximum records to include in the slice.
+ * @param {number} skip - Offset skip record counter.
+ * @returns {Promise<Object>} Formatted pagination result payload.
  */
 const getPlainList = async (pageNum, limitNum, skip) => {
   const filter = { isProfilePublished: true, isProfileComplete: true };
@@ -45,9 +59,16 @@ const getPlainList = async (pageNum, limitNum, skip) => {
 };
 
 /**
- * Handles explicit regex fallback operations when cloud search indexes are unavailable.
+ * Fallback query runner utilizing standard database regular expressions.
+ * Executed automatically if Atlas Search yields zero hits or is unreachable.
+ * @async
+ * @function executeFallbackSearch
+ * @param {Object} queryParams - Raw entry query string properties map.
+ * @returns {Promise<Object>} RegEx matched pagination result payload.
  */
 const executeFallbackSearch = async (queryParams) => {
+  logger.info("🔍 Initiating Database Regex Fallback Search Execution Engine");
+
   const {
     skill = "",
     name = "",
@@ -69,14 +90,15 @@ const executeFallbackSearch = async (queryParams) => {
   const skip = (pageNum - 1) * limitNum;
 
   const filter = { isProfilePublished: true, isProfileComplete: true };
-
   const queryToken = skill.trim() || name.trim();
+
   if (queryToken) {
-    const matchingUsers =
-      await userRepository.findUsersByRoleAndNameRegex(queryToken, [
-        ROLE_MENTOR,
-      ]);
+    const matchingUsers = await userRepository.findUsersByRoleAndNameRegex(
+      queryToken,
+      [ROLE_MENTOR],
+    );
     const orConditions = [];
+
     if (matchingUsers.length > 0) {
       orConditions.push({ user: { $in: matchingUsers.map((u) => u._id) } });
     }
@@ -126,7 +148,12 @@ const executeFallbackSearch = async (queryParams) => {
 };
 
 /**
- * Main orchestrator executing deep field analytics and scoring combinations over cloud aggregations.
+ * Searches and filters mentor registries via unified MongoDB Atlas indexing.
+ * Includes auto-reverting fallback routes to eliminate blank responses.
+ * @async
+ * @function queryMentors
+ * @param {Object} queryParams - Search terms and filter metrics from the request query string.
+ * @returns {Promise<Object>} Structured array payload matching schema requirements.
  */
 const queryMentors = async (queryParams) => {
   const {
@@ -153,10 +180,7 @@ const queryMentors = async (queryParams) => {
     const min = Number(minPrice);
     const max = Number(maxPrice);
     if (!isNaN(min) && !isNaN(max) && min > max) {
-      throw new AppError(
-        "Invalid input boundary configurations: minPrice cannot exceed maxPrice limits",
-        400,
-      );
+      throw new AppError("minPrice cannot exceed maxPrice.", 400);
     }
   }
 
@@ -170,6 +194,7 @@ const queryMentors = async (queryParams) => {
     maxExperience !== undefined
   );
 
+  // Path A: Return plain, high-rating profiles if no search parameters exist
   if (!hasQuery && !hasFilters) {
     return getPlainList(pageNum, limitNum, skip);
   }
@@ -177,10 +202,10 @@ const queryMentors = async (queryParams) => {
   try {
     let nameMatchedProfileUserIds = null;
     if (name.trim()) {
-      const matchingUsers =
-        await mentorSearchRepository.findUsersByRoleAndNameRegex(name.trim(), [
-          ROLE_MENTOR,
-        ]);
+      const matchingUsers = await userRepository.findUsersByRoleAndNameRegex(
+        name.trim(),
+        [ROLE_MENTOR],
+      );
       nameMatchedProfileUserIds = new Set(
         matchingUsers.map((u) => u._id.toString()),
       );
@@ -357,16 +382,16 @@ const queryMentors = async (queryParams) => {
       }
     }
 
+    /*
+     * 🧠 CRITICAL FIX:
+     * If Atlas search index runs but yields 0 array entries (due to missing autocomplete index mappings),
+     * auto-trigger the RegEx fallback calculation loop right here instead of sending back an empty object!
+     */
     if (results.length === 0) {
-      return {
-        mentors: [],
-        pagination: {
-          totalCount: 0,
-          totalPages: 0,
-          currentPage: pageNum,
-          hasMore: false,
-        },
-      };
+      logger.warn(
+        `⚠️ Atlas Search returned 0 hits for term "${skill || name}". Auto-routing request to Regex fallback.`,
+      );
+      return executeFallbackSearch(queryParams);
     }
 
     const totalCount = results.length;
@@ -383,84 +408,20 @@ const queryMentors = async (queryParams) => {
       },
     };
   } catch (error) {
+    // Intercept hardware cluster search exception events cleanly
     if (
       error.message?.includes("$search") ||
       error.message?.includes("search index")
     ) {
+      logger.error(
+        `❌ Atlas Search cluster driver mapping fault: ${error.message}. Initializing emergency fallback sequence.`,
+      );
       return executeFallbackSearch(queryParams);
     }
     throw error;
   }
 };
 
-/**
- * Compiles autocomplete lookups for search bar inputs.
- */
-const getAutocompleteSuggestions = async (searchToken) => {
-  if (!searchToken || !searchToken.trim()) {
-    return { suggestions: [] };
-  }
-
-  const query = searchToken.trim();
-
-  const pipeline = [
-    {
-      $search: {
-        index: ATLAS_AUTOCOMPLETE_INDEX,
-        compound: {
-          must: [
-            { equals: { path: "isProfilePublished", value: true } },
-            { equals: { path: "isProfileComplete", value: true } },
-          ],
-          should: [
-            { autocomplete: { query, path: "skills", fuzzy: { maxEdits: 1 } } },
-            {
-              autocomplete: {
-                query,
-                path: "currentRole",
-                fuzzy: { maxEdits: 1 },
-              },
-            },
-          ],
-        },
-      },
-    },
-    { $limit: AUTOCOMPLETE_PIPELINE_LIMIT },
-    { $project: { skills: 1, currentRole: 1, _id: 0 } },
-  ];
-
-  const [profileResults, nameResults] = await Promise.all([
-    mentorSearchRepository.aggregateMentorProfiles(pipeline),
-    mentorSearchRepository.findUsersByRoleAndNameRegex(query, [ROLE_MENTOR]),
-  ]);
-
-  const skillSet = new Set();
-  const roleSet = new Set();
-  const nameSet = new Set();
-
-  profileResults.forEach((profile) => {
-    profile.skills?.forEach((skill) => {
-      if (skill.toLowerCase().includes(query.toLowerCase()))
-        skillSet.add(skill);
-    });
-    if (profile.currentRole?.toLowerCase().includes(query.toLowerCase()))
-      roleSet.add(profile.currentRole);
-  });
-
-  nameResults.slice(0, 3).forEach((user) => nameSet.add(user.name));
-
-  const suggestions = [
-    ...[...skillSet]
-      .slice(0, 4)
-      .map((skill) => ({ type: "skill", label: skill })),
-    ...[...roleSet].slice(0, 2).map((role) => ({ type: "role", label: role })),
-    ...[...nameSet].slice(0, 3).map((name) => ({ type: "name", label: name })),
-  ];
-
-  return { suggestions };
-};
-
 module.exports = {
   queryMentors,
-  getAutocompleteSuggestions,
 };

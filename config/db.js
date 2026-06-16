@@ -3,10 +3,12 @@
  * @module config/db
  * @requires mongoose
  * @requires ./cloudinary
+ * @requires ./logger
  */
 
 const mongoose = require("mongoose");
 const { verifyConnection } = require("./cloudinary");
+const logger = require("./logger");
 
 /**
  * Establishes a connection pool to the MongoDB cluster and verifies downstream
@@ -18,31 +20,30 @@ const { verifyConnection } = require("./cloudinary");
  */
 const connectDatabase = async () => {
   try {
-    // Ensure the Mongoose connection options match modern driver expectations
     const connectionOptions = {
-      autoIndex: true, // Build indexes automatically in development (disable in high-scale prod if needed)
+      autoIndex: true, // Automatically builds indexes (ideal for development synchronization)
     };
 
-    /**
-     * @type {typeof import("mongoose")}
-     */
+    /** @type {typeof import("mongoose")} */
     const conn = await mongoose.connect(
       process.env.MONGO_URI,
       connectionOptions,
     );
-    console.log(
-      `🟢 MongoDB Connected: Host: ${conn.connection.host} | DB: ${conn.connection.name}`,
+    logger.info(
+      `🟢 MongoDB Connected | Host: ${conn.connection.host} | DB: ${conn.connection.name}`,
     );
 
-    // 2. Immediately verify dependent cloud asset channels (Cloudinary)
+    // Verify Cloudinary asset routing immediately after the DB pool is healthy
     await verifyConnection();
-    console.log("☁️ Cloudinary storage connection verified successfully.");
+    logger.info("☁️ Cloudinary infrastructure verified and ready.");
   } catch (err) {
-    console.error("❌ Critical Database initialization failure:", err.message);
+    logger.error(
+      `❌ Critical External Service initialization failure: ${err.message}`,
+    );
 
     /*
-     * Exit code 1 indicates an unhandled crash. This triggers process managers
-     * (like PM2, Docker, or AWS ECS) to automatically spin up a fresh instance.
+     * Exit code 1 notifies your process manager (PM2, Docker, AWS ECS)
+     * that the server crashed, forcing a clean container reboot.
      */
     process.exit(1);
   }

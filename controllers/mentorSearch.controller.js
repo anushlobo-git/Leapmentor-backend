@@ -18,22 +18,7 @@ const searchMentors = catchAsync(async (req, res) => {
   });
 });
 
-/**
- * Exposes typeahead suggestions matching user structural profiles.
- * @route   GET /api/v1/mentors/autocomplete
- * @access  Private (Mentee Only)
- */
-const autocompleteMentors = catchAsync(async (req, res) => {
-  const result = await mentorSearchService.getAutocompleteSuggestions(
-    req.query.q,
-  );
-  res.status(200).json({
-    success: true,
-    ...result,
-  });
-});
 
 module.exports = {
   searchMentors,
-  autocompleteMentors,
 };

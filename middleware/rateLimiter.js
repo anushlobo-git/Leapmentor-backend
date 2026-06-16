@@ -31,7 +31,7 @@ const apiLimiter = rateLimit({
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 10,
+  max: 100,
   store: makeStore("rl:auth:"),
   keyGenerator: (req) => {
     const email = req.body?.email?.toLowerCase() || "";
