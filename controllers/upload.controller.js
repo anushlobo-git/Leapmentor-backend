@@ -26,7 +26,7 @@ const uploadProfilePicture = catchAsync(async (req, res) => {
  */
 const uploadVerificationDocuments = catchAsync(async (req, res) => {
   const result = await uploadService.processVerificationDocuments(
-    req.user,
+    { ...req.user, _id: req.user._id.toString() },
     req.body,
     req.files,
   );
