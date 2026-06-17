@@ -18,7 +18,7 @@ const makeStore = (prefix) =>
 
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 100,
+  max: 1000,
   store: makeStore("rl:api:"),
   keyGenerator: (req) => getIP(req),
   message: {
@@ -31,7 +31,7 @@ const apiLimiter = rateLimit({
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 100,
+  max: 1000,
   store: makeStore("rl:auth:"),
   keyGenerator: (req) => {
     const email = req.body?.email?.toLowerCase() || "";
@@ -48,7 +48,7 @@ const authLimiter = rateLimit({
 
 const aiLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
-  max: 20,
+  max: 2000,
   store: makeStore("rl:ai:"),
   keyGenerator: (req) => req.user?._id?.toString() || getIP(req),
   message: {
@@ -71,21 +71,21 @@ const createUserLimiter = (max, windowMs, prefix, message) =>
   });
 
 const connectRequestLimiter = createUserLimiter(
-  5,
+  500,
   24 * 60 * 60 * 1000,
   "connect",
   "Daily connect request limit reached. Try again tomorrow.",
 );
 
 const bookingLimiter = createUserLimiter(
-  10,
+  1000,
   60 * 60 * 1000,
   "booking",
   "Too many booking attempts. Try again in an hour.",
 );
 
 const escrowLimiter = createUserLimiter(
-  20,
+  2000,
   60 * 60 * 1000,
   "escrow",
   "Too many payment attempts. Try again in an hour.",

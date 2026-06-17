@@ -12,7 +12,11 @@ const leapRequestService = require("../services/leapRequest.service");
  */
 const getMyRequest = catchAsync(async (req, res) => {
   const request = await leapRequestService.getMyPendingRequest(req.user._id);
-  res.status(200).json(request);
+  
+  res.status(200).json({
+    success: true,
+    data: request || null,
+  });
 });
 
 /**

@@ -9,12 +9,13 @@ const {
   searchMentors,
 } = require("../controllers/mentorSearch.controller");
 const { authenticate, requireRole } = require("../middleware/authenticate");
+const { searchMentorsValidation }=require("../validations/mentorSearch.validation");
 
 // Lock all downstream search channels under verified mentee authorizations
 router.use(authenticate, requireRole("mentee"));
 
 // @route   GET /api/v1/mentors/search
-router.get("/search", searchMentors);
+router.get("/search", searchMentorsValidation ,searchMentors);
 
 
 module.exports = router;
