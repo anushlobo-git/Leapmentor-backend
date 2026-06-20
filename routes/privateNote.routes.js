@@ -1,20 +1,31 @@
-// backend/routes/privateNote.routes.js
+/**
+ * @fileoverview User Personal Workspace Notes Systems Configuration Routing Framework
+ * @prefix       /api/v1/private-notes
+ * @access       Private (Authenticated Session Participants Only)
+ */
 const express = require("express");
-const router  = express.Router();
+const router = express.Router();
+const { authenticate } = require("../middleware/authenticate");
+const {
+  createNote,
+  getNotes,
+  updateNote,
+  deleteNote,
+} = require("../controllers/privateNote.controller");
 
-const { authenticate }                          = require("../middleware/authenticate");
-const { createNote, getNotes, updateNote, deleteNote } = require("../controllers/privateNote.controller");
+// Mount declarative authentication firewall boundary rules processing across all down-stream paths
+router.use(authenticate);
 
-// POST   /api/private-notes                    — create a note
-router.post("/",                authenticate, createNote);
+// @route   POST /api/v1/private-notes
+router.post("/", createNote);
 
-// GET    /api/private-notes/:connectRequestId  — get all notes for session
-router.get("/:connectRequestId", authenticate, getNotes);
+// @route   GET /api/v1/private-notes/:connectRequestId
+router.get("/:connectRequestId", getNotes);
 
-// PATCH  /api/private-notes/:id               — update a note
-router.patch("/:id",             authenticate, updateNote);
+// @route   PATCH /api/v1/private-notes/:id
+router.patch("/:id", updateNote);
 
-// DELETE /api/private-notes/:id               — delete a note
-router.delete("/:id",            authenticate, deleteNote);
+// @route   DELETE /api/v1/private-notes/:id
+router.delete("/:id", deleteNote);
 
 module.exports = router;

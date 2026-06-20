@@ -1,16 +1,37 @@
-// backend/utils/sendInvoiceEmail.js
-const nodemailer      = require("nodemailer");
-const generateInvoice = require("./generateInvoice");
+/**
+ * @fileoverview Billing and Transactional Invoice Document Dispatcher.
+ * Generates dynamic secure PDF binaries and distributes structured invoice
+ * statements to acquiring accounts via Nodemailer SMTP.
+ * @module utils/sendInvoiceEmail
+ * @requires nodemailer
+ * @requires ./generateInvoice
+ * @requires ../config/logger
+ */
 
+const nodemailer = require("nodemailer");
+const generateInvoice = require("./generateInvoice");
+const logger = require("../config/logger");
+
+/** * Native Nodemailer transport coordinator mapping to environmental SMTP targets.
+ * @type {import('nodemailer').Transporter}
+ */
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST,
   port: Number(process.env.SMTP_PORT) || 587,
-  secure: process.env.SMTP_SECURE === "true",
+  secure: process.env.SMTP_SECURE === "true", // Evaluates strict TLS handshakes
   auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
 });
 
-const LOGO_URL = "https://res.cloudinary.com/dturqwsyo/image/upload/v1775526481/logo_rkj2ta.png";
+/** @const {string} LOGO_URL - Remote public secure resource path for branding injects */
+const LOGO_URL =
+  "https://res.cloudinary.com/dturqwsyo/image/upload/v1775526481/logo_rkj2ta.png";
 
+/**
+ * Envelops granular context markups inside defensive, mobile-responsive semantic boilerplates.
+ * @function wrapEmail
+ * @param {string} innerHtml - Core structural billing summary markup stream.
+ * @returns {string} Compiled structural document string.
+ */
 const wrapEmail = (innerHtml) => `
   <!DOCTYPE html>
   <html lang="en">
@@ -42,6 +63,14 @@ const wrapEmail = (innerHtml) => `
   </html>
 `;
 
+/**
+ * Builds a standardized transactional header layout component block.
+ * @function buildHeader
+ * @param {string} bgGradient - Target linear rendering profile.
+ * @param {string} title - Primary confirmation context string.
+ * @param {string} subtitle - Secondary targeted invoice reference number.
+ * @returns {string} Compiled HTML block header string.
+ */
 const buildHeader = (bgGradient, title, subtitle) => `
   <div style="background:${bgGradient};padding:28px 32px 24px;text-align:center;">
     <div style="margin-bottom:14px;">
@@ -65,6 +94,7 @@ const buildHeader = (bgGradient, title, subtitle) => `
   </div>
 `;
 
+/** @const {string} FOOTER - Global application footer boilerplate signature component */
 const FOOTER = `
   <div style="padding:18px 32px;border-top:1px solid #e2e8f0;text-align:center;">
     <p style="font-size:12px;color:#94a3b8;margin:0;">
@@ -73,12 +103,33 @@ const FOOTER = `
   </div>
 `;
 
+/**
+ * Compiles billing parameter summary tables, runs internal downstream PDF generation engines,
+ * and attaches raw invoice binaries to transactional emails aimed at the purchasing mentee.
+ * * @async
+ * @function sendInvoiceEmail
+ * @param {Object} params - Unified transactional invoice parameters.
+ * @param {string|import('mongoose').Types.ObjectId} params.connectRequestId - Unique relationship identifier block reference pointer.
+ * @param {string} params.menteeName - Given name profile value of the purchasing client.
+ * @param {string} params.menteeEmail - Target destination email address of the purchasing client.
+ * @param {string} params.mentorName - Given name profile value of the servicing professional.
+ * @param {number} params.sessionRate - Calculated cost asset scale per unit engagement block.
+ * @param {number} params.sessionCount - Magnitude of allocated slots locked in escrow.
+ * @param {number} params.totalAmount - Absolute aggregate token scale valuation.
+ * @throws {Error} If downstream PDF creation processes abort or mail service gateways fail.
+ */
 const sendInvoiceEmail = async (params) => {
   const {
-    connectRequestId, menteeName, menteeEmail,
-    mentorName, sessionRate, sessionCount, totalAmount,
+    connectRequestId,
+    menteeName,
+    menteeEmail,
+    mentorName,
+    sessionRate,
+    sessionCount,
+    totalAmount,
   } = params;
 
+  // Formulate clear, queryable reference descriptors matching standard reporting definitions
   const invoiceNumber = `INV-${connectRequestId.toString().slice(-6).toUpperCase()}-${Date.now().toString().slice(-4)}`;
   const pdfBuffer = await generateInvoice({ ...params, invoiceNumber });
 
@@ -139,10 +190,27 @@ const sendInvoiceEmail = async (params) => {
     to: menteeEmail,
     subject: `Your Invoice #${invoiceNumber} — Leapmentor`,
     html,
-    attachments: [{ filename: `Invoice-${invoiceNumber}.pdf`, content: pdfBuffer, contentType: "application/pdf" }],
+    attachments: [
+      {
+        filename: `Invoice-${invoiceNumber}.pdf`,
+        content: pdfBuffer,
+        contentType: "application/pdf",
+      },
+    ],
   });
 
-  console.log(`✅ Invoice email sent to ${menteeEmail} — ${invoiceNumber}`);
+  // Track confirmation telemetry inside the structured logging pipeline
+  logger.info("✅ Invoice notification email dispatched successfully", {
+    connectRequestId: connectRequestId.toString(),
+    invoiceNumber,
+    billingMetrics: {
+      recipientMentee: menteeEmail,
+      associatedMentor: mentorName,
+      unitCount: sessionCount,
+      unitRate: `${sessionRate} tokens`,
+      aggregateTotal: `${totalAmount} tokens`,
+    },
+  });
 };
 
 module.exports = sendInvoiceEmail;

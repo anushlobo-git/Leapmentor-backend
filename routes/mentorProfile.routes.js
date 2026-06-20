@@ -1,11 +1,12 @@
-// routes/mentorProfile.routes.js
+/**
+ * @fileoverview Mentor Profiles Customizations Routes
+ * @description  Configures onboarding profile parameter generations, records validation, updates, and public displays.
+ * @prefix       /api/v1/mentor-profile
+ * @access       Public / Private (Mentor Only)
+ */
 
-
-// POST   /api/mentor-profile        ← create profile (mentor only)
-// GET    /api/mentor-profile/me     ← get own profile (mentor only)
-// PUT    /api/mentor-profile/me     ← update profile (mentor only)
-// GET    /api/mentor-profile/:id    ← public profile (no auth)
 const express = require("express");
+const router = express.Router();
 const { authenticate, requireRole } = require("../middleware/authenticate");
 const {
   createProfile,
@@ -14,35 +15,24 @@ const {
   getPublicProfile,
 } = require("../controllers/mentorProfile.controller");
 
-const router = express.Router();
+// --- PROTECTED MENTOR LIFECYCLE MANAGEMENT PIPELINES (Static Routes First) ---
 
-// ✅ POST /api/mentor-profile — create profile (onboarding)
-router.post(
-  "/",
-  authenticate,
-  requireRole("mentor"),
-  createProfile
-);
+// @route   GET /api/v1/mentor-profile/me
+// Protected static path evaluated before wildcards
+router.get("/me", authenticate, requireRole("mentor"), getMyProfile);
 
-// ✅ GET /api/mentor-profile/me — get own profile
-router.get(
-  "/me",
-  authenticate,
-  requireRole("mentor"),
-  getMyProfile
-);
+// @route   PUT /api/v1/mentor-profile/me
+// Protected static path evaluated before wildcards
+router.put("/me", authenticate, requireRole("mentor"), updateProfile);
 
-// ✅ PUT /api/mentor-profile/me — update own profile
-router.put(
-  "/me",
-  authenticate,
-  requireRole("mentor"),
-  updateProfile
-);
+// @route   POST /api/v1/mentor-profile
+// Protected creation path
+router.post("/", authenticate, requireRole("mentor"), createProfile);
 
-// ✅ GET /api/mentor-profile/:id — get any mentor's public profile (no auth needed)
+// --- PUBLIC READ ONLY VIEWS CHANNELS (Wildcard Routes Last) ---
+
+// @route   GET /api/v1/mentor-profile/:id
+// Dynamic catch-all parameter moved safely to the bottom
 router.get("/:id", getPublicProfile);
 
 module.exports = router;
-
-

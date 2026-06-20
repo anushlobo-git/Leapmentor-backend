@@ -4,7 +4,7 @@
  * revenue trends, and querying the global transactional financial ledger.
  */
 
-const { findAdminById } = require("../repositories/admin.repository");
+const { findAdminByIdLean } = require("../repositories/admin.repository");
 const {
   findCompletedPaidSessions,
   countRefundedRequests,
@@ -32,7 +32,7 @@ const MAX_LIMIT_SIZE = 20;
  * @returns {Promise<Object>}  Calculated payment telemetry and commission metrics.
  */
 const getPaymentStatsService = async (adminId) => {
-  const adminUser = await findAdminById(adminId);
+  const adminUser = await findAdminByIdLean(adminId);
   const commissionRate = adminUser?.commissionRate ?? DEFAULT_COMMISSION_RATE;
 
   const completedSessions = await findCompletedPaidSessions();

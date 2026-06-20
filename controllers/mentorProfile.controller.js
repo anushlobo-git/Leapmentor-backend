@@ -1,126 +1,64 @@
-// controllers/mentorProfile.controller.js
-const MentorProfile = require("../models/MentorProfile");
+/**
+ * @fileoverview Mentor Profile Controller
+ * @description Clear network layer interface interface forwarding payloads straight to background profile engine services.
+ */
+
+const catchAsync = require("../utils/catchAsync");
+const mentorProfileService = require("../services/mentorProfile.service");
 
 /**
- * POST /api/mentor-profile
- * Create mentor profile (onboarding form submission)
+ * Processes incoming profile parameters creating fresh onboarding records.
+ * @route   POST /api/v1/mentor-profile
+ * @access  Private (Mentor Only)
  */
-const createProfile = async (req, res) => {
-  try {
-    const existing = await MentorProfile.findOne({ user: req.user._id });
-    if (existing) {
-      return res.status(409).json({ message: "Profile already exists. Use update instead." });
-    }
+const createProfile = catchAsync(async (req, res) => {
+  const profile = await mentorProfileService.createProfile(
+    req.user._id,
+    req.body,
+  );
 
-    const {
-      currentRole,
-      industry,
-      company,
-      bio,
-      profilePicture,
-      yearsOfExperience,
-      hourlyRate,
-      skills,
-      communicationPreferences,
-      languages,
-      linkedInUrl,
-      portfolioUrl,
-    } = req.body;
-
-    const profile = await MentorProfile.create({
-      user: req.user._id,
-      currentRole,
-      industry,
-      company,
-      bio,
-      profilePicture: profilePicture || "",
-      yearsOfExperience: yearsOfExperience || 0,
-      hourlyRate: hourlyRate || 0,
-      skills: skills || [],
-      communicationPreferences: communicationPreferences || [],
-      languages: languages || ["English"],
-      linkedInUrl: linkedInUrl || "",
-      portfolioUrl: portfolioUrl || "",
-      isProfileComplete: true,
-      isProfilePublished: true,
-    });
-
-    return res.status(201).json({
-      message: "Mentor profile created successfully",
-      profile,
-    });
-  } catch (err) {
-    return res.status(500).json({ message: err.message });
-  }
-};
+  res.status(201).json({
+    message: "Mentor profile created successfully",
+    profile,
+  });
+});
 
 /**
- * GET /api/mentor-profile/me
- * Get logged-in mentor's own profile
+ * Exposes the full user mapping dataset matching logged-in account tokens.
+ * @route   GET /api/v1/mentor-profile/me
+ * @access  Private (Mentor Only)
  */
-const getMyProfile = async (req, res) => {
-  try {
-    const profile = await MentorProfile.findOne({ user: req.user._id })
-      .populate("user", "name email isEmailVerified");
-
-    if (!profile) {
-      return res.status(404).json({
-        message: "Profile not found",
-        isProfileComplete: false,
-      });
-    }
-
-    return res.json(profile);
-  } catch (err) {
-    return res.status(500).json({ message: err.message });
-  }
-};
+const getMyProfile = catchAsync(async (req, res) => {
+  const profile = await mentorProfileService.getMyProfile(req.user._id);
+  res.status(200).json(profile);
+});
 
 /**
- * PUT /api/mentor-profile/me
- * Update logged-in mentor's own profile
+ * Captures request body segments rewriting target profile information elements.
+ * @route   PUT /api/v1/mentor-profile/me
+ * @access  Private (Mentor Only)
  */
-const updateProfile = async (req, res) => {
-  try {
-    const profile = await MentorProfile.findOneAndUpdate(
-      { user: req.user._id },
-      { $set: req.body },
-      { new: true, runValidators: true }
-    );
+const updateProfile = catchAsync(async (req, res) => {
+  const profile = await mentorProfileService.updateMyProfile(
+    req.user._id,
+    req.body,
+  );
 
-    if (!profile) {
-      return res.status(404).json({ message: "Profile not found" });
-    }
-
-    return res.json({
-      message: "Profile updated successfully",
-      profile,
-    });
-  } catch (err) {
-    return res.status(500).json({ message: err.message });
-  }
-};
+  res.status(200).json({
+    message: "Profile updated successfully",
+    profile,
+  });
+});
 
 /**
- * GET /api/mentor-profile/:id
- * Get any mentor's public profile by userId
+ * Returns public metadata layouts tracking targeted profiles indices.
+ * @route   GET /api/v1/mentor-profile/:id
+ * @access  Public
  */
-const getPublicProfile = async (req, res) => {
-  try {
-    const profile = await MentorProfile.findOne({
-      user: req.params.id,
-      isProfilePublished: true,   // ✅ updated field name
-    }).populate("user", "name email");
-
-    if (!profile) {
-      return res.status(404).json({ message: "Mentor profile not found" });
-    }
-
-    return res.json(profile);
-  } catch (err) {
-    return res.status(500).json({ message: err.message });
-  }
-};
+const getPublicProfile = catchAsync(async (req, res) => {
+  const profile = await mentorProfileService.getPublicProfile(req.params.id);
+  res.status(200).json(profile);
+});
 
 module.exports = {
   createProfile,

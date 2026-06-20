@@ -1,70 +1,42 @@
-const SupportMessage = require("../models/SupportMessage");
-const Notification   = require("../models/Notification");
-const User           = require("../models/User");
-const { sendSupportResolvedEmail } = require("../utils/sendNotificationEmail");
+/**
+ * @fileoverview Customer Support Domain Gateway Controller
+ * @description Thin network pipeline interface validating entry queries parameters and processing payload streaming configurations.
+ */
+const catchAsync = require("../utils/catchAsync");
+const supportService = require("../services/supportMessage.service");
 
-exports.createMessage = async (req, res) => {
-  try {
-    const { email, subject, message, role } = req.body;
-    if (!email || !subject || !message) {
-      return res.status(400).json({ error: "All fields are required" });
-    }
-    const msg = await SupportMessage.create({
-      email, subject, message, role: role || "user", status: "open",
-    });
-    res.status(201).json(msg);
-  } catch (err) {
-    res.status(500).json({ error: "Server error" });
-  }
-};
+/**
+ * Registers an outward public user concern report ticket data stream block.
+ * @route   POST /api/v1/support/messages
+ * @access  Public
+ */
+const createMessage = catchAsync(async (req, res) => {
+  const supportTicket = await supportService.submitTicket(req.body);
+  res.status(201).json(supportTicket);
+});
 
-exports.getMessages = async (req, res) => {
-  try {
-    const msgs = await SupportMessage.find().sort({ createdAt: -1 });
-    res.json(msgs);
-  } catch (err) {
-    res.status(500).json({ error: "Server error" });
-  }
-};
+/**
+ * Compiles a comprehensive list detailing all operational system help tickets metrics.
+ * @route   GET /api/v1/support/messages
+ * @access  Private (Admin Only)
+ */
+const getMessages = catchAsync(async (req, res) => {
+  const supportTickets = await supportService.fetchAllTickets();
+  res.status(200).json(supportTickets);
+});
 
-exports.resolveMessage = async (req, res) => {
-  try {
-    const msg = await SupportMessage.findByIdAndUpdate(
-      req.params.id,
-      { status: "resolved" },
-      { new: true }
-    );
-    if (!msg) return res.status(404).json({ error: "Not found" });
+/**
+ * Applies mutations moving a targeted support issue tracking index into resolved status parameters.
+ * @route   PATCH /api/v1/support/messages/:id/resolve
+ * @access  Private (Admin Only)
+ */
+const resolveMessage = catchAsync(async (req, res) => {
+  const resolvedTicket = await supportService.resolveTicket(req.params.id);
+  res.status(200).json(resolvedTicket);
+});
 
-    // ── Find user by email to send notification ──────────────
-    const user = await User.findOne({ email: msg.email });
-
-    // ── 1. Dashboard notification (if user account found) ────
-    if (user) {
-      await Notification.create({
-        recipient: user._id,
-        type: "support_resolved",
-        title:     "Support ticket resolved ✅",
-        message:   `Your support request "${msg.subject}" has been resolved by our team.`,
-        read:      false,
-        metadata:  {},
-      });
-    }
-
-    // ── 2. Email notification ─────────────────────────────────
-    try {
-      await sendSupportResolvedEmail({
-        toEmail:  msg.email,
-        subject:  msg.subject,
-      });
-    } catch (emailErr) {
-      console.error("⚠️ Support resolved email failed:", emailErr.message);
-      // don't block the response if email fails
-    }
-
-    res.json(msg);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Server error" });
-  }
+module.exports = {
+  createMessage,
+  getMessages,
+  resolveMessage,
 };

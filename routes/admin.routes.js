@@ -1,8 +1,12 @@
-// backend/routes/admin.routes.js
+/**
+ * @fileoverview Corporate Platform Command and Control Management Operations Routes Blueprint
+ * @prefix       /api/v1/admin
+ * @access       Public / Private (Exclusive Administrator Firewall Access)
+ */
 const express = require("express");
-const router  = express.Router();
+const router = express.Router();
 
-const { adminAuthenticate }  = require("../middleware/adminAuth");
+const { adminAuthenticate } = require("../middleware/adminAuth");
 const {
   adminLogin,
   adminMe,
@@ -19,34 +23,56 @@ const {
   getMentorIndustryStats,
 } = require("../controllers/admin.controller");
 
-const {
-  getPendingCount,
-} = require("../controllers/leapRequest.controller");
+const { getPendingCount } = require("../controllers/leapRequest.controller");
 
-// ── Auth (public) ─────────────────────────────────────────────
+// --- PUBLIC INITIALIZATION ACCESS PORTS ---
+// @route   POST /api/v1/admin/auth/login
 router.post("/auth/login", adminLogin);
+
+// @route   POST /api/v1/admin/auth/logout
 router.post("/auth/logout", adminLogout);
-router.get ("/auth/me",    adminAuthenticate, adminMe);
 
-// ── Stats ─────────────────────────────────────────────────────
-router.get("/stats", adminAuthenticate, getStats);
+// --- SECURED PLATFORM DASHBOARD FIREWALLS (EXCLUSIVE ADMINISTRATOR REALMS) ---
+router.use(adminAuthenticate);
 
-router.get("/user-growth", adminAuthenticate, getUserGrowth);
-// ── User management ───────────────────────────────────────────
-router.get   ("/users",        adminAuthenticate, getUsers);
-router.get   ("/users/:userId", adminAuthenticate, getUserDetail);
-router.delete("/users/:userId", adminAuthenticate, deleteUser);
+// @route   GET /api/v1/admin/auth/me
+router.get("/auth/me", adminMe);
 
-// NEW: Block and Unblock routes
-router.patch ("/users/:userId/block",   adminAuthenticate, blockUser);
-router.patch ("/users/:userId/unblock", adminAuthenticate, unblockUser);
+// --- GLOBAL METRICS & HISTORICAL DATA TIMELINES ---
+// @route   GET /api/v1/admin/stats
+router.get("/stats", getStats);
 
-//engagements
-router.get("/engagements/stats", adminAuthenticate, getEngagementStats);
-router.get("/stats/mentor-industries", adminAuthenticate, getMentorIndustryStats);
-router.get("/engagements",       adminAuthenticate, getEngagements);
+// @route   GET /api/v1/admin/user-growth
+router.get("/user-growth", getUserGrowth);
 
-// ── Leap / Wallet Requests ─────────────────────────────────────
-router.get  ("/leap-requests/pending-count",adminAuthenticate, getPendingCount);
+// @route   GET /api/v1/admin/stats/mentor-industries
+router.get("/stats/mentor-industries", getMentorIndustryStats);
+
+// @route   GET /api/v1/admin/engagements/stats
+router.get("/engagements/stats", getEngagementStats);
+
+// --- USER PROFILE COMPLIANCE AND SECURITY MODIFICATIONS ---
+// @route   GET /api/v1/admin/users
+router.get("/users", getUsers);
+
+// @route   GET /api/v1/admin/users/:userId
+router.get("/users/:userId", getUserDetail);
+
+// @route   DELETE /api/v1/admin/users/:userId
+router.delete("/users/:userId", deleteUser);
+
+// @route   PATCH /api/v1/admin/users/:userId/block
+router.patch("/users/:userId/block", blockUser);
+
+// @route   PATCH /api/v1/admin/users/:userId/unblock
+router.patch("/users/:userId/unblock", unblockUser);
+
+// --- TRANSACTION WORKSPACES AND CONTRACT MONITORS ---
+// @route   GET /api/v1/admin/engagements
+router.get("/engagements", getEngagements);
+
+// --- WALLET REQUESTS & CREDIT ALLOCATION QUEUES ---
+// @route   GET /api/v1/admin/leap-requests/pending-count
+router.get("/leap-requests/pending-count", getPendingCount);
 
 module.exports = router;

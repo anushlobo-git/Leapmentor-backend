@@ -1,15 +1,36 @@
+/**
+ * @fileoverview LinkedIn Authentication Service
+ * @description Coordinates out-of-band Axios calls exchanging authorization codes for verified OpenID connect profiles.
+ */
 const axios = require("axios");
+const AppError = require("../utils/AppError");
 const { socialAuthUser } = require("./socialAuth.service");
 
-const linkedinAuthUser = async ({ code, roles, termsAccepted }) => {
-  if (!code) throw new Error("Missing LinkedIn authorization code");
+// Upper-case Network URL Constants
+const LINKEDIN_TOKEN_ENDPOINT = "https://www.linkedin.com/oauth/v2/accessToken";
+const LINKEDIN_USERINFO_ENDPOINT = "https://api.linkedin.com/v2/userinfo";
+const PROVIDER_LINKEDIN = "linkedin";
 
-   let tokenRes;
+/**
+ * Exchanges unique transaction tokens for open identity claims parameters.
+ * @description Executes authorization code grants via secure form encoding, requests profile attributes,
+ * extracts OpenID matching contexts, and proxies parameters down into core social authentication handlers.
+ * @param {Object} params Operational execution configurations map.
+ * @param {string} params.code Alphanumeric temporary authorization validation code returned from LinkedIn redirects.
+ * @param {Array<string>} [params.roles] Intended target roles allocated down across registrations workflows.
+ * @param {boolean} [params.termsAccepted] Profile acceptance configuration agreement flag tracker.
+ * @throws {AppError} 400 | 401
+ * @returns {Promise<Object>} Signed system access tokens and matched user configuration records.
+ */
+const exchangeLinkedinCode = async ({ code, roles, termsAccepted }) => {
+  if (!code) {
+    throw new AppError("Missing LinkedIn authorization code", 400);
+  }
 
-  // Step 1 — Exchange code for access token
+  let tokenRes;
   try {
-     tokenRes = await axios.post(
-      "https://www.linkedin.com/oauth/v2/accessToken",
+    tokenRes = await axios.post(
+      LINKEDIN_TOKEN_ENDPOINT,
       new URLSearchParams({
         grant_type: "authorization_code",
         code,
@@ -19,35 +40,52 @@ const linkedinAuthUser = async ({ code, roles, termsAccepted }) => {
       }),
       { headers: { "Content-Type": "application/x-www-form-urlencoded" } },
     );
-  } catch (err) {
-    throw err;
+  } catch (axiosError) {
+    const errorDetails =
+      axiosError.response?.data?.error_description || axiosError.message;
+    throw new AppError(
+      `LinkedIn OAuth code exchange failure: ${errorDetails}`,
+      401,
+    );
   }
 
   const accessToken = tokenRes.data.access_token;
-  if (!accessToken) throw new Error("Failed to get LinkedIn access token");
-
-  // Step 2 — Fetch profile from OpenID Connect endpoint
-  // This works because "Sign In with LinkedIn using OpenID Connect"
-  // is enabled in your LinkedIn Developer Portal
-  const profileRes = await axios.get("https://api.linkedin.com/v2/userinfo", {
-    headers: { Authorization: `Bearer ${accessToken}` },
-  });
-
-  const p = profileRes.data;
-
-  // OpenID Connect returns these fields
-  const providerId = p.sub; // unique LinkedIn user ID
-  const email = p.email?.toLowerCase()?.trim();
-  const name =
-    p.name || `${p.given_name || ""} ${p.family_name || ""}`.trim() || "User";
-
-  if (!providerId || !email) {
-    throw new Error("LinkedIn did not return required profile data");
+  if (!accessToken) {
+    throw new AppError(
+      "Failed to obtain a valid LinkedIn access token properties reference",
+      401,
+    );
   }
 
-  // Step 3 — Hand off to existing socialAuthUser
+  let profileRes;
+  try {
+    profileRes = await axios.get(LINKEDIN_USERINFO_ENDPOINT, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+  } catch (profileError) {
+    throw new AppError(
+      `Failed to fetch profile info from LinkedIn OpenID endpoints: ${profileError.message}`,
+      401,
+    );
+  }
+
+  const profileData = profileRes.data;
+  const providerId = profileData.sub;
+  const email = profileData.email?.toLowerCase()?.trim();
+  const name =
+    profileData.name ||
+    `${profileData.given_name || ""} ${profileData.family_name || ""}`.trim() ||
+    "User";
+
+  if (!providerId || !email) {
+    throw new AppError(
+      "LinkedIn authentication failed: structural OpenID profile attributes missing",
+      400,
+    );
+  }
+
   return socialAuthUser({
-    provider: "linkedin",
+    provider: PROVIDER_LINKEDIN,
     providerId,
     email,
     name,
@@ -56,4 +94,4 @@ const linkedinAuthUser = async ({ code, roles, termsAccepted }) => {
   });
 };
 
-module.exports = { linkedinAuthUser };
+module.exports = { exchangeLinkedinCode };

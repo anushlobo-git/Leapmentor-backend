@@ -1,73 +1,67 @@
-// optimal/controllers/notification.controller.js
-const Notification = require("../models/Notification");
+/**
+ * @fileoverview Notification Domain Gateway Controller
+ * @description Thin network interface wrapper validating queries contexts parameters and managing JSON outputs status mappings.
+ */
+const catchAsync = require("../utils/catchAsync");
+const notificationService = require("../services/notification.service");
 
-// GET /api/notifications — get all notifications for logged-in user
-const getNotifications = async (req, res) => {
-  try {
-    console.log("🔍 Getting notifications for user ID:", req.user._id.toString());
-    const all = await Notification.find({});
-    console.log("🔍 Total notifications in DB:", all.length);
-    console.log("🔍 All recipient IDs in DB:", all.map(n => n.recipient.toString()));
+/**
+ * Pulls an array listing containing alerts matching current account cookies.
+ * @route   GET /api/v1/notifications
+ * @access  Private
+ */
+const getNotifications = catchAsync(async (req, res) => {
+  const notifications = await notificationService.getRecipientNotifications(
+    req.user._id,
+  );
+  res.status(200).json({ notifications });
+});
 
-    const notifications = await Notification.find({ recipient: req.user._id })
-      .sort({ createdAt: -1 })
-      .limit(50);
-    
-    console.log("🔍 Matched notifications for this user:", notifications.length);
-    res.json({ notifications });
-  } catch (err) {
-    res.status(500).json({ message: "Failed to fetch notifications" });
-  }
-};
+/**
+ * Flips multiple tracking statuses across target alert indices records fields arrays.
+ * @route   PATCH /api/v1/notifications/mark-all-read
+ * @access  Private
+ */
+const markAllRead = catchAsync(async (req, res) => {
+  await notificationService.markAllNotificationsAsRead(req.user._id);
+  res.status(200).json({ message: "All notifications marked as read" });
+});
 
-// PATCH /api/notifications/mark-all-read
-const markAllRead = async (req, res) => {
-  try {
-    await Notification.updateMany(
-      { recipient: req.user._id, read: false },
-      { read: true }
-    );
-    res.json({ message: "All notifications marked as read" });
-  } catch (err) {
-    res.status(500).json({ message: "Failed to mark notifications as read" });
-  }
-};
+/**
+ * References a specific alert object mapping parameter converting read flag configurations.
+ * @route   PATCH /api/v1/notifications/:id/read
+ * @access  Private
+ */
+const markOneRead = catchAsync(async (req, res) => {
+  await notificationService.markOneNotificationAsRead(
+    req.params.id,
+    req.user._id,
+  );
+  res.status(200).json({ message: "Notification marked as read" });
+});
 
-// PATCH /api/notifications/:id/read
-const markOneRead = async (req, res) => {
-  try {
-    await Notification.findOneAndUpdate(
-      { _id: req.params.id, recipient: req.user._id },
-      { read: true }
-    );
-    res.json({ message: "Notification marked as read" });
-  } catch (err) {
-    res.status(500).json({ message: "Failed to mark notification as read" });
-  }
-};
+/**
+ * Safely unlinks a target alert from the document collections.
+ * @route   DELETE /api/v1/notifications/:id
+ * @access  Private
+ */
+const deleteNotification = catchAsync(async (req, res) => {
+  await notificationService.removeNotificationRecord(
+    req.params.id,
+    req.user._id,
+  );
+  res.status(200).json({ message: "Notification deleted" });
+});
 
-// DELETE /api/notifications/:id
-const deleteNotification = async (req, res) => {
-  try {
-    await Notification.findOneAndDelete({
-      _id: req.params.id,
-      recipient: req.user._id,
-    });
-    res.json({ message: "Notification deleted" });
-  } catch (err) {
-    res.status(500).json({ message: "Failed to delete notification" });
-  }
-};
-
-// DELETE /api/notifications/clear-all
-const clearAll = async (req, res) => {
-  try {
-    await Notification.deleteMany({ recipient: req.user._id });
-    res.json({ message: "All notifications cleared" });
-  } catch (err) {
-    res.status(500).json({ message: "Failed to clear notifications" });
-  }
-};
+/**
+ * Clears the entire alert record trace dataset matching the user credentials.
+ * @route   DELETE /api/v1/notifications/clear-all
+ * @access  Private
+ */
+const clearAll = catchAsync(async (req, res) => {
+  await notificationService.clearAllUserNotifications(req.user._id);
+  res.status(200).json({ message: "All notifications cleared" });
+});
 
 module.exports = {
   getNotifications,
@@ -75,4 +69,4 @@ module.exports = {
   markOneRead,
   deleteNotification,
   clearAll,
-}; 
+};

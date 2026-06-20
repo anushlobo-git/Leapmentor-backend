@@ -26,9 +26,6 @@ const getMyPendingRequest = async (menteeId) => {
     menteeId,
     STATUS_PENDING,
   );
-  if (!request) {
-    throw new AppError("No pending points allocation request found.", 404);
-  }
   return request;
 };
 

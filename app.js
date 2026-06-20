@@ -13,7 +13,9 @@ const Sentry = require("@sentry/node");
 const express = require("express");
 const cors    = require("cors");
 const { apiLimiter, authLimiter, aiLimiter } = require("./middleware/rateLimiter");
-
+const requestId = require("./middleware/requestId");
+const requestLogger = require("./middleware/requestLogger");
+const { errors } = require("celebrate");
 
 const app = express();
 
@@ -34,7 +36,8 @@ app.use(
 );
 
 app.use(cookieParser());
-
+app.use(requestId);
+app.use(requestLogger);
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
@@ -75,7 +78,7 @@ v1.use("/invoices",         require("./routes/invoice.routes"));
 v1.use("/goals",            require("./routes/goal.routes"));
 v1.use("/messages",         require("./routes/message.routes"));
 v1.use("/notes",            require("./routes/note.routes"));
-v1.use("/notifications",    require("./routes/notifications"));
+v1.use("/notifications",    require("./routes/notification.routes.js"));
 v1.use("/feedback",         require("./routes/feedback.routes"));
 v1.use("/reports",          require("./routes/report.routes"));
 v1.use("/sessions",         require("./routes/session.routes"));
@@ -110,6 +113,7 @@ app.get("/", (req, res) => res.send("🚀 LeapMentor API Running..."));
  //must be after all routes, before module.exports
 Sentry.setupExpressErrorHandler(app);
 
+app.use(errors());
 app.use(errorHandler);
 
 

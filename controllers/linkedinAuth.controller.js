@@ -1,40 +1,62 @@
-const { linkedinAuthUser } = require("../services/linkedinAuth.service");
-const { signState, verifyState } = require("../utils/auth.utils");
-const {setAuthCookies} = require("../utils/auth.cookies");
+/**
+ * @fileoverview LinkedIn OAuth Controller
+ * @description Thin network interface wrapper parsing federated parameters, issuing redirects, and setting verification security records.
+ */
+const catchAsync = require("../utils/catchAsync");
 const logger = require("../config/logger");
+const { exchangeLinkedinCode } = require("../services/linkedinAuth.service");
+const { signState, verifyState } = require("../utils/auth.utils");
+const { setAuthCookies } = require("../utils/auth.cookies");
 
-// Step 1 — Browser hits this to start OAuth
-// Signs state with HMAC so it can't be tampered with
+// Upper-case Redirect Mapping Configuration Constants
+const LINKEDIN_AUTH_GATEWAY = "https://www.linkedin.com/oauth/v2/authorization";
+const OAUTH_SCOPE_CLAIMS = "openid profile email";
+const OAUTH_RESPONSE_TYPE = "code";
+
+/**
+ * Initiates the outward browser flow bouncing users out toward the LinkedIn sign-in page.
+ * @route   GET /api/v1/auth/linkedin
+ * @access  Public
+ */
 const linkedinRedirect = (req, res) => {
   const { role, termsAccepted } = req.query;
-
   const state = signState({ role, termsAccepted });
 
   const params = new URLSearchParams({
-    response_type: "code",
+    response_type: OAUTH_RESPONSE_TYPE,
     client_id: process.env.LINKEDIN_CLIENT_ID,
     redirect_uri: process.env.LINKEDIN_CALLBACK_URL,
-    scope: "openid profile email",
+    scope: OAUTH_SCOPE_CLAIMS,
     state,
   });
-  logger.info("LinkedIn OAuth redirect initiated", { role });
 
-  res.redirect(`https://www.linkedin.com/oauth/v2/authorization?${params}`);
+  logger.info("LinkedIn OAuth transaction route redirect triggered", { role });
+  res.redirect(`${LINKEDIN_AUTH_GATEWAY}?${params}`);
 };
 
-// Step 2 — LinkedIn redirects back here with code
-// Verifies state wasn't tampered with, then forwards to frontend
+/**
+ * Catches incoming out-of-band queries routed directly from external LinkedIn network validations.
+ * @route   GET /api/v1/auth/linkedin/callback
+ * @access  Public
+ */
 const linkedinCallback = (req, res) => {
-  const { code, state } = req.query;
+  const { code, state, error } = req.query;
 
-  if (!code) {
+  if (error || !code) {
+    logger.warn(
+      "LinkedIn client validation pipeline failed or denied by resource owner",
+      { error },
+    );
     return res.redirect(`${process.env.CLIENT_URL}/?linkedin=failure`);
   }
 
   try {
-    verifyState(state); // throws if signature is invalid
-  } catch {
-    logger.warn("LinkedIn callback state verification failed");
+    verifyState(state);
+  } catch (stateVerificationError) {
+    logger.warn(
+      "LinkedIn validation token state structure verification crashed",
+      { message: stateVerificationError.message },
+    );
     return res.redirect(
       `${process.env.CLIENT_URL}/?linkedin=failure&reason=invalid_state`,
     );
@@ -45,32 +67,31 @@ const linkedinCallback = (req, res) => {
   );
 };
 
-// Step 3 — Frontend posts code here to get JWT token
-// Mirrors googleAuth controller exactly
-const linkedinAuth = async (req, res) => {
-  try {
-    const result = await linkedinAuthUser(req.body);
+/**
+ * Accepts code validations from frontend assets, returning logged in authentication sessions.
+ * @route   POST /api/v1/auth/linkedin/token
+ * @access  Public
+ */
+const linkedinAuth = catchAsync(async (req, res) => {
+  const result = await exchangeLinkedinCode({
+    code: req.body.code,
+    roles: req.body.roles,
+    termsAccepted: req.body.termsAccepted,
+  });
 
-    // ✅ Set token + role as cookies
-    const role = result.user?.roles?.[0] || null;
-    setAuthCookies(res, result.refreshtToken, role);
+  const primaryRole = result.user?.roles?.[0] || null;
+  setAuthCookies(res, result.refreshToken, primaryRole);
 
-    return res.json({
-      message: "LinkedIn login successful",
-      user: result.user,
-      accessToken: result.accessToken,
-      isNewUser: result.isNewUser,
-    });
-  } catch (err) {
-    logger.warn("LinkedIn auth failed", { error: err.message });
-    if (err.message === "TERMS_NOT_ACCEPTED")
-      return res
-        .status(400)
-        .json({ message: "You must accept terms to continue" });
-    return res
-      .status(401)
-      .json({ message: "LinkedIn authentication failed", error: err.message });
-  }
+  res.status(200).json({
+    message: "LinkedIn login successful",
+    user: result.user,
+    accessToken: result.accessToken,
+    isNewUser: result.isNewUser,
+  });
+});
+
+module.exports = {
+  linkedinRedirect,
+  linkedinCallback,
+  linkedinAuth,
 };
-
-module.exports = { linkedinRedirect, linkedinCallback, linkedinAuth };

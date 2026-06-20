@@ -1,7 +1,10 @@
-// backend/routes/slotLock.routes.js
+/**
+ * @fileoverview Concurrent Session Slot Locking and Checking-Out System Routes Layout
+ * @prefix       /api/v1/slot-locks
+ * @access       Private (Authenticated Dashboard States Only)
+ */
 const express = require("express");
-const router  = express.Router();
-
+const router = express.Router();
 const { authenticate } = require("../middleware/authenticate");
 const {
   lockSlot,
@@ -10,16 +13,19 @@ const {
   getActiveLocks,
 } = require("../controllers/slotLock.controller");
 
-// Lock a slot (mentee selects a slot)
-router.post("/lock", authenticate, lockSlot);
+// Establish global pipeline authentication rules context monitoring parameter boundaries
+router.use(authenticate);
 
-// Unlock a specific slot (mentee deselects a slot)
-router.post("/unlock", authenticate, unlockSlot);
+// @route   POST /api/v1/slot-locks/lock
+router.post("/lock", lockSlot);
 
-// Unlock all locks by mentee (mentee closes modal)
-router.post("/unlock-all", authenticate, unlockAllByMentee);
+// @route   POST /api/v1/slot-locks/unlock
+router.post("/unlock", unlockSlot);
 
-// Get active locks for a mentor (used internally)
-router.get("/:mentorId", authenticate, getActiveLocks);
+// @route   POST /api/v1/slot-locks/unlock-all
+router.post("/unlock-all", unlockAllByMentee);
+
+// @route   GET /api/v1/slot-locks/:mentorId
+router.get("/:mentorId", getActiveLocks);
 
 module.exports = router;

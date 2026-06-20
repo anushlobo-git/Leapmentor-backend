@@ -42,18 +42,6 @@ const registerUser = async ({
   roles,
   termsAccepted,
 }) => {
-  if (!name || !email || !password) {
-    throw new AppError("Name, email, and password are required.", 400);
-  }
-  if (!Array.isArray(roles) || roles.length === 0) {
-    throw new AppError("Roles must be an array with at least one role.", 400);
-  }
-  if (termsAccepted !== true) {
-    throw new AppError(
-      "You must accept the terms and conditions to continue.",
-      400,
-    );
-  }
 
   const normalizedEmail = String(email).toLowerCase().trim();
   const { valid, message, uniqueRoles } = validateRoles(roles);
@@ -101,9 +89,6 @@ const registerUser = async ({
  * @returns {Promise<Object>} Access tokens array alongside structural sanitized user profiles.
  */
 const loginUser = async ({ email, password }) => {
-  if (!email || !password) {
-    throw new AppError("Email and password are required.", 400);
-  }
 
   const normalizedEmail = String(email).toLowerCase().trim();
   const user =
