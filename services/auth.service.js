@@ -14,6 +14,7 @@ const {
   signRefreshToken,
 } = require("../utils/auth.utils");
 const { createWalletsForRoles } = require("./wallet.service");
+const { toUserDTO } = require("../mappers/user.mapper");
 
 // Security Configuration Constants
 const BCRYPT_SALT_REGISTER = 10;
@@ -42,7 +43,6 @@ const registerUser = async ({
   roles,
   termsAccepted,
 }) => {
-
   const normalizedEmail = String(email).toLowerCase().trim();
   const { valid, message, uniqueRoles } = validateRoles(roles);
   if (!valid) {
@@ -73,7 +73,7 @@ const registerUser = async ({
   return {
     accessToken,
     refreshToken,
-    user: sanitizeUser(user),
+    user: toUserDTO(user),
     isNewUser: true,
   };
 };
@@ -89,7 +89,6 @@ const registerUser = async ({
  * @returns {Promise<Object>} Access tokens array alongside structural sanitized user profiles.
  */
 const loginUser = async ({ email, password }) => {
-
   const normalizedEmail = String(email).toLowerCase().trim();
   const user =
     await userRepository.findUserByEmailWithPassword(normalizedEmail);
@@ -113,7 +112,7 @@ const loginUser = async ({ email, password }) => {
   return {
     accessToken,
     refreshToken,
-    user: sanitizeUser(user),
+    user: toUserDTO(user),
     isNewUser: true,
   };
 };

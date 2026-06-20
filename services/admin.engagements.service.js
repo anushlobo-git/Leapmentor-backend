@@ -10,6 +10,7 @@ const {
   findEngagements,
 } = require("../repositories/connectRequest.repository");
 const { findUsersBySearchTerm } = require("../repositories/user.repository");
+const { toConnectRequestDTO } = require("../mappers/connectRequest.mapper");
 
 // Fallback Values & Configurations
 const DEFAULT_PAGE = 1;
@@ -83,7 +84,7 @@ const getEngagementsService = async ({
   });
 
   return {
-    engagements,
+    engagements: engagements.map(toConnectRequestDTO),
     pagination: {
       total,
       page: Number(page),

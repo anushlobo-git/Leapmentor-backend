@@ -29,21 +29,18 @@ const {
   deleteManyByUser,
 } = require("../repositories/connectRequest.repository");
 
+// Mappers
+const { toMenteeProfileDTO } = require("../mappers/menteeProfile.mapper");
+const { toMentorProfileDTO } = require("../mappers/mentorProfile.mapper");
+// 🟢 ADDED: User Mapper Import
+const { toUserDTO } = require("../mappers/user.mapper");
+
 // Fallback Constants
 const DEFAULT_PAGE = 1;
 const DEFAULT_LIMIT = 20;
 
 /**
  * Retrieves a detailed, paginated ledger of users cross-referenced with profile states.
- * @description Extracts basic accounts based on dynamic roles or query values, pools unique
- * identities, synchronously aggregates matching profile sub-documents, and merges them.
- * @param {Object} params             - Destructured filter params.
- * @param {string} [params.search]    - Regex-matched name or email phrase.
- * @param {string} [params.role]      - Target account role tier filter.
- * @param {number} [params.page]      - Explicit pagination offset reference index.
- * @param {number} [params.limit]     - Max entries returned per execution block.
- * @param {string} [params.deleted]   - Evaluates soft-deleted database fields.
- * @returns {Promise<Object>} Array of enriched profiles mapped alongside pagination metadata blocks.
  */
 const getUsersService = async ({
   search,
@@ -75,14 +72,16 @@ const getUsersService = async ({
   ]);
 
   const mentorMap = Object.fromEntries(
-    mentorProfiles.map((p) => [p.user.toString(), p]),
+    mentorProfiles.map((p) => [p.user.toString(), toMentorProfileDTO(p)]),
   );
+
   const menteeMap = Object.fromEntries(
-    menteeProfiles.map((p) => [p.user.toString(), p]),
+    menteeProfiles.map((p) => [p.user.toString(), toMenteeProfileDTO(p)]),
   );
 
   const enriched = users.map((u) => ({
-    ...u,
+    // 🟢 FIXED: Replaced raw document spreading with the explicit User DTO contract
+    ...toUserDTO(u),
     profile: mentorMap[u._id.toString()] || menteeMap[u._id.toString()] || null,
   }));
 
@@ -99,9 +98,6 @@ const getUsersService = async ({
 
 /**
  * Collects complete core data and session history for an isolated individual.
- * @param {string} userId      - Targeted master user database ID.
- * @throws {AppError} 404       - If no user document maps to the target ID.
- * @returns {Promise<Object>} Combined entity containing model info, linked files, and transaction counts.
  */
 const getUserDetailService = async (userId) => {
   const user = await findUserById(userId);
@@ -115,16 +111,18 @@ const getUserDetailService = async (userId) => {
     countCompletedSessionsByUser(userId),
   ]);
 
-  return { user, profile, sessionCount };
+  return {
+    // 🟢 FIXED: Wrapped the root user detail block inside the protective DTO layer
+    user: toUserDTO(user),
+    profile: isMentor
+      ? toMentorProfileDTO(profile)
+      : toMenteeProfileDTO(profile),
+    sessionCount,
+  };
 };
 
 /**
  * Executes a structural database cleanup cascade on an explicit user context index.
- * @description Clears parent identity data records while concurrently purging tracking matrices,
- * biographical logs, and connection chains to maintain database cleanliness.
- * @param {string} userId      - Targeted master user database ID.
- * @throws {AppError} 404       - If identity validation finds no active match.
- * @returns {Promise<Object>} Base tracking metadata validating user descriptors.
  */
 const deleteUserService = async (userId) => {
   const user = await findUserByIdRaw(userId);
@@ -142,9 +140,6 @@ const deleteUserService = async (userId) => {
 
 /**
  * Toggles a soft-delete status flag to lock platform authentication.
- * @param {string} userId      - Targeted master user database ID.
- * @throws {AppError} 404       - If the update target returns empty.
- * @returns {Promise<Object>} User verification meta holding active string descriptors.
  */
 const blockUserService = async (userId) => {
   const user = await blockUser(userId);
@@ -154,9 +149,6 @@ const blockUserService = async (userId) => {
 
 /**
  * Removes active tracking blocks to re-enable global system operations.
- * @param {string} userId      - Targeted master user database ID.
- * @throws {AppError} 404       - If restoration processes find no valid target.
- * @returns {Promise<Object>} User verification meta holding active string descriptors.
  */
 const unblockUserService = async (userId) => {
   const user = await unblockUser(userId);

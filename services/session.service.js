@@ -15,6 +15,7 @@ const escrowService = require("./escrow.service");
 // Utilities
 const releaseEscrow = require("../utils/releaseEscrow");
 const { sendSlotCancelledEmail, sendSlotRescheduledEmail, sendAdditionalSlotEmail } = require("../utils/sendNotificationEmail");
+const { generateAvailableSlots } = require("../utils/generateSlots");
 
 // Domain Constants
 const ALLOWED_MEETING_DOMAINS = [
@@ -330,23 +331,34 @@ const getMentorAvailability = async (connectRequestId, duration, userId) => {
   if (!request) throw new AppError("Session not found", 404);
   _assertParticipant(request, userId);
 
-  const availability = await availabilityRepo.findByMentorId(request.mentor);
-  if (!availability || !availability.specificDates?.length) {
-    return { slots: [], timezone: DEFAULT_TIMEZONE };
+  const availability = await availabilityRepo.findAvailabilityByMentor(
+    request.mentor,
+  );
+  if (!availability) {
+    return {
+      slots: [],
+      timezone: DEFAULT_TIMEZONE,
+      sessionDurations: [30, 60],
+    };
   }
 
   const bookedSlots = [
     ...(request.selectedSlots || []).filter((s) => s.status !== "cancelled"),
-    ...(request.additionalSlots || [])
+    ...(request.additionalSlots || []),
   ].map((s) => ({ date: s.date, startTime: s.startTime, endTime: s.endTime }));
 
-  const { generateSlotsFromSpecificDates } = require("../utils/generateSlots");
-  const grouped = generateSlotsFromSpecificDates(availability.specificDates, duration, bookedSlots);
+  const grouped = generateAvailableSlots(
+    availability.specificDates || [],
+    availability.weeklyHours || [],
+    duration,
+    bookedSlots,
+    28,
+  );
 
   return {
     slots: grouped,
     timezone: availability.timezone || DEFAULT_TIMEZONE,
-    sessionDurations: availability.sessionDurations || [30, 60]
+    sessionDurations: availability.sessionDurations || [30, 60],
   };
 };
 

@@ -29,10 +29,10 @@ const findUsersByName = (name) =>
     .lean();
 
 /**
- * Count total number of all user entries across the model schema.
+ * Count active user entries across the model schema (excludes soft-deleted items).
  * @returns {Promise<number>}
  */
-const countAllUsers = () => User.countDocuments();
+const countAllUsers = () => User.countDocuments({ isDeleted: { $ne: true } });
 
 /**
  * Count matching entries using a custom filter query while ignoring soft deletions.
@@ -95,18 +95,20 @@ const findUserById = (id) =>
     .lean();
 
 /**
- * Find an active live Mongoose entity object matching an ID.
+ * Find an active live Mongoose entity object matching an ID regardless of soft-delete state.
  * @param {string} id - Main entity document lookup key.
  * @returns {Promise<Object|null>} Mutable tracking document reference.
  */
-const findUserByIdRaw = (id) => User.findById(id);
+const findUserByIdRaw = (id) =>
+  User.findById(id).setOptions({ ignoreIsDeleted: true });
 
 /**
- * Perform a hard-removal operation on an explicit document index.
+ * Perform a hard-removal operation on an explicit document index, overriding soft-delete filters.
  * @param {string} id - Main entity document lookup key.
  * @returns {Promise<Object|null>}
  */
-const deleteUserById = (id) => User.findByIdAndDelete(id);
+const deleteUserById = (id) =>
+  User.findByIdAndDelete(id, { ignoreIsDeleted: true });
 
 /**
  * Update access validation indices to apply an administrative soft-delete block.
@@ -141,6 +143,15 @@ const findUserByEmailWithPassword = (email) =>
   User.findOne({ email }).select("+password");
 
 /**
+ * Finds a user account by email address.
+ * @param {string} email
+ * @returns {Promise<User|null>}
+ */
+const findUserByEmail = (email) => {
+  return User.findOne({ email });
+};
+
+/**
  * Find a single profile index by ID including its hidden password hash string.
  * @param {string} userId - Main entity document lookup key.
  * @returns {Promise<Object|null>}
@@ -166,14 +177,6 @@ const findUsersByNameSearch = (search) =>
     .lean();
 
 
-/**
- * Finds a user account by email address.
- * @param {string} email
- * @returns {Promise<User|null>}
- */
-const findUserByEmail = (email) => {
-  return User.findOne({ email });
-};
 
 /**
  * Persists modifications on a specific user document instance.

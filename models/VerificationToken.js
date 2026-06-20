@@ -1,20 +1,45 @@
 const mongoose = require("mongoose");
 
-const verificationTokenSchema = new mongoose.Schema({
-  user: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "User",
-    required: true
+const verificationTokenSchema = new mongoose.Schema(
+  {
+    user: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: [
+        true,
+        "Associated account holder profile user reference identity mapping is required",
+      ],
+    },
+    token: {
+      type: String,
+      trim: true,
+      default: null,
+    },
+    otp: {
+      type: String,
+      trim: true,
+      default: null,
+    },
+    expiresAt: {
+      type: Date,
+      required: [
+        true,
+        "Cryptographic validation token lifecycle chronological expiration datetime limit is required",
+      ],
+    },
   },
+  {
+    timestamps: true,
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true },
+  },
+);
 
-  token: String,   // for link-based verification
-  otp: String,     // for OTP-based verification
+// ── Indexes for high-performance authentication lookup loops ───────────────────
+// Allows efficient targeted cleanups of single-user validation states
+verificationTokenSchema.index({ user: 1 });
 
-  expiresAt: {
-    type: Date,
-    required: true
-  }
-
-}, { timestamps: true });
+// Core MongoDB performance optimizer: Automatically drops tokens from disk exactly when they expire
+verificationTokenSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 
 module.exports = mongoose.model("VerificationToken", verificationTokenSchema);

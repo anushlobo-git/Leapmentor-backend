@@ -1,59 +1,67 @@
 // backend/models/AdminUser.js
 const mongoose = require("mongoose");
-const bcrypt   = require("bcryptjs");
+const bcrypt = require("bcryptjs");
 
 const adminUserSchema = new mongoose.Schema(
   {
     name: {
-      type:     String,
+      type: String,
       required: true,
-      trim:     true,
+      trim: true,
     },
 
     email: {
-      type:      String,
-      required:  true,
-      unique:    true,
+      type: String,
+      required: true,
+      unique: true,
       lowercase: true,
-      trim:      true,
+      trim: true,
     },
 
     password: {
-      type:     String,
+      type: String,
       required: true,
+      select: false, // Ensure password is NEVER returned by default queries
     },
 
     isSuperAdmin: {
-      type:    Boolean,
+      type: Boolean,
       default: false,
     },
 
     isActive: {
-      type:    Boolean,
+      type: Boolean,
       default: true,
     },
 
     lastLoginAt: {
-      type:    Date,
+      type: Date,
       default: null,
     },
 
     // ── Commission & Earnings ─────────────────────────────────
     commissionRate: {
-      type:    Number,
-      default: 20,   // 20% platform cut — changeable from admin panel later
-      min:     0,
-      max:     100,
+      type: Number,
+      default: 20,
+      min: 0,
+      max: 100,
     },
 
     walletBalance: {
-      type:    Number,
-      default: 0,    // cumulative platform earnings from commission
-      min:     0,
+      type: Number,
+      default: 0,
+      min: 0,
     },
   },
-  { timestamps: true }
+  {
+    timestamps: true,
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true },
+  },
 );
+
+// ── Indexes ───────────────────────────────────────────────────
+adminUserSchema.index({ isActive: 1 });
 
 // ── Hash password before save ─────────────────────────────────
 adminUserSchema.pre("save", async function () {

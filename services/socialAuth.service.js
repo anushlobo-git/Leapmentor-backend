@@ -7,14 +7,14 @@ const logger = require("../config/logger");
 
 // Repositories
 const userRepository = require("../repositories/user.repository");
-const oauthAccountRepository = require("../repositories/oauthAccount.repository");
+const oauthAccountRepository = require("../repositories/oAuthAccount.repository");
 
 // Inter-domain Dependency
 const { createWalletsForRoles } = require("./wallet.service");
 
+const { toUserDTO } = require("../mappers/user.mapper");
 // Utilities
 const {
-  sanitizeUser,
   signAccessToken,
   signRefreshToken,
   validateRoles,
@@ -76,7 +76,7 @@ const socialAuthUser = async ({
     return {
       accessToken,
       refreshToken,
-      user: sanitizeUser(existingOAuth.user),
+      user: toUserDTO(existingOAuth.user),
       isNewUser: false,
     };
   }
@@ -133,7 +133,7 @@ const socialAuthUser = async ({
   const accessToken = signAccessToken(user._id);
   const refreshToken = signRefreshToken(user._id);
 
-  return { accessToken, refreshToken, user: sanitizeUser(user), isNewUser };
+  return { accessToken, refreshToken, user: toUserDTO(user), isNewUser };
 };
 
 module.exports = { socialAuthUser };

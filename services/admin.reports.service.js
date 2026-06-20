@@ -19,6 +19,7 @@ const {
 } = require("../repositories/connectRequest.repository");
 const createNotification = require("../utils/createNotification");
 const { sendReportResolvedEmail } = require("../utils/sendNotificationEmail");
+const { toReportDTO } = require("../mappers/report.mapper");
 
 const getReportStatsService = async () => {
   const today = new Date();
@@ -55,35 +56,9 @@ const getReportsService = async ({ page, limit, search, status }) => {
     findReports(filter, { skip, limit: safeLimit }),
   ]);
 
-  const rows = reports.map((r) => ({
-    id: r._id,
-    mentee:
-      r.reporterRole === "mentee" ? r.reportedBy?.name : r.reportedUser?.name,
-    menteeEmail:
-      r.reporterRole === "mentee" ? r.reportedBy?.email : r.reportedUser?.email,
-    mentor:
-      r.reporterRole === "mentor" ? r.reportedBy?.name : r.reportedUser?.name,
-    mentorEmail:
-      r.reporterRole === "mentor" ? r.reportedBy?.email : r.reportedUser?.email,
-    reportedBy: r.reportedBy?.name || "—",
-    reportedById: r.reportedBy?._id || null,
-    reportedUser: r.reportedUser?.name || "—",
-    reporterRole: r.reporterRole,
-    category: r.complaintType,
-    description: r.description,
-    screenshotUrl: r.screenshotUrl || "",
-    adminNote: r.adminNote || "",
-    status: r.status,
-    refundProcessed: r.refundProcessed || false,
-    connectRequestId: r.connectRequest?._id || null,
-    sessionStatus: r.connectRequest?.status || null,
-    paymentStatus: r.connectRequest?.paymentStatus || null,
-    totalAmount: r.connectRequest?.totalAmount || 0,
-    date: r.createdAt ? new Date(r.createdAt).toISOString().split("T")[0] : "—",
-  }));
-
   return {
-    reports: rows,
+    //  Entire 30-line handwritten translation array logic cleanly replaced here:
+    reports: reports.map(toReportDTO),
     pagination: {
       totalCount,
       currentPage: safePage,
@@ -141,12 +116,7 @@ const handleReportService = async (
     );
   }
 
-  return {
-    id: report._id,
-    status: report.status,
-    adminNote: report.adminNote,
-    resolvedAt: report.resolvedAt,
-  };
+  return toReportDTO(report);
 };
 
 const processRefundService = async (reportId, adminNote, adminId) => {

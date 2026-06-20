@@ -25,9 +25,11 @@ const {
 
 const { getPendingCount } = require("../controllers/leapRequest.controller");
 
+const { loginValidation }= require("../validations/auth.validation");
+
 // --- PUBLIC INITIALIZATION ACCESS PORTS ---
 // @route   POST /api/v1/admin/auth/login
-router.post("/auth/login", adminLogin);
+router.post("/auth/login", loginValidation, adminLogin);
 
 // @route   POST /api/v1/admin/auth/logout
 router.post("/auth/logout", adminLogout);

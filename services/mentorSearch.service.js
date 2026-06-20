@@ -13,6 +13,7 @@ const AppError = require("../utils/AppError");
 const mentorSearchRepository = require("../repositories/mentor.repository");
 const userRepository = require("../repositories/user.repository");
 const logger = require("../config/logger");
+const { toMentorProfileDTO } = require("../mappers/mentorProfile.mapper");
 
 const ROLE_MENTOR = "mentor";
 const ATLAS_SEARCH_INDEX = "mentor_search";
@@ -48,7 +49,7 @@ const getPlainList = async (pageNum, limitNum, skip) => {
 
   const totalPages = Math.ceil(totalCount / limitNum);
   return {
-    mentors,
+    mentors: mentors.map(toMentorProfileDTO),
     pagination: {
       totalCount,
       totalPages,
@@ -137,7 +138,7 @@ const executeFallbackSearch = async (queryParams) => {
   ]);
 
   return {
-    mentors,
+    mentors: mentors.map(toMentorProfileDTO),
     pagination: {
       totalCount,
       totalPages: Math.ceil(totalCount / limitNum),
@@ -399,7 +400,10 @@ const queryMentors = async (queryParams) => {
     const paginated = results.slice(skip, skip + limitNum);
 
     return {
-      mentors: paginated,
+      mentors: paginated.map((m) => ({
+        ...toMentorProfileDTO(m),
+        searchScore: m.searchScore, // Retains Atlas search relevance metrics
+      })),
       pagination: {
         totalCount,
         totalPages,

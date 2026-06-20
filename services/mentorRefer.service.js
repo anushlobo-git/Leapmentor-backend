@@ -7,6 +7,9 @@ const AppError = require("../utils/AppError");
 const connectRequestRepository = require("../repositories/connectRequest.repository");
 const mentorRepository = require("../repositories/mentor.repository");
 
+// Mappers
+const { toMentorProfileDTO } = require("../mappers/mentorProfile.mapper");
+
 // Upper-case Domain Constants
 const SIMILAR_MENTORS_SEARCH_LIMIT = 20;
 
@@ -55,7 +58,11 @@ const getSimilarMentorsList = async (connectRequestId, currentUserId) => {
       targetSkillsSet.has(skill.toLowerCase()),
     ).length;
 
-    return { ...mentor, matchCount };
+    // ✅ Wrap the profile properties into the DTO layer while embedding the dynamic alignment score
+    return {
+      ...toMentorProfileDTO(mentor),
+      matchCount,
+    };
   });
 
   rankedMentors.sort(

@@ -4,6 +4,7 @@
  */
 const AppError = require("../utils/AppError");
 const notificationRepository = require("../repositories/notification.repository");
+const { toNotificationDTO } = require("../mappers/notification.mapper");
 
 // Upper-case Domain Architecture Constants
 const NOTIFICATION_RETRIEVAL_LIMIT = 50;
@@ -15,10 +16,13 @@ const NOTIFICATION_RETRIEVAL_LIMIT = 50;
  * @returns {Promise<Array<Object>>} Filtered list tracking tailored historical alerts.
  */
 const getRecipientNotifications = async (recipientId) => {
-  return notificationRepository.findByRecipientLimit(
+  const notifications = await notificationRepository.findByRecipientLimit(
     recipientId,
     NOTIFICATION_RETRIEVAL_LIMIT,
   );
+  
+  // Format individual notification payload configurations uniformly
+  return notifications.map(toNotificationDTO);
 };
 
 /**

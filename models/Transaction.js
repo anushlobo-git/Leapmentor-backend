@@ -1,4 +1,3 @@
-// backend/models/Transaction.js
 const mongoose = require("mongoose");
 
 const transactionSchema = new mongoose.Schema(
@@ -6,27 +5,39 @@ const transactionSchema = new mongoose.Schema(
     user: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
-      required: true,
+      required: [true, "Associated user reference identification is required"],
     },
-
     type: {
       type: String,
-      enum: [
-        "credit",           // points added to balance (signup bonus, escrow release)
-        "debit",            // points deducted from balance (payment hold)
-        "escrow_hold",      // points moved from mentee balance → escrow
-        "escrow_release",   // points moved from escrow → mentor balance
-        "escrow_refund",    // points returned from escrow → mentee (on rejection/cancel)
-        "commission_deduct",// platform takes its commission cut from escrow
-        "mentor_payout",    // net amount sent to mentor after commission deduction
+      required: [
+        true,
+        "Transaction operational accounting classification ledger type is required",
       ],
-      required: true,
+      enum: {
+        values: [
+          "credit", // points added to balance (signup bonus, escrow release)
+          "debit", // points deducted from balance (payment hold)
+          "escrow_hold", // points moved from mentee balance → escrow
+          "escrow_release", // points moved from escrow → mentor balance
+          "escrow_refund", // points returned from escrow → mentee (on rejection/cancel)
+          "commission_deduct", // platform takes its commission cut from escrow
+          "mentor_payout", // net amount sent to mentor after commission deduction
+        ],
+        message:
+          "{VALUE} is not a recognized transaction accounting event type classification",
+      },
+      trim: true,
     },
-
     amount: {
       type: Number,
-      required: true,
-      min: 0.01,
+      required: [
+        true,
+        "Transaction ledger points currency absolute volume is required",
+      ],
+      min: [
+        0.01,
+        "Transaction point allocation metrics must equal or exceed a threshold of 0.01 units",
+      ],
     },
 
     // Reference to the session this transaction is for (optional for signup bonus)
@@ -39,20 +50,33 @@ const transactionSchema = new mongoose.Schema(
     // Human readable description
     description: {
       type: String,
+      trim: true,
+      maxlength: [
+        500,
+        "Transaction audit trail descriptive narrative string cannot exceed 500 characters",
+      ],
       default: "",
     },
 
     // Snapshot of balance after this transaction (for audit trail)
     balanceAfter: {
       type: Number,
-      required: true,
+      required: [
+        true,
+        "Post-execution remaining balance audit ledger trail historical snapshot is required",
+      ],
     },
   },
-  { timestamps: true }
+  {
+    timestamps: true,
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true },
+  },
 );
 
 // ── Indexes for fast lookup ───────────────────────────────────
 transactionSchema.index({ user: 1, createdAt: -1 });
 transactionSchema.index({ connectRequest: 1 });
-transactionSchema.index({ type: 1 }); 
+transactionSchema.index({ type: 1 });
+
 module.exports = mongoose.model("Transaction", transactionSchema);

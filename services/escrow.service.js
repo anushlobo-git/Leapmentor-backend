@@ -608,7 +608,7 @@ const _triggerPaySideEffects = (
   );
 
   availabilityRepo
-    .findByMentorId(connectRequest.mentor._id)
+    .findAvailabilityByMentor(connectRequest.mentor._id)
     .then((availability) =>
       sendCalendarInvite({
         requestId: connectRequest._id.toString(),

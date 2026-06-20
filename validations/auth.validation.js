@@ -69,8 +69,9 @@ const loginValidation = celebrate({
       "any.required": "Email is required.",
     }),
 
-    password: Joi.string().required().messages({
+    password: Joi.string().min(8).required().messages({
       "string.empty": "Password is required.",
+      "string.min": "Password must be at least 8 characters.",
       "any.required": "Password is required.",
     }),
   }),

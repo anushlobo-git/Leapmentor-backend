@@ -17,7 +17,10 @@ const { changePassword } = require("../controllers/changePassword.controller");
 const { authenticate } = require("../middleware/authenticate");
 const { clearAuthCookies } = require("../utils/auth.cookies");
 const { refreshToken } = require("../controllers/refresh.controller");
-const { registerValidation, loginValidation } = require("../validations/auth.validation");
+const {
+  registerValidation,
+  loginValidation,
+} = require("../validations/auth.validation");
 const {
   linkedinRedirect,
   linkedinCallback,

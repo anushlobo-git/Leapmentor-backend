@@ -16,16 +16,11 @@ const signToken = (userId) => {
 };
 
 const signAccessToken = (userId) =>
-  jwt.sign({ id: userId }, process.env.JWT_ACCESS_SECRET, { expiresIn: "15m" });
+  jwt.sign({ id: userId ,type: "access" }, process.env.JWT_ACCESS_SECRET, { expiresIn: "15m" });
 
 const signRefreshToken = (userId) =>
-  jwt.sign({ id: userId }, process.env.JWT_REFRESH_SECRET, { expiresIn: "7d" });
+  jwt.sign({ id: userId ,type: "refresh" }, process.env.JWT_REFRESH_SECRET, { expiresIn: "7d" });
 
-const sanitizeUser = (user) => {
-  const obj = user.toObject ? user.toObject() : user;
-  delete obj.password;
-  return obj;
-};
 
 const validateRoles = (roles) => {
   const validRoles = ["mentor", "mentee"];
@@ -65,7 +60,6 @@ const verifyState = (state) => {
 module.exports = {
   googleClient,
   signToken,
-  sanitizeUser,
   validateRoles,
   signState,
   verifyState,

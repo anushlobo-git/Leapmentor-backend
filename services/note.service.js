@@ -9,7 +9,7 @@ const AppError = require("../utils/AppError");
 // Repositories
 const noteRepository = require("../repositories/note.repository");
 const connectRequestRepository = require("../repositories/connectRequest.repository");
-
+const { toNoteDTO } = require("../mappers/note.mapper");
 // Utilities
 const { getFileType } = require("../middleware/upload.middleware");
 
@@ -142,7 +142,9 @@ const processNoteUpload = async (
     isPrivate,
   });
 
-  return noteRepository.findByIdWithUploaderLean(note._id);
+  //  Wrap the populated record with the DTO serializer layer before returning
+  const savedNote = await noteRepository.findByIdWithUploaderLean(note._id);
+  return toNoteDTO(savedNote);
 };
 
 /**
@@ -150,7 +152,10 @@ const processNoteUpload = async (
  */
 const getSharedNotesList = async (connectRequestId, userId) => {
   await verifySessionAccess(connectRequestId, userId);
-  return noteRepository.findSharedByConnectRequest(connectRequestId);
+  const notes = await noteRepository.findSharedByConnectRequest(connectRequestId);
+  
+  // Enforce data formatting rules down across the entire collection array
+  return notes.map(toNoteDTO);
 };
 
 /**
@@ -158,10 +163,13 @@ const getSharedNotesList = async (connectRequestId, userId) => {
  */
 const getPrivateNotesList = async (connectRequestId, userId) => {
   await verifySessionAccess(connectRequestId, userId);
-  return noteRepository.findPrivateByConnectRequestAndUser(
+  const notes = await noteRepository.findPrivateByConnectRequestAndUser(
     connectRequestId,
     userId,
   );
+  
+  // Enforce data formatting rules down across the entire collection array
+  return notes.map(toNoteDTO);
 };
 
 /**

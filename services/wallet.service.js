@@ -7,6 +7,7 @@
 const walletRepository = require("../repositories/wallet.repository");
 const transactionRepository = require("../repositories/transaction.repository");
 const logger = require("../config/logger");
+const { toWalletDTO } = require("../mappers/wallet.mapper");
 
 // Configuration Constants
 const MENTEE_WELCOME_BONUS = 500;
@@ -51,7 +52,7 @@ const createWalletForRole = async (userId, role) => {
     });
   }
 
-  return wallet;
+  return toWalletDTO(wallet);
 };
 
 /**

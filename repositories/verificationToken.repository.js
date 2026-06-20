@@ -12,6 +12,17 @@ const deleteAllForUser = (userId) =>
 const create = ({ userId, otpHash, expiresAt }) =>
   VerificationToken.create({ user: userId, otp: otpHash, expiresAt });
 
+
+// FIXED: Destructured to accept BOTH standard schema keys or legacy naming metrics safely
+// const create = ({ userId, user, otpHash, otp, token, expiresAt }) =>
+//   VerificationToken.create({ 
+//     user: user || userId, 
+//     otp: otp || otpHash, 
+//     token: token || null,
+//     expiresAt 
+//   });
+  
+
 // Find the current token record for a user
 const findByUser = (userId) => VerificationToken.findOne({ user: userId });
 

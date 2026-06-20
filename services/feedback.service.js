@@ -9,6 +9,9 @@ const feedbackRepo = require("../repositories/feedback.repository");
 const connectRequestRepo = require("../repositories/connectRequest.repository");
 const mentorProfileRepo = require("../repositories/mentor.repository");
 
+// Mappers
+const { toFeedbackDTO } = require("../mappers/feedback.mapper");
+
 // Constants
 const MIN_RATING = 1;
 const MAX_RATING = 5;
@@ -18,17 +21,7 @@ const STATUS_COMPLETED = "completed";
 
 /**
  * Evaluates, processes, and stores a new peer feedback assessment submission.
- * @description Validates structural bounds, assesses relative slot execution markings,
- * enforces strict duplicate prevention, and dynamically recalibrates
- * global mentor rating scores if submitted by a mentee.
  * @param {Object} params Execution parameters payload.
- * @param {string} params.connectRequestId Unique connection session index.
- * @param {number} params.rating Intended aggregate evaluation scale marker.
- * @param {string} [params.comment] Explicit descriptive performance review statement text.
- * @param {number} [params.slotIndex] Specific tracking index corresponding to individual milestone sub-slots.
- * @param {string} params.userId Actor ID generating the submission.
- * @throws {AppError} 400 | 403 | 404 | 409
- * @returns {Promise<Object>} Populated feedback asset state database metrics block.
  */
 const createFeedback = async ({
   connectRequestId,
@@ -46,8 +39,7 @@ const createFeedback = async ({
     );
   }
 
-  const connectRequest =
-    await connectRequestRepo.findByIdForFeedback(connectRequestId);
+  const connectRequest = await connectRequestRepo.findByIdForFeedback(connectRequestId);
   if (!connectRequest) throw new AppError("Session not found", 404);
 
   const fromRole = _deriveParticipantRole(connectRequest, userId);
@@ -59,8 +51,11 @@ const createFeedback = async ({
 
   _validateSessionCompletion(connectRequest, fromRole, slotIndex);
 
-  const toUserId =
-    fromRole === ROLE_MENTOR ? connectRequest.mentee : connectRequest.mentor;
+  // ✅ Safe extraction strategy handles populated sub-documents or raw keys uniformly
+  const menteeId = connectRequest.mentee?._id ?? connectRequest.mentee;
+  const mentorId = connectRequest.mentor?._id ?? connectRequest.mentor;
+  const toUserId = fromRole === ROLE_MENTOR ? menteeId : mentorId;
+  
   const isSlotContext = slotIndex !== undefined && slotIndex !== null;
 
   const duplicateQuery = {
@@ -90,38 +85,39 @@ const createFeedback = async ({
     await _recalculateMentorAvgRating(toUserId);
   }
 
-  return await feedbackRepo.findByIdAndPopulateParticipants(feedback._id);
+  const populatedFeedback = await feedbackRepo.findByIdAndPopulateParticipants(feedback._id);
+  return toFeedbackDTO(populatedFeedback);
 };
 
 /**
  * Returns structured feedback metrics specific to a single session context block.
- * @param {string} connectRequestId Core resource configuration verification identity tracking tag.
- * @param {string} userId Requesting user passport verification signature map tracking context.
- * @throws {AppError} 403 | 404
- * @returns {Promise<Object>} Formatted object matching symmetric participant states.
  */
 const getFeedback = async (connectRequestId, userId) => {
-  const connectRequest =
-    await connectRequestRepo.findByIdForFeedback(connectRequestId);
+  const connectRequest = await connectRequestRepo.findByIdForFeedback(connectRequestId);
   if (!connectRequest) throw new AppError("Session not found", 404);
 
   const role = _deriveParticipantRole(connectRequest, userId);
   if (!role)
     throw new AppError("Not authorized to view this session's feedback", 403);
 
-  const allFeedback =
-    await feedbackRepo.findAllByConnectRequest(connectRequestId);
+  const allFeedback = await feedbackRepo.findAllByConnectRequest(connectRequestId);
+    
+  // ✅ Safe extraction logic to locate identifiers during matching loops
   const myFeedback =
-    allFeedback.find((f) => f.from._id.toString() === userId.toString()) ||
-    null;
+    allFeedback.find((f) => {
+      const fromId = f.from?._id ?? f.from;
+      return fromId.toString() === userId.toString();
+    }) || null;
+    
   const theirFeedback =
-    allFeedback.find((f) => f.from._id.toString() !== userId.toString()) ||
-    null;
+    allFeedback.find((f) => {
+      const fromId = f.from?._id ?? f.from;
+      return fromId.toString() !== userId.toString();
+    }) || null;
 
   return {
-    myFeedback,
-    theirFeedback:
-      connectRequest.status === STATUS_COMPLETED ? theirFeedback : null,
+    myFeedback: toFeedbackDTO(myFeedback),
+    theirFeedback: connectRequest.status === STATUS_COMPLETED ? toFeedbackDTO(theirFeedback) : null,
     sessionStatus: connectRequest.status,
   };
 };
@@ -132,8 +128,11 @@ const getFeedback = async (connectRequestId, userId) => {
  */
 const _deriveParticipantRole = (connectRequest, userId) => {
   const uid = userId.toString();
-  if (connectRequest.mentor.toString() === uid) return ROLE_MENTOR;
-  if (connectRequest.mentee.toString() === uid) return ROLE_MENTEE;
+  const mentorId = connectRequest.mentor?._id ?? connectRequest.mentor;
+  const menteeId = connectRequest.mentee?._id ?? connectRequest.mentee;
+
+  if (mentorId.toString() === uid) return ROLE_MENTOR;
+  if (menteeId.toString() === uid) return ROLE_MENTEE;
   return null;
 };
 
@@ -144,8 +143,7 @@ const _deriveParticipantRole = (connectRequest, userId) => {
 const _validateSessionCompletion = (connectRequest, fromRole, slotIndex) => {
   if (slotIndex !== undefined && slotIndex !== null) {
     const slot = connectRequest.selectedSlots?.[slotIndex];
-    const myMark =
-      fromRole === ROLE_MENTEE ? slot?.menteeMarked : slot?.mentorMarked;
+    const myMark = fromRole === ROLE_MENTEE ? slot?.menteeMarked : slot?.mentorMarked;
 
     if (!slot || !myMark) {
       throw new AppError(
@@ -169,14 +167,11 @@ const _validateSessionCompletion = (connectRequest, fromRole, slotIndex) => {
  * @private
  */
 const _recalculateMentorAvgRating = async (mentorUserId) => {
-  const allMentorFeedback =
-    await feedbackRepo.findAllByTargetUser(mentorUserId);
+  const allMentorFeedback = await feedbackRepo.findAllByTargetUser(mentorUserId);
   if (!allMentorFeedback.length) return;
 
   const totalRatings = allMentorFeedback.reduce((sum, f) => sum + f.rating, 0);
-  const newAvgRating = parseFloat(
-    (totalRatings / allMentorFeedback.length).toFixed(1),
-  );
+  const newAvgRating = parseFloat((totalRatings / allMentorFeedback.length).toFixed(1));
 
   await mentorProfileRepo.updateAvgRating(mentorUserId, newAvgRating);
 };

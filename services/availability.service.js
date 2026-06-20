@@ -8,7 +8,8 @@ const AppError = require("../utils/AppError");
 const availabilityRepository = require("../repositories/availability.repository");
 const connectRequestRepository = require("../repositories/connectRequest.repository");
 const slotLockRepository = require("../repositories/slotLock.repository");
-const { generateSlotsFromSpecificDates } = require("../utils/generateSlots");
+const { generateAvailableSlots } = require("../utils/generateSlots");
+const { toAvailabilityDTO } = require("../mappers/availability.mapper");
 
 // Configuration Constants
 const DEFAULT_TIMEZONE = "Asia/Kolkata";
@@ -43,7 +44,7 @@ const getMyAvailability = async (mentorId) => {
     };
   }
 
-  return availability;
+  return toAvailabilityDTO(availability);
 };
 
 /**
@@ -169,18 +170,12 @@ const getAvailableSlots = async (mentorId, duration, userId) => {
 
   const allBlockedSlots = [...bookedSlots, ...lockedSlots];
 
-  if (!availability.specificDates?.length) {
-    return {
-      timezone: availability.timezone,
-      sessionDurations: availability.sessionDurations,
-      slots: [],
-    };
-  }
-
-  const grouped = generateSlotsFromSpecificDates(
-    availability.specificDates,
+  const grouped = generateAvailableSlots(
+    availability.specificDates || [],
+    availability.weeklyHours || [],
     duration,
     allBlockedSlots,
+    28, // generate 4 weeks ahead
   );
 
   return {

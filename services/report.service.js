@@ -8,6 +8,7 @@ const AppError = require("../utils/AppError");
 // Repositories
 const reportRepository = require("../repositories/report.repository");
 const connectRequestRepository = require("../repositories/connectRequest.repository");
+const { toReportDTO } = require("../mappers/report.mapper");
 
 // Out-of-band Notification Helpers
 const {
@@ -150,7 +151,8 @@ const createIncidentReport = async (currentUser, bodyPayload, filePayload) => {
     ),
   );
 
-  return report;
+  // Wrap the newly created Mongoose instance with the DTO serializer
+  return toReportDTO(report);
 };
 
 /**
@@ -161,7 +163,9 @@ const getMySessionReport = async (connectRequestId, currentUserId) => {
     connectRequestId,
     currentUserId,
   );
-  return { report: report || null };
+  
+  // Map the single element safely, falling back to null if empty
+  return { report: toReportDTO(report) };
 };
 
 /**
@@ -187,7 +191,8 @@ const getAdminReportsDashboard = async (queryParams) => {
   ]);
 
   return {
-    reports,
+    // Sweep the entire array through the collection transformation mapper
+    reports: reports.map(toReportDTO),
     pagination: {
       total,
       page: pageNum,
@@ -249,7 +254,8 @@ const processAdminReportUpdate = async (
     );
   }
 
-  return updatedReport;
+  // Clean and sanitize the document fields before sending back to the administrator
+  return toReportDTO(updatedReport);
 };
 
 module.exports = {

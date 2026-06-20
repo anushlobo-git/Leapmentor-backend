@@ -9,8 +9,12 @@ const {
 } = require("../utils/sendNotificationEmail");
 
 const getEmitToUser = () => require("../socket/socketHandler").emitToUser;
+const { toConnectRequestDTO } = require("../mappers/connectRequest.mapper");
 
+// Mentee Profile Mapper Only
+const { toMenteeProfileDTO } = require("../mappers/menteeProfile.mapper");
 
+const { toMentorProfileDTO } = require("../mappers/mentorProfile.mapper");
 
 // ── SEND REQUEST ──────────────────────────────────────────────
 const sendConnectRequestService = async (menteeId, body, menteeUser) => {
@@ -114,16 +118,16 @@ const sendConnectRequestService = async (menteeId, body, menteeUser) => {
   }
 
   sendConnectRequestEmail({
-  mentorName: populated.mentor?.name || "Mentor",
-  mentorEmail: populated.mentor?.email,
-  menteeName: menteeUser.name,
-  slots: selectedSlots,
-  message: message?.trim() || "",
-}).catch((err) =>
-  console.error("❌ Connect request email failed:", err.message),
-);
+    mentorName: populated.mentor?.name || "Mentor",
+    mentorEmail: populated.mentor?.email,
+    menteeName: menteeUser.name,
+    slots: selectedSlots,
+    message: message?.trim() || "",
+  }).catch((err) =>
+    console.error("❌ Connect request email failed:", err.message),
+  );
 
-return populated;
+  return toConnectRequestDTO(populated);
 };
 
 // ── MY REQUESTS ───────────────────────────────────────────────
@@ -132,16 +136,21 @@ const getMyRequestsService = async (menteeId) => {
 
   return Promise.all(
     requests.map(async (r) => {
+      const targetMentorId = r.mentor?._id ?? r.mentor;
+      const targetReferredToId = r.referredTo?._id ?? r.referredTo;
+
       const [mentorProfile, referredToProfile] = await Promise.all([
-        mentorRepository.findMentorProfile(r.mentor?._id),
-        r.referredTo
-          ? mentorRepository.findMentorProfileFull(r.referredTo?._id)
+        targetMentorId
+          ? mentorRepository.findMentorProfile(targetMentorId)
+          : null,
+        targetReferredToId
+          ? mentorRepository.findMentorProfileFull(targetReferredToId)
           : null,
       ]);
       return {
-        ...r,
-        mentorProfile: mentorProfile || null,
-        referredToProfile: referredToProfile || null,
+        ...toConnectRequestDTO(r),
+        mentorProfile: toMentorProfileDTO(mentorProfile),
+        referredToProfile: toMentorProfileDTO(referredToProfile),
       };
     }),
   );
@@ -149,14 +158,22 @@ const getMyRequestsService = async (menteeId) => {
 
 // ── INCOMING REQUESTS ─────────────────────────────────────────
 const getIncomingRequestsService = async (mentorId, status) => {
-  const requests = await connectRequestRepository.findIncomingRequests(mentorId, status);
+  const requests = await connectRequestRepository.findIncomingRequests(
+    mentorId,
+    status,
+  );
 
   return Promise.all(
     requests.map(async (r) => {
-      const referredByProfile = r.referredBy
-        ? await mentorRepository.findMentorProfileFull(r.referredBy._id)
+      const targetReferredById = r.referredBy?._id ?? r.referredBy;
+
+      const referredByProfile = targetReferredById
+        ? await mentorRepository.findMentorProfileFull(targetReferredById)
         : null;
-      return { ...r, referredByProfile: referredByProfile || null };
+      return {
+        ...toConnectRequestDTO(r),
+        referredByProfile: referredByProfile || null,
+      };
     }),
   );
 };
@@ -185,7 +202,8 @@ const respondToRequestService = async (requestId, mentorUserId, body) => {
   if (!request)
     throw Object.assign(new Error("Request not found"), { statusCode: 404 });
 
-  if (request.mentor._id.toString() !== mentorUserId.toString())
+  const currentMentorId = request.mentor?._id ?? request.mentor;
+  if (currentMentorId.toString() !== mentorUserId.toString())
     throw Object.assign(
       new Error("Not authorized to respond to this request"),
       { statusCode: 403 },
@@ -201,13 +219,15 @@ const respondToRequestService = async (requestId, mentorUserId, body) => {
   if (status === "accepted") request.confirmedSlot = confirmedSlot;
   await connectRequestRepository.saveRequest(request);
 
+  const currentMenteeId = request.mentee?._id ?? request.mentee;
+
   const emitToUser = getEmitToUser();
   if (emitToUser) {
-    emitToUser(request.mentee._id.toString(), "request_status_changed", {
+    emitToUser(currentMenteeId.toString(), "request_status_changed", {
       requestId: request._id.toString(),
       status,
     });
-    emitToUser(request.mentor._id.toString(), "request_status_changed", {
+    emitToUser(currentMentorId.toString(), "request_status_changed", {
       requestId: request._id.toString(),
       status,
     });
@@ -215,24 +235,24 @@ const respondToRequestService = async (requestId, mentorUserId, body) => {
 
   if (status === "accepted") {
     await createNotification({
-      recipient: request.mentee._id,
+      recipient: currentMenteeId,
       type: "connect_request_accepted",
       title: "Connect Request Accepted! 🎉",
-      message: `${request.mentor.name} has accepted your connect request. Your session is confirmed on ${confirmedSlot.date} at ${confirmedSlot.startTime}.`,
-      metadata: { requestId: request._id, mentorId: request.mentor._id },
+      message: `${request.mentor.name || "Mentor"} has accepted your connect request. Your session is confirmed on ${confirmedSlot.date} at ${confirmedSlot.startTime}.`,
+      metadata: { requestId: request._id, mentorId: currentMentorId },
     });
 
     if (emitToUser) {
-      emitToUser(request.mentee._id.toString(), "request_accepted", {
+      emitToUser(currentMenteeId.toString(), "request_accepted", {
         title: "Request Accepted! 🎉",
-        message: `${request.mentor.name} accepted your connect request.`,
+        message: `${request.mentor.name || "Mentor"} accepted your connect request.`,
         type: "success",
       });
     }
 
     await connectRequestRepository.rejectConflictingSlots(
       request._id,
-      request.mentor._id,
+      currentMentorId,
       confirmedSlot,
     );
 
@@ -249,23 +269,23 @@ const respondToRequestService = async (requestId, mentorUserId, body) => {
 
   if (status === "rejected") {
     await createNotification({
-      recipient: request.mentee._id,
+      recipient: currentMenteeId,
       type: "connect_request_declined",
       title: "Connect Request Declined",
-      message: `${request.mentor.name} was unable to accept your connect request at this time.`,
-      metadata: { requestId: request._id, mentorId: request.mentor._id },
+      message: `${request.mentor.name || "Mentor"} was unable to accept your connect request at this time.`,
+      metadata: { requestId: request._id, mentorId: currentMentorId },
     });
 
     if (emitToUser) {
-      emitToUser(request.mentee._id.toString(), "request_declined", {
+      emitToUser(currentMenteeId.toString(), "request_declined", {
         title: "Request Declined",
-        message: `${request.mentor.name} was unable to accept your request at this time.`,
+        message: `${request.mentor.name || "Mentor"} was unable to accept your request at this time.`,
         type: "warning",
       });
     }
   }
 
-  return request;
+  return toConnectRequestDTO(request);
 };
 
 // ── CANCEL REQUEST ────────────────────────────────────────────
@@ -274,7 +294,8 @@ const cancelRequestService = async (requestId, menteeUserId) => {
   if (!request)
     throw Object.assign(new Error("Request not found"), { statusCode: 404 });
 
-  if (request.mentee.toString() !== menteeUserId.toString())
+  const currentMenteeId = request.mentee?._id ?? request.mentee;
+  if (currentMenteeId.toString() !== menteeUserId.toString())
     throw Object.assign(new Error("Not authorized to cancel this request"), {
       statusCode: 403,
     });
@@ -301,7 +322,8 @@ const referRequestService = async (requestId, mentorUserId, body) => {
   if (!request)
     throw Object.assign(new Error("Request not found"), { statusCode: 404 });
 
-  if (request.mentor._id.toString() !== mentorUserId.toString())
+  const currentMentorId = request.mentor?._id ?? request.mentor;
+  if (currentMentorId.toString() !== mentorUserId.toString())
     throw Object.assign(new Error("Not authorized to refer this request"), {
       statusCode: 403,
     });
@@ -317,8 +339,10 @@ const referRequestService = async (requestId, mentorUserId, body) => {
       statusCode: 400,
     });
 
+  const currentMenteeId = request.mentee?._id ?? request.mentee;
+
   const existingRequest = await connectRequestRepository.findPendingRequest(
-    request.mentee._id,
+    currentMenteeId,
     referToMentorId,
   );
   if (existingRequest)
@@ -328,7 +352,7 @@ const referRequestService = async (requestId, mentorUserId, body) => {
     );
 
   const newRequest = await connectRequestRepository.createConnectRequest({
-    mentee: request.mentee._id,
+    mentee: currentMenteeId,
     mentor: referToMentorId,
     message: request.message,
     selectedSlots: request.selectedSlots,
@@ -341,31 +365,31 @@ const referRequestService = async (requestId, mentorUserId, body) => {
       recipient: new mongoose.Types.ObjectId(referToMentorId),
       type: "connect_request_received",
       title: "New Connect Request (Referred)",
-      message: `You have received a referred connect request from ${request.mentee.name}.`,
-      metadata: { requestId: newRequest._id, menteeId: request.mentee._id },
+      message: `You have received a referred connect request from ${request.mentee.name || "Mentee"}.`,
+      metadata: { requestId: newRequest._id, menteeId: currentMenteeId },
     }),
     createNotification({
-      recipient: request.mentee._id,
+      recipient: currentMenteeId,
       type: "connect_request_declined",
       title: "Request Referred to Another Mentor",
-      message: `${request.mentor.name} has referred your request to another mentor who may be a better fit.`,
-      metadata: { requestId: request._id, mentorId: request.mentor._id },
+      message: `${request.mentor.name || "Mentor"} has referred your request to another mentor who may be a better fit.`,
+      metadata: { requestId: request._id, mentorId: currentMentorId },
     }),
   ]);
 
   const emitToUser = getEmitToUser();
   if (emitToUser) {
-    emitToUser(request.mentee._id.toString(), "request_referred", {
+    emitToUser(currentMenteeId.toString(), "request_referred", {
       title: "Request Referred",
-      message: `${request.mentor.name} referred your request to another mentor.`,
+      message: `${request.mentor.name || "Mentor"} referred your request to another mentor.`,
       type: "info",
     });
     emitToUser(referToMentorId, "new_connect_request", {
       title: "New Connect Request (Referred) 🔔",
-      message: `${request.mentee.name} was referred to you by ${request.mentor.name}.`,
+      message: `${request.mentee.name || "Mentee"} was referred to you by ${request.mentor.name || "Mentor"}.`,
       type: "info",
     });
-    emitToUser(request.mentee._id.toString(), "request_status_changed", {
+    emitToUser(currentMenteeId.toString(), "request_status_changed", {
       requestId: request._id.toString(),
       status: "referred",
     });
@@ -381,7 +405,10 @@ const referRequestService = async (requestId, mentorUserId, body) => {
   request.respondedAt = new Date();
   await connectRequestRepository.saveRequest(request);
 
-  return { originalRequest: request, newRequest };
+  return {
+    originalRequest: toConnectRequestDTO(request),
+    newRequest: toConnectRequestDTO(newRequest),
+  };
 };
 
 // ── ONGOING CONNECTS ──────────────────────────────────────────
@@ -390,17 +417,25 @@ const getOngoingConnectsService = async (userId) => {
 
   return Promise.all(
     requests.map(async (r) => {
-      const isMentee = r.mentee._id.toString() === userId.toString();
+      const menteeId = r.mentee?._id ?? r.mentee;
+      const mentorId = r.mentor?._id ?? r.mentor;
+
+      const isMentee = menteeId.toString() === userId.toString();
       if (isMentee) {
-        const mentorProfile = await mentorRepository.findMentorProfile(
-          r.mentor._id,
-        );
-        return { ...r, mentorProfile: mentorProfile || null };
+        const mentorProfile =
+          await mentorRepository.findMentorProfile(mentorId);
+        return {
+          ...toConnectRequestDTO(r),
+          mentorProfile: toMentorProfileDTO(mentorProfile),
+        };
       } else {
-        const menteeProfile = await menteeRepository.findMenteeProfile(
-          r.mentee._id,
-        );
-        return { ...r, menteeProfile: menteeProfile || null };
+        const menteeProfile =
+          await menteeRepository.findMenteeProfile(menteeId);
+        return {
+          ...toConnectRequestDTO(r),
+          // ✅ Wrap retrieved target profile record layout properties cleanly
+          menteeProfile: toMenteeProfileDTO(menteeProfile),
+        };
       }
     }),
   );
@@ -412,8 +447,11 @@ const getConnectDetailService = async (requestId, userId) => {
   if (!request)
     throw Object.assign(new Error("Session not found"), { statusCode: 404 });
 
-  const isMentee = request.mentee._id.toString() === userId.toString();
-  const isMentor = request.mentor._id.toString() === userId.toString();
+  const menteeId = request.mentee?._id ?? request.mentee;
+  const mentorId = request.mentor?._id ?? request.mentor;
+
+  const isMentee = menteeId.toString() === userId.toString();
+  const isMentor = mentorId.toString() === userId.toString();
 
   if (!isMentee && !isMentor)
     throw Object.assign(new Error("Not authorized to view this session"), {
@@ -421,19 +459,17 @@ const getConnectDetailService = async (requestId, userId) => {
     });
 
   const [mentorProfile, menteeProfile] = await Promise.all([
-    mentorRepository.findMentorProfile(request.mentor._id),
-    menteeRepository.findMenteeProfile(request.mentee._id),
+    mentorRepository.findMentorProfile(mentorId),
+    menteeRepository.findMenteeProfile(menteeId),
   ]);
 
   return {
-    ...request,
-    mentorProfile: mentorProfile || null,
-    menteeProfile: menteeProfile || null,
+    ...toConnectRequestDTO(request),
+    mentorProfile: toMentorProfileDTO(mentorProfile),
+    menteeProfile: toMenteeProfileDTO(menteeProfile),
     viewerRole: isMentee ? "mentee" : "mentor",
   };
 };
-
-
 
 module.exports = {
   sendConnectRequestService,

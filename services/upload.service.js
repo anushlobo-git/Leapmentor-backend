@@ -5,7 +5,7 @@ const logger = require("../config/logger"); // Assuming this is your path
 
 // Repositories
 const mentorProfileRepository = require("../repositories/mentor.repository");
-
+const { toMentorProfileDTO } = require("../mappers/mentorProfile.mapper");
 // Out-of-band Notification Helpers
 const {
   sendDocumentsSubmittedEmail,
@@ -129,16 +129,8 @@ const processVerificationDocuments = async (
       logger.error("Email notification failed", { error: e.message }),
     );
 
-    return {
-      resumeDocument: {
-        url: resumeResult.secure_url,
-        publicId: resumeResult.public_id,
-      },
-      workExperienceDocuments: workResults.map((r) => ({
-        url: r.secure_url,
-        publicId: r.public_id,
-      })),
-    };
+    //  Return the fully mapped and formatted profile object to the client
+    return toMentorProfileDTO(mentorProfile);
   } catch (err) {
     logger.error("Verification upload failed, initiating rollback", {
       userId: currentUser._id,

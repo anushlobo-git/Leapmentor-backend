@@ -4,45 +4,63 @@ const userSchema = new mongoose.Schema(
   {
     name: {
       type: String,
-      required: true,
+      required: [
+        true,
+        "User primary profile identification full name string is required",
+      ],
+      trim: true,
+      maxlength: [
+        150,
+        "User identity name cannot exceed 150 characters across string indices",
+      ],
     },
-
     email: {
       type: String,
-      required: true,
+      required: [
+        true,
+        "Primary contact and account login authentication email address routing path is required",
+      ],
       unique: true,
       lowercase: true,
+      trim: true,
     },
-
     password: {
       type: String,
-      select:false,
+      select: false,
     },
-
     roles: {
       type: [String],
-      enum: ["mentor", "mentee"],
-      required: true,
+      required: [
+        true,
+        "User operational capabilities role access classification array ledger is required",
+      ],
+      enum: {
+        values: ["mentor", "mentee"],
+        message:
+          "{VALUE} is not a recognized system account capability tier authorization role option",
+      },
       validate: {
         validator: function (val) {
-          return val.length === 1;
+          return Array.isArray(val) && val.length === 1;
         },
-        message: "A user can only have one role.",
+        message:
+          "A user account mapping blueprint must capture exactly one structural role designation tier assignment",
       },
     },
-
     isEmailVerified: {
       type: Boolean,
       default: false,
     },
-
     termsAccepted: {
       type: Boolean,
-      required: true,
+      required: [
+        true,
+        "Explicit validation parameter state verifying legal service terms acceptance condition is required",
+      ],
     },
-
     termsAcceptedAt: {
       type: Date,
+      default: null,
     },
     passwordChangedAt: {
       type: Date,
@@ -57,9 +75,13 @@ const userSchema = new mongoose.Schema(
       default: null,
     },
   },
-  { timestamps: true },
+  {
+    timestamps: true,
+  },
 );
-// No changes to schema fields — isDeleted and deletedAt are correct ✅
+
+// Multi-key index tracking soft-delete compliance state filters chronologically across directory lists
+userSchema.index({ isDeleted: 1, createdAt: -1 });
 
 // Replace your pre-find middleware with this:
 userSchema.pre(/^find/, function (next) {

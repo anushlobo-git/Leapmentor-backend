@@ -10,6 +10,9 @@ const connectRequestRepo = require("../repositories/connectRequest.repository");
 const goalRepo = require("../repositories/goal.repository");
 const milestoneRepo = require("../repositories/milestone.repository");
 
+// Mappers
+const { toGoalDTO } = require("../mappers/goal.mapper");
+const { toMilestoneDTO } = require("../mappers/milestone.mapper");
 // Upper-case Domain Constants
 const STATUS_ONGOING = "ongoing";
 const GOAL_STATUS_ACTIVE = "active";
@@ -30,15 +33,6 @@ const EVENT_MILESTONE_DELETED = "milestone_deleted";
 
 /**
  * Establishes a brand new outcome objective matrix targeting an ongoing engagement contract.
- * @param {Object} params Operational execution configurations map.
- * @param {string} params.connectRequestId Identity index key of the parent session agreement.
- * @param {string} params.title Comprehensive naming title representing the target milestone focus.
- * @param {string} [params.description] Explicit descriptive summary context details.
- * @param {string|Date} [params.startDate] Starting target boundary window configuration.
- * @param {string|Date} [params.endDate] Final estimated delivery time constraint point.
- * @param {string} params.userId Actor ID generating the baseline request.
- * @throws {AppError} 400 | 403 | 404 | 409
- * @returns {Promise<Object>} Persisted target outcome document payload properties.
  */
 const createGoal = async ({
   connectRequestId,
@@ -63,10 +57,13 @@ const createGoal = async ({
   if (existing)
     throw new AppError("A goal already exists for this session", 409);
 
+  const mentorId = session.mentor?._id ?? session.mentor;
+  const menteeId = session.mentee?._id ?? session.mentee;
+
   const goal = await goalRepo.create({
     connectRequest: connectRequestId,
-    mentor: session.mentor,
-    mentee: session.mentee,
+    mentor: mentorId,
+    mentee: menteeId,
     title: title.trim(),
     description: description?.trim() || "",
     startDate: startDate || null,
@@ -74,17 +71,14 @@ const createGoal = async ({
     createdBy: userId,
   });
 
-  _emitToRoom(connectRequestId, EVENT_GOAL_CREATED, { goal });
+  const mappedGoal = toGoalDTO(goal);
+  _emitToRoom(connectRequestId, EVENT_GOAL_CREATED, { goal: mappedGoal });
 
-  return goal;
+  return mappedGoal;
 };
 
 /**
  * Returns structured milestone lists mapped together natively against matching core goals.
- * @param {string} connectRequestId Verification token targeting parent configuration blocks.
- * @param {string} userId Requesting workspace profile tracking credential map.
- * @throws {AppError} 403 | 404
- * @returns {Promise<Object>} Synced objectives and milestones sub-arrays array mapping.
  */
 const getGoalByConnection = async (connectRequestId, userId) => {
   const session = await connectRequestRepo.findById(connectRequestId);
@@ -99,21 +93,15 @@ const getGoalByConnection = async (connectRequestId, userId) => {
 
   const milestones = await milestoneRepo.findAllByGoalSorted(goal._id);
 
-  return { goal, milestones };
+  return {
+    goal: toGoalDTO(goal),
+    // Serialize individual elements within the data collection array cleanly
+    milestones: milestones.map(toMilestoneDTO),
+  };
 };
 
 /**
  * Modifies parameters managing master outcomes tracks.
- * @param {Object} params Update metrics maps payload track properties.
- * @param {string} params.goalId Precise model primary structural identity reference selector keys.
- * @param {string} [params.title] Modified title statement data metrics adjustment bounds.
- * @param {string} [params.description] Descriptive metadata block summary text corrections.
- * @param {string|Date} [params.startDate] Shifting calendar tracking points.
- * @param {string|Date} [params.endDate] Rearranged closing roadmap bounds.
- * @param {string} [params.status] Target performance level changes.
- * @param {string} params.userId Modifier account security identification trace context tracker.
- * @throws {AppError} 400 | 403 | 404
- * @returns {Promise<Object>} Updated objective target document tracking asset structures.
  */
 const updateGoal = async ({
   goalId,
@@ -146,29 +134,16 @@ const updateGoal = async ({
 
   await goalRepo.save(goal);
 
-  _emitToRoom(goal.connectRequest, EVENT_GOAL_UPDATED, { goal });
+  const mappedGoal = toGoalDTO(goal);
+  _emitToRoom(goal.connectRequest, EVENT_GOAL_UPDATED, { goal: mappedGoal });
 
-  return goal;
+  return mappedGoal;
 };
 
 /**
  * appends customized checkpoint elements down inside targeting parent goal tracks.
- * @param {Object} params Allocation criteria map components variables tracking profiles.
- * @param {string} params.goalId Target parent reference indicator indexing structure mappings.
- * @param {string} params.title Specific criteria naming text assignments.
- * @param {string} [params.description] Functional process roadmap item descriptions.
- * @param {string|Date} [params.dueDate] Segment milestone target time frame bounds point.
- * @param {string} params.userId Actor context mapping confirmation flags profiles.
- * @throws {AppError} 400 | 403 | 404
- * @returns {Promise<Object>} Added milestone data object tracking configuration matrices arrays.
  */
-const createMilestone = async ({
-  goalId,
-  title,
-  description,
-  dueDate,
-  userId,
-}) => {
+const createMilestone = async ({ goalId, title, description, dueDate, userId }) => {
   const goal = await goalRepo.findById(goalId);
   if (!goal) throw new AppError("Goal not found", 404);
 
@@ -189,21 +164,17 @@ const createMilestone = async ({
     order,
   });
 
-  _emitToRoom(goal.connectRequest, EVENT_MILESTONE_ADDED, { milestone });
+  // Enforce serialization layer checks prior to outbound events dispatching
+  const mappedMilestone = toMilestoneDTO(milestone);
+  _emitToRoom(goal.connectRequest, EVENT_MILESTONE_ADDED, {
+    milestone: mappedMilestone,
+  });
 
-  return milestone;
-};
+  return mappedMilestone;
+};;
 
 /**
  * Edits operational criteria describing tracking checkpoints performance state values.
- * @param {Object} params Identification parameter mappings payload bounds tracing arrays.
- * @param {string} params.milestoneId Database context resource location identifier coordinate key mapping.
- * @param {string} [params.title] Alternate naming updates applied into the milestone parameters.
- * @param {string} [params.description] Narrative details summaries changes targets fields entries.
- * @param {boolean} [params.isCompleted] True/False assessment flag verifying target milestone execution success.
- * @param {string} params.userId Acting credential assignment reference tracking profile credentials mapping maps.
- * @throws {AppError} 400 | 403 | 404
- * @returns {Promise<Object>} Persisted updated milestone document profile instance state maps.
  */
 const updateMilestone = async ({
   milestoneId,
@@ -232,17 +203,17 @@ const updateMilestone = async ({
 
   await milestoneRepo.save(milestone);
 
-  _emitToRoom(milestone.connectRequest, EVENT_MILESTONE_UPDATED, { milestone });
+  // Wrap the updated structural payload components safely
+  const mappedMilestone = toMilestoneDTO(milestone);
+  _emitToRoom(milestone.connectRequest, EVENT_MILESTONE_UPDATED, {
+    milestone: mappedMilestone,
+  });
 
-  return milestone;
+  return mappedMilestone;
 };
 
 /**
  * Completely purges structural checkpoint records from system database tracking sheets.
- * @param {string} milestoneId Targeted milestone entity tracking location index key mapping.
- * @param {string} userId Execution identity parameter token verification signature checklist.
- * @throws {AppError} 403 | 404
- * @returns {Promise<string>} Omitted tracking identity block structural reference string.
  */
 const deleteMilestone = async (milestoneId, userId) => {
   const milestone = await milestoneRepo.findById(milestoneId);
@@ -264,11 +235,11 @@ const deleteMilestone = async (milestoneId, userId) => {
  * @private
  */
 const _assertParticipant = (connectRequest, userId) => {
-  const mentorId = connectRequest.mentor.toString();
-  const menteeId = connectRequest.mentee.toString();
+  const mentorId = connectRequest.mentor?._id ?? connectRequest.mentor;
+  const menteeId = connectRequest.mentee?._id ?? connectRequest.mentee;
   const uid = userId.toString();
 
-  if (uid !== mentorId && uid !== menteeId) {
+  if (uid !== mentorId.toString() && uid !== menteeId.toString()) {
     throw new AppError("Not authorized", 403);
   }
 };
