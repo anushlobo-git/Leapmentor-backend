@@ -12,7 +12,7 @@ const {
   saveMentorProfile,
 } = require("../repositories/mentor.repository");
 const { sendMentorVerifiedEmail } = require("../utils/sendNotificationEmail");
-
+const logger = require("../config/logger");
 // Mappers
 const { toMentorProfileDTO } = require("../mappers/mentorProfile.mapper");
 
@@ -83,7 +83,7 @@ const verifyMentorService = async (mentorProfileId) => {
       mentorName,
       mentorEmail,
     }).catch((err) =>
-      console.error("sendMentorVerifiedEmail failed:", err.message),
+      logger.error("sendMentorVerifiedEmail failed", { message: err.message }),
     );
   }
 

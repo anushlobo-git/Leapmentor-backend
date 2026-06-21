@@ -9,6 +9,7 @@ const AppError = require("../utils/AppError");
 const reportRepository = require("../repositories/report.repository");
 const connectRequestRepository = require("../repositories/connectRequest.repository");
 const { toReportDTO } = require("../mappers/report.mapper");
+const logger = require("../config/logger");
 
 // Out-of-band Notification Helpers
 const {
@@ -145,10 +146,9 @@ const createIncidentReport = async (currentUser, bodyPayload, filePayload) => {
     description: description.trim(),
     reporterRole,
   }).catch((emailError) =>
-    console.error(
-      "❌ sendReportSubmittedEmail fire-and-forget loop broke:",
-      emailError.message,
-    ),
+    logger.error("sendReportSubmittedEmail failed", {
+      message: emailError.message,
+    }),
   );
 
   // Wrap the newly created Mongoose instance with the DTO serializer
@@ -247,10 +247,9 @@ const processAdminReportUpdate = async (
       status,
       adminNote: adminNote?.trim() || "",
     }).catch((emailError) =>
-      console.error(
-        "❌ sendReportResolvedEmail async transmission failure:",
-        emailError.message,
-      ),
+      logger.error("sendReportResolvedEmail failed", {
+        message: emailError.message,
+      }),
     );
   }
 

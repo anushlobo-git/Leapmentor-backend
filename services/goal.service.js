@@ -4,11 +4,12 @@
  */
 const AppError = require("../utils/AppError");
 const socketHandler = require("../socket/socketHandler");
-
+const logger = require("../config/logger");
 // Repositories
 const connectRequestRepo = require("../repositories/connectRequest.repository");
 const goalRepo = require("../repositories/goal.repository");
 const milestoneRepo = require("../repositories/milestone.repository");
+
 
 // Mappers
 const { toGoalDTO } = require("../mappers/goal.mapper");
@@ -254,7 +255,7 @@ const _emitToRoom = (connectRequestId, event, data) => {
       socketHandler.io.to(connectRequestId.toString()).emit(event, data);
     }
   } catch (err) {
-    console.error("❌ Socket emit error:", err.message);
+    logger.error("Socket emit error", { message: err.message });
   }
 };
 

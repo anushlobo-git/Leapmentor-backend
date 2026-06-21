@@ -77,4 +77,71 @@ const loginValidation = celebrate({
   }),
 });
 
-module.exports = { registerValidation, loginValidation };
+/**
+ * Validation middleware for verifying and provisioning federated Google OAuth identities.
+ * @type {Object}
+ * @property {Object} [Segments.BODY] - Intercepts and parses incoming JSON keys on `req.body`.
+ * @description Enforces federated authentication and onboarding constraints:
+ * - credential: Raw string JWT ID token issued by Google authentication services. Required.
+ * - roles: Non-empty array collection whitelisting client system visibility privileges ("mentor", "mentee"). Required.
+ * - termsAccepted: Explicit boolean literal validation flag that must evaluate strictly to true. Required.
+ */
+const googleAuthValidation = celebrate({
+  [Segments.BODY]: Joi.object({
+    credential: Joi.string().required().messages({
+      "string.empty": "Google credential token is required.",
+      "any.required": "Google credential token is required.",
+    }),
+    roles: Joi.array()
+      .items(Joi.string().valid("mentor", "mentee"))
+      .min(1)
+      .required()
+      .messages({
+        "array.base": "Roles must be an array.",
+        "array.min": "At least one role is required.",
+        "any.required": "Roles are required.",
+      }),
+    termsAccepted: Joi.boolean().valid(true).required().messages({
+      "any.only": "You must accept the terms and conditions.",
+      "any.required": "Terms acceptance is required.",
+    }),
+  }),
+});
+
+/**
+ * Validation middleware for LinkedIn OAuth token exchange.
+ * @type {Object}
+ * @property {Object} [Segments.BODY] - Intercepts and parses incoming JSON keys on `req.body`.
+ * @description Enforces structural constraints:
+ * - code: LinkedIn authorization code string returned from OAuth callback.
+ * - roles: Non-empty array restricted to mentor or mentee tier designations.
+ * - termsAccepted: Explicit boolean literal validation flag that must evaluate strictly to true.
+ */
+const linkedinAuthValidation = celebrate({
+  [Segments.BODY]: Joi.object({
+    code: Joi.string().required().messages({
+      "string.empty": "LinkedIn authorization code is required.",
+      "any.required": "LinkedIn authorization code is required.",
+    }),
+    roles: Joi.array()
+      .items(Joi.string().valid("mentor", "mentee"))
+      .min(1)
+      .required()
+      .messages({
+        "array.base": "Roles must be an array.",
+        "array.min": "At least one role is required.",
+        "any.required": "Roles are required.",
+      }),
+    termsAccepted: Joi.boolean().valid(true).required().messages({
+      "any.only": "You must accept the terms and conditions.",
+      "any.required": "Terms acceptance is required.",
+    }),
+  }),
+});
+
+module.exports = {
+  registerValidation,
+  loginValidation,
+  googleAuthValidation,
+  linkedinAuthValidation,
+};

@@ -117,41 +117,5 @@ const loginUser = async ({ email, password }) => {
   };
 };
 
-/**
- * Modifies and changes an active profile's password record.
- * @param {string} userId                  - Target identity reference database ID.
- * @param {Object} passwords               - Transaction context configuration data payload.
- * @param {string} passwords.currentPassword - Existing active verification password string.
- * @param {string} passwords.newPassword   - The newly generated replacement target password.
- * @throws {AppError} 400                  - Missing inputs or invalid password length metrics.
- * @throws {AppError} 404                  - Identity parameters check returns empty.
- * @throws {AppError} 401                  - Existing matching validation password parameter fails.
- * @returns {Promise<void>}
- */
-const changeUserPassword = async (userId, { currentPassword, newPassword }) => {
-  if (!currentPassword || !newPassword) {
-    throw new AppError("All password fields are required.", 400);
-  }
-  if (newPassword.length < MIN_PASSWORD_LENGTH) {
-    throw new AppError(
-      `New password must be at least ${MIN_PASSWORD_LENGTH} characters long.`,
-      400,
-    );
-  }
 
-  const user = await userRepository.findUserByIdWithPassword(userId);
-  if (!user) {
-    throw new AppError("User not found.", 404);
-  }
-
-  const isMatch = await bcrypt.compare(currentPassword, user.password);
-  if (!isMatch) {
-    throw new AppError("Current password is incorrect.", 401);
-  }
-
-  user.password = await bcrypt.hash(newPassword, BCRYPT_SALT_CHANGE_PASSWORD);
-  user.passwordChangedAt = new Date();
-  await userRepository.saveUser(user);
-};
-
-module.exports = { registerUser, loginUser, changeUserPassword };
+module.exports = { registerUser, loginUser };

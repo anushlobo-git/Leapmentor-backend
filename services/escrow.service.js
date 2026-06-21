@@ -22,7 +22,7 @@ const DEFAULT_COMMISSION_RATE = 20;
 const DEFAULT_TIMEZONE = "Asia/Kolkata";
 const ROLE_MENTEE = "mentee";
 const ROLE_MENTOR = "mentor";
-
+const logger = require("../config/logger");
 /**
  * Initiates escrow hold payments on newly accepted connection configurations.
  * @param {Object} params Execution parameters.
@@ -357,7 +357,9 @@ const release = async ({ requestId, menteeId }) => {
   try {
     await session.abortTransaction();
   } catch (abortErr) {
-    console.debug("Silent transaction abort warning:", abortErr.message);
+    logger.warn("Silent transaction abort warning", {
+      message: abortErr.message,
+    });
   }
   throw err;
 } finally {
@@ -592,7 +594,7 @@ const _triggerPaySideEffects = (
     sessionCount,
     totalAmount,
     paidAt: connectRequest.paidAt,
-  }).catch((err) => console.error("❌ Invoice email failed:", err.message));
+  }).catch((err) => logger.error("Invoice email failed", { message: err.message }));
 
   sendPaymentReceivedEmail({
     mentorName: connectRequest.mentor.name,
@@ -604,7 +606,7 @@ const _triggerPaySideEffects = (
     mentorPayout: mentorAmount,
     commissionRate,
   }).catch((err) =>
-    console.error("❌ Payment received email failed:", err.message),
+    logger.error("Payment received email failed", { message: err.message }),
   );
 
   availabilityRepo
@@ -623,7 +625,9 @@ const _triggerPaySideEffects = (
         message: connectRequest.message || "",
       }),
     )
-    .catch((err) => console.error("❌ Calendar invite failed:", err.message));
+    .catch((err) =>
+      logger.error("Calendar invite failed", { message: err.message }),
+    );
 };
 
 module.exports = {

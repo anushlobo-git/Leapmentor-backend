@@ -1,19 +1,15 @@
-const logger=require("../config/logger");
+const logger = require("../config/logger");
 
 const errorHandler = (err, req, res, next) => {
   const statusCode = err.statusCode || 500;
   const message = err.isOperational ? err.message : "Something went wrong";
 
-  if (process.env.NODE_ENV === "development") {
-    console.error("ERROR:", err);
-  }
-
-   logger.error("Unhandled error", {
-     message: err.message,
-     stack: err.stack,
-     status: err.statusCode || 500,
-     url: req.originalUrl,
-   });
+  logger.error("Unhandled error", {
+    message: err.message,
+    stack: err.stack,
+    status: statusCode,
+    url: req.originalUrl,
+  });
 
   res.status(statusCode).json({
     success: false,

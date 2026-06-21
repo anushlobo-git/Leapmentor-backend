@@ -3,7 +3,7 @@
  * @description Manages public ticket ingestion, administrative retrievals, and notification workflows.
  */
 const AppError = require("../utils/AppError");
-
+const logger = require("../config/logger");
 // Repositories
 const supportMessageRepository = require("../repositories/supportMessage.repository");
 const userRepository = require("../repositories/user.repository");
@@ -99,10 +99,9 @@ const resolveTicket = async (ticketId) => {
     toEmail: ticket.email,
     subject: ticket.subject,
   }).catch((emailTransmissionError) => {
-    console.error(
-      "⚠️ Asynchronous support resolution notification email delivery failed:",
-      emailTransmissionError.message,
-    );
+    logger.error("Support resolution email delivery failed", {
+      message: emailTransmissionError.message,
+    });
   });
 
   //  Map out explicit schema variables before transmitting fields to administrative routes

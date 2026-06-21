@@ -5,6 +5,7 @@
 const streamifier = require("streamifier");
 const { cloudinary } = require("../config/cloudinary");
 const AppError = require("../utils/AppError");
+const logger = require("../config/logger");
 
 // Repositories
 const noteRepository = require("../repositories/note.repository");
@@ -199,11 +200,9 @@ const removeNoteRecord = async (noteId, userId) => {
       resource_type: CLOUDINARY_RESOURCE_TYPE_RAW,
     });
   } catch (cloudinaryDeleteWarning) {
-    // Non-blocking log trace ensures orphan storage structures do not hold down structural tracking deletions
-    console.warn(
-      "Cloudinary file unlinking warning emitted:",
-      cloudinaryDeleteWarning.message,
-    );
+    logger.warn("Cloudinary file unlinking warning", {
+      message: cloudinaryDeleteWarning.message,
+    });
   }
 
   await noteRepository.deleteById(noteId);

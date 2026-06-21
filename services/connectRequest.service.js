@@ -15,7 +15,7 @@ const { toConnectRequestDTO } = require("../mappers/connectRequest.mapper");
 const { toMenteeProfileDTO } = require("../mappers/menteeProfile.mapper");
 
 const { toMentorProfileDTO } = require("../mappers/mentorProfile.mapper");
-
+const logger = require("../config/logger");
 // ── SEND REQUEST ──────────────────────────────────────────────
 const sendConnectRequestService = async (menteeId, body, menteeUser) => {
   const { mentorId, message, selectedSlots, sessionRate, sessionCount } = body;
@@ -124,7 +124,7 @@ const sendConnectRequestService = async (menteeId, body, menteeUser) => {
     slots: selectedSlots,
     message: message?.trim() || "",
   }).catch((err) =>
-    console.error("❌ Connect request email failed:", err.message),
+    logger.error("Connect request email failed", { message: err.message }),
   );
 
   return toConnectRequestDTO(populated);
@@ -263,7 +263,7 @@ const respondToRequestService = async (requestId, mentorUserId, body) => {
       confirmedSlot,
       slots: request.selectedSlots,
     }).catch((err) =>
-      console.error("❌ Request accepted email failed:", err.message),
+      logger.error("Request accepted email failed", { message: err.message }),
     );
   }
 

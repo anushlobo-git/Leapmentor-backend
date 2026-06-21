@@ -11,11 +11,12 @@ const availabilityRepo = require("../repositories/availability.repository");
 
 // Inter-domain Dependency
 const escrowService = require("./escrow.service");
-
+const logger = require("../config/logger");
 // Utilities
 const releaseEscrow = require("../utils/releaseEscrow");
 const { sendSlotCancelledEmail, sendSlotRescheduledEmail, sendAdditionalSlotEmail } = require("../utils/sendNotificationEmail");
 const { generateAvailableSlots } = require("../utils/generateSlots");
+
 
 // Domain Constants
 const ALLOWED_MEETING_DOMAINS = [
@@ -242,9 +243,15 @@ const cancelSlot = async ({ connectRequestId, slotIndex, reason, userId }) => {
   let refundResult = null;
   if (request.paymentStatus === "paid") {
     try {
-      refundResult = await escrowService.refundSlot({ connectRequestId, slotIndex: idx, cancelledBy });
+      refundResult = await escrowService.refundSlot({
+        connectRequestId,
+        slotIndex: idx,
+        cancelledBy,
+      });
     } catch (err) {
-      console.error("❌ Slot refund failed (slot remains cancelled):", err.message);
+      logger.error("Slot refund failed — slot remains cancelled", {
+        message: err.message,
+      });
     }
   }
 
@@ -411,7 +418,7 @@ const _emitSlotUpdate = (request, payload) => {
     emitToUser(request.mentor.toString(), "session_slots_updated", payload);
     emitToUser(request.mentee.toString(), "session_slots_updated", payload);
   } catch (e) {
-    console.warn("⚠️ emitSlotUpdate failed:", e.message);
+    logger.warn("emitSlotUpdate failed", { message: e.message });
   }
 };
 
@@ -423,30 +430,72 @@ const _emitToOther = (request, currentUserId, event, payload) => {
   try {
     const { emitToUser } = require("../socket/socketHandler");
     if (!emitToUser) return;
-    const otherId = request.mentor.toString() === currentUserId.toString() ? request.mentee.toString() : request.mentor.toString();
+    const otherId =
+      request.mentor.toString() === currentUserId.toString()
+        ? request.mentee.toString()
+        : request.mentor.toString();
     emitToUser(otherId, event, payload);
   } catch (e) {
-    console.warn("⚠️ emitToOther failed:", e.message);
+    logger.warn("emitToOther failed", { message: e.message });
   }
 };
 
 /** Emails Side-effects Triggers */
 const _triggerAdditionalSlotEmail = (id, slot) => {
-  connectRequestRepo.findByIdWithParticipants(id)
-    .then((pop) => sendAdditionalSlotEmail({ connectRequestId: id, mentorName: pop.mentor.name, mentorEmail: pop.mentor.email, menteeName: pop.mentee.name, menteeEmail: pop.mentee.email, slot }))
-    .catch((err) => console.error("❌ Additional slot email failed:", err.message));
+  connectRequestRepo
+    .findByIdWithParticipants(id)
+    .then((pop) =>
+      sendAdditionalSlotEmail({
+        connectRequestId: id,
+        mentorName: pop.mentor.name,
+        mentorEmail: pop.mentor.email,
+        menteeName: pop.mentee.name,
+        menteeEmail: pop.mentee.email,
+        slot,
+      }),
+    )
+    .catch((err) =>
+      logger.error("Additional slot email failed", { message: err.message }),
+    );
 };
 
 const _triggerCancelEmail = (id, slot, cancelledBy, reason) => {
-  connectRequestRepo.findByIdWithParticipants(id)
-    .then((pop) => sendSlotCancelledEmail({ connectRequestId: id, mentorName: pop.mentor.name, mentorEmail: pop.mentor.email, menteeName: pop.mentee.name, menteeEmail: pop.mentee.email, slot, cancelledBy, reason }))
-    .catch((err) => console.error("❌ Slot cancel email failed:", err.message));
+  connectRequestRepo
+    .findByIdWithParticipants(id)
+    .then((pop) =>
+      sendSlotCancelledEmail({
+        connectRequestId: id,
+        mentorName: pop.mentor.name,
+        mentorEmail: pop.mentor.email,
+        menteeName: pop.mentee.name,
+        menteeEmail: pop.mentee.email,
+        slot,
+        cancelledBy,
+        reason,
+      }),
+    )
+    .catch((err) =>
+      logger.error("Slot cancel email failed", { message: err.message }),
+    );
 };
 
 const _triggerRescheduleEmail = (id, oldSlot, newSlot) => {
-  connectRequestRepo.findByIdWithParticipants(id)
-    .then((pop) => sendSlotRescheduledEmail({ connectRequestId: id, mentorName: pop.mentor.name, mentorEmail: pop.mentor.email, menteeName: pop.mentee.name, menteeEmail: pop.mentee.email, oldSlot, newSlot }))
-    .catch((err) => console.error("❌ Reschedule email failed:", err.message));
+  connectRequestRepo
+    .findByIdWithParticipants(id)
+    .then((pop) =>
+      sendSlotRescheduledEmail({
+        connectRequestId: id,
+        mentorName: pop.mentor.name,
+        mentorEmail: pop.mentor.email,
+        menteeName: pop.mentee.name,
+        menteeEmail: pop.mentee.email,
+        oldSlot,
+        newSlot,
+      }),
+    )
+    .catch((err) =>
+      logger.error("Reschedule email failed", { message: err.message }),
+    );
 };
 
 module.exports = {

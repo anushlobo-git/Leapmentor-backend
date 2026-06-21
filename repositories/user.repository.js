@@ -152,14 +152,6 @@ const findUserByEmail = (email) => {
 };
 
 /**
- * Find a single profile index by ID including its hidden password hash string.
- * @param {string} userId - Main entity document lookup key.
- * @returns {Promise<Object|null>}
- */
-const findUserByIdWithPassword = (userId) =>
-  User.findById(userId).select("+password");
-
-/**
  * Instantiate and persist a brand-new user record index within the schema.
  * @param {Object} data - Account configuration parameters payload.
  * @returns {Promise<Object>} Created model document validation details.
@@ -217,7 +209,6 @@ module.exports = {
   unblockUser,
   findUserByEmail,
   findUserByEmailWithPassword,
-  findUserByIdWithPassword,
   createUser,
   saveUser,
   findUsersByNameSearch,

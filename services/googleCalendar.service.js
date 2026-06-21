@@ -5,6 +5,7 @@
 const { google } = require("googleapis");
 const AppError = require("../utils/AppError");
 const availabilityRepository = require("../repositories/availability.repository");
+const logger = require("../config/logger");
 
 // Upper-case Domain Constants
 const SCOPES = ["https://www.googleapis.com/auth/calendar.readonly"];
@@ -208,10 +209,9 @@ const _bindTokenRefreshListener = (client, currentTokens, mentorId) => {
         googleCalendarToken: JSON.stringify(mergedTokens),
       })
       .catch((refreshErr) =>
-        console.error(
-          "❌ Token automated rewrite storage process failed:",
-          refreshErr.message,
-        ),
+        logger.error("Token refresh storage update failed", {
+          message: refreshErr.message,
+        }),
       );
   });
 };
