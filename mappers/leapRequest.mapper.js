@@ -9,7 +9,7 @@ const toLeapRequestDTO = (leapRequest) => {
   return {
     // ✅ Dual-ID Support: Complete frontend backward compatibility
     _id: leapRequest._id,
-    id: leapRequest._id?.toString(),
+    
 
     // Safe extraction fallback paths handle either raw ObjectIds or fully populated entities cleanly
     mentee: leapRequest.mentee?._id

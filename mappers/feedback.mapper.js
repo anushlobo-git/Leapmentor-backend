@@ -9,7 +9,7 @@ const toFeedbackDTO = (feedback) => {
   return {
     // Dual-ID Support: Complete frontend backward compatibility
     _id: feedback._id,
-    id: feedback._id?.toString(),
+
     connectRequest: feedback.connectRequest,
 
     //  Safe Check: Maps profile sub-fields if populated, falls back to raw identifier safely if not

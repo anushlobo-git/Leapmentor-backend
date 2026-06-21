@@ -64,12 +64,13 @@ const createAvailability = async (mentorId, body) => {
     );
   }
 
-  const { timezone, sessionDurations, specificDates } = body;
+  const { timezone, sessionDurations, specificDates ,weeklyHours } = body;
   return await availabilityRepository.createAvailability({
     mentorId,
     timezone,
     sessionDurations,
     specificDates,
+    weeklyHours,
   });
 };
 

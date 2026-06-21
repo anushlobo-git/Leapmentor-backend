@@ -9,7 +9,7 @@ const toPrivateNoteDTO = (note) => {
   return {
     // Dual-ID Support: Complete frontend backward compatibility
     _id: note._id,
-    id: note._id?.toString(),
+    
     connectRequest:
       note.connectRequest?._id?.toString() ?? note.connectRequest?.toString(),
     author: note.author?._id?.toString() ?? note.author?.toString(),

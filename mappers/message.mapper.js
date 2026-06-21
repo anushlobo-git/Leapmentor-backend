@@ -9,7 +9,7 @@ const toMessageDTO = (message) => {
   return {
     //  Dual-ID Support: Complete frontend backward compatibility
     _id: message._id,
-    id: message._id?.toString(),
+    
     connectRequest:
       message.connectRequest?._id?.toString() ??
       message.connectRequest?.toString(),

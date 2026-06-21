@@ -5,7 +5,6 @@
 
 const toConnectRequestDTO = (request) => ({
   _id: request._id,
-  id: request._id?.toString(),
   mentee: request.mentee,
   mentor: request.mentor,
   message: request.message,

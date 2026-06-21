@@ -9,7 +9,7 @@ const toGoalDTO = (goal) => {
   return {
     //  Dual-ID Support: Complete frontend backward compatibility
     _id: goal._id,
-    id: goal._id?.toString(),
+    
     connectRequest: goal.connectRequest,
 
     // Safe extraction fallback paths handle either raw ObjectIds or fully populated user bodies

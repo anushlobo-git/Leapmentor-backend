@@ -9,7 +9,7 @@ const toSupportMessageDTO = (message) => {
   return {
     // ✅ Dual-ID Support: Complete frontend backward compatibility
     _id: message._id,
-    id: message._id?.toString(),
+    
 
     email: message.email || "",
     subject: message.subject || "",

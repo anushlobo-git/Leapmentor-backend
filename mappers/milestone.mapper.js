@@ -9,7 +9,7 @@ const toMilestoneDTO = (milestone) => {
   return {
     // Dual-ID Support: Complete frontend backward compatibility
     _id: milestone._id,
-    id: milestone._id?.toString(),
+    
 
     goal: milestone.goal?._id?.toString() ?? milestone.goal?.toString(),
     connectRequest:

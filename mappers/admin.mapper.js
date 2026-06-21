@@ -1,7 +1,7 @@
 // mappers/admin.mapper.js
 
 const toAdminDTO = (admin) => ({
-  id: admin._id,
+  _id: admin._id,
   name: admin.name,
   email: admin.email,
   isSuperAdmin: admin.isSuperAdmin,

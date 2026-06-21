@@ -8,7 +8,7 @@ const toWalletDTO = (wallet) => {
 
   return {
     _id: wallet._id,
-    id: wallet._id?.toString(),
+    
     role: wallet.role || null,
     balance: wallet.balance ?? 0,
     escrow: wallet.escrow ?? 0,

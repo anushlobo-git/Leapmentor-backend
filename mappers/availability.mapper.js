@@ -1,16 +1,23 @@
 // mappers/availability.mapper.js
 
-const toAvailabilityDTO = (availability) => ({
-  id: availability._id,
-  mentor: availability.mentor,
-  timezone: availability.timezone,
-  sessionDurations: availability.sessionDurations,
-  weeklyHours: availability.weeklyHours,
-  specificDates: availability.specificDates,
-  googleCalendarConnected: availability.googleCalendarConnected,
-  // googleCalendarToken deliberately excluded
-  createdAt: availability.createdAt,
-  updatedAt: availability.updatedAt,
-});
+// mappers/availability.mapper.js
+const toAvailabilityDTO = (availability) => {
+  if (!availability) return null;
+
+  return {
+    // Dual-ID Support to prevent frontend breaking changes
+    _id: availability._id?.toString() || null,
+
+    mentor: availability.mentor?.toString() || availability.mentor || "",
+    timezone: availability.timezone,
+    sessionDurations: availability.sessionDurations || [],
+    weeklyHours: availability.weeklyHours || [],
+    specificDates: availability.specificDates || [],
+    googleCalendarConnected: availability.googleCalendarConnected || false,
+    
+    createdAt: availability.createdAt || null,
+    updatedAt: availability.updatedAt || null,
+  };
+};
 
 module.exports = { toAvailabilityDTO };

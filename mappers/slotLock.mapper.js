@@ -9,7 +9,7 @@ const toSlotLockDTO = (lock) => {
   return {
     // Dual-ID Support: Complete frontend backward compatibility
     _id: lock._id,
-    id: lock._id?.toString(),
+    
     mentorId: lock.mentorId?._id?.toString() ?? lock.mentorId?.toString(),
     lockedBy: lock.lockedBy?._id?.toString() ?? lock.lockedBy?.toString(),
     date: lock.date || "",
