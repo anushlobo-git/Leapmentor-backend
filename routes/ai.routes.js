@@ -3,9 +3,7 @@
  * @description  Proxies client conversations to the Groq API engine using fast LLM models
  * to power the interactive help desk and support chat interfaces.
  * @prefix       /api/v1/ai
- * @access       Private (User)
- * @todo         Sending the instructions with every request is inefficient, we should cache the system prompt and only send it when it changes
- * @todo         Send the token with the request and validate it on the backend to prevent unauthorized access to the AI endpoints
+ * @access       Private (User)         Send the token with the request and validate it on the backend to prevent unauthorized access to the AI endpoints
 */
 const express = require("express");
 const router = express.Router();

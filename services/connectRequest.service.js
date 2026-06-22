@@ -133,28 +133,45 @@ const sendConnectRequestService = async (menteeId, body, menteeUser) => {
 // ── MY REQUESTS ───────────────────────────────────────────────
 const getMyRequestsService = async (menteeId) => {
   const requests = await connectRequestRepository.findMyRequests(menteeId);
+  if (!requests.length) return [];
 
-  return Promise.all(
-    requests.map(async (r) => {
-      const targetMentorId = r.mentor?._id ?? r.mentor;
-      const targetReferredToId = r.referredTo?._id ?? r.referredTo;
+  // 1. Collect all unique Mentor IDs in bulk
+  const mentorIds = new Set();
+  const referredToIds = new Set();
+  requests.forEach(r => {
+    const mId = r.mentor?._id ?? r.mentor;
+    if (mId) mentorIds.add(mId.toString());
 
-      const [mentorProfile, referredToProfile] = await Promise.all([
-        targetMentorId
-          ? mentorRepository.findMentorProfile(targetMentorId)
-          : null,
-        targetReferredToId
-          ? mentorRepository.findMentorProfileFull(targetReferredToId)
-          : null,
-      ]);
-      return {
-        ...toConnectRequestDTO(r),
-        mentorProfile: toMentorProfileDTO(mentorProfile),
-        referredToProfile: toMentorProfileDTO(referredToProfile),
-      };
-    }),
-  );
+    const refId = r.referredTo?._id ?? r.referredTo;
+    if (refId) referredToIds.add(refId.toString());
+  });
+
+  // 2. Fetch profiles in bulk (Only 2 queries instead of 2 * N)
+  const [mentorProfiles, referredToProfiles] = await Promise.all([
+    mentorRepository.findMentorProfilesByUserIds([...mentorIds]),
+    mentorRepository.findMentorProfilesByUserIds([...referredToIds]), // or findMentorProfilesFullByUserIds
+  ]);
+
+  // 3. Map them in memory for O(1) lookup
+  const mentorMap = new Map(mentorProfiles.map(p => [p.user.toString(), p]));
+  const referredToMap = new Map(referredToProfiles.map(p => [p.user.toString(), p]));
+
+  // 4. Return the exact same structure
+  return requests.map(r => {
+    const targetMentorId = r.mentor?._id ?? r.mentor;
+    const targetReferredToId = r.referredTo?._id ?? r.referredTo;
+
+    const mentorProfile = targetMentorId ? mentorMap.get(targetMentorId.toString()) : null;
+    const referredToProfile = targetReferredToId ? referredToMap.get(targetReferredToId.toString()) : null;
+
+    return {
+      ...toConnectRequestDTO(r),
+      mentorProfile: toMentorProfileDTO(mentorProfile),
+      referredToProfile: toMentorProfileDTO(referredToProfile),
+    };
+  });
 };
+
 
 // ── INCOMING REQUESTS ─────────────────────────────────────────
 const getIncomingRequestsService = async (mentorId, status) => {

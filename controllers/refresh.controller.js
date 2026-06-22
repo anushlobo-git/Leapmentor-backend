@@ -25,20 +25,22 @@ const refreshToken = catchAsync(async (req, res) => {
     );
   }
 
+  let decoded;
   try {
-    const decoded = jwt.verify(token, process.env.JWT_REFRESH_SECRET);
-    const accessToken = signAccessToken(decoded.id);
-
-    res.status(200).json({
-      success: true,
-      accessToken,
-    });
-  } catch (err) {
+    decoded = jwt.verify(token, process.env.JWT_REFRESH_SECRET);
+  } catch {
     throw new AppError(
       "Invalid or expired session refresh token reference.",
       403,
     );
   }
+
+  const accessToken = signAccessToken(decoded.id);
+
+  res.status(200).json({
+    success: true,
+    accessToken,
+  });
 });
 
 module.exports = { refreshToken };

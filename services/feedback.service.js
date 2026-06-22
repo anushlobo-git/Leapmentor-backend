@@ -171,7 +171,7 @@ const _recalculateMentorAvgRating = async (mentorUserId) => {
   if (!allMentorFeedback.length) return;
 
   const totalRatings = allMentorFeedback.reduce((sum, f) => sum + f.rating, 0);
-  const newAvgRating = parseFloat((totalRatings / allMentorFeedback.length).toFixed(1));
+  const newAvgRating = Number.parseFloat((totalRatings / allMentorFeedback.length).toFixed(1));
 
   await mentorProfileRepo.updateAvgRating(mentorUserId, newAvgRating);
 };

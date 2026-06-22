@@ -1,7 +1,7 @@
 // middleware/requestLogger.js
 const logger = require("../config/logger");
 
-module.exports = (req, res, next) => {
+const requestLogger = (req, res, next) => {
   const start = Date.now();
 
   logger.info("API Request", {
@@ -21,3 +21,5 @@ module.exports = (req, res, next) => {
 
   next();
 };
+
+module.exports = requestLogger;

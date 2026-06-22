@@ -22,7 +22,7 @@ const {
 
 // Upper-case Domain Constants
 const ALLOWED_PROVIDERS = ["linkedin", "apple"];
-const VALID_ROLE_VALUES = ["mentor", "mentee"];
+const VALID_ROLE_VALUES = new Set(["mentor", "mentee"]);
 const DEFAULT_FALLBACK_ROLE = "mentee";
 
 /**
@@ -95,7 +95,7 @@ const socialAuthUser = async ({
     }
 
     const filteredRoles = Array.isArray(roles)
-      ? roles.filter((r) => VALID_ROLE_VALUES.includes(r))
+      ? roles.filter((r) => VALID_ROLE_VALUES.has(r))
       : [];
     const incomingRoles = filteredRoles.length
       ? filteredRoles

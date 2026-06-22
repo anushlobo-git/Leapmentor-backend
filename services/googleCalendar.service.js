@@ -51,6 +51,7 @@ const handleAuthCallback = async (code, state) => {
     const decoded = JSON.parse(Buffer.from(state, "base64").toString());
     userId = decoded.userId;
   } catch (parseError) {
+    logger.error("Failed to parse state payload", parseError);
     throw new AppError("Invalid state payload context configuration", 400);
   }
 
@@ -173,7 +174,7 @@ const getCalendarEvents = async ({ mentorId, startDate, endDate }) => {
       }));
       allEvents.push(...items);
     } catch (ignoreError) {
-      // Gracefully continue tracking across remaining alternative authorized matrices
+      logger.warn("Failed to fetch calendar items, continuing", ignoreError);
     }
   }
 

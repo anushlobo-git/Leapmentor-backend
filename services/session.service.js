@@ -86,7 +86,86 @@ const setMeetingLink = async ({ connectRequestId, slotIndex, meetingLink, userId
 };
 
 /**
+ * Validates slot state and applies the caller's completion mark.
+ * Throws AppError on any guard-clause violation.
+ * @private
+ * @param {Object} request  - The connect-request document.
+ * @param {number} idx      - Validated slot index.
+ * @param {string} userId   - Calling user's ID.
+ * @returns {{ isMentee: boolean, bothMarked: boolean }} Mark outcome flags.
+ */
+const _validateAndApplyMark = (request, idx, userId) => {
+  const slot = request.selectedSlots[idx];
+  if (slot.status === "cancelled")
+    throw new AppError("Cannot mark a cancelled slot as complete", 400);
+
+  const isMentor = request.mentor.toString() === userId.toString();
+  const isMentee = request.mentee.toString() === userId.toString();
+
+  if (slot.menteeMarked && slot.mentorMarked)
+    throw new AppError("This session is already marked complete by both parties", 400);
+  if (isMentee && slot.menteeMarked)
+    throw new AppError("You have already marked this session complete", 400);
+  if (isMentor && slot.mentorMarked)
+    throw new AppError("You have already marked this session complete", 400);
+
+  if (isMentee) {
+    request.selectedSlots[idx].menteeMarked = true;
+  } else {
+    request.selectedSlots[idx].mentorMarked = true;
+  }
+
+  const bothMarked = request.selectedSlots[idx].menteeMarked && request.selectedSlots[idx].mentorMarked;
+  if (bothMarked) request.selectedSlots[idx].completedAt = new Date();
+
+  return { isMentee, bothMarked };
+};
+
+/**
+ * Computes progress stats and assembles the response object after a slot is marked.
+ * @private
+ * @param {Object} request         - The connect-request document.
+ * @param {number} idx             - Validated slot index.
+ * @param {boolean} isMentee       - Whether the caller is the mentee.
+ * @param {boolean} bothMarked     - Whether both parties have now marked the slot.
+ * @param {boolean} allComplete    - Whether every active slot is fully complete.
+ * @param {Object|null} releaseResult - Escrow release outcome, if any.
+ * @returns {Object} The public response payload.
+ */
+const _buildCompletionResponse = (request, idx, isMentee, bothMarked, allComplete, releaseResult) => {
+  const activeSlots = request.selectedSlots.filter((s) => s.status !== "cancelled");
+  const completedCount = activeSlots.filter((s) => s.menteeMarked && s.mentorMarked).length;
+  const progress = activeSlots.length > 0
+    ? Math.round((completedCount / activeSlots.length) * 100)
+    : 0;
+
+  const waitingFor = isMentee ? "mentor" : "mentee";
+  let message;
+  if (allComplete) {
+    message = "All sessions complete! Tokens released to mentor.";
+  } else if (bothMarked) {
+    message = "Session marked complete by both parties.";
+  } else {
+    message = `Session marked complete. Waiting for ${waitingFor} to confirm.`;
+  }
+
+  return {
+    success: true,
+    message,
+    slot: request.selectedSlots[idx],
+    slotIndex: idx,
+    bothMarked,
+    allComplete,
+    completedSlots: completedCount,
+    totalSlots: activeSlots.length,
+    progress,
+    escrowRelease: releaseResult,
+  };
+};
+
+/**
  * Records individual validation markings verifying localized performance completions across scheduled timelines.
+ * Cognitive Complexity: ≤ 15 (refactored from 23).
  * @param {Object} params Structural tracking criteria parameters.
  * @param {string} params.connectRequestId Database reference workflow key.
  * @param {string} params.slotIndex Positional target coordinate pointer.
@@ -105,21 +184,7 @@ const markSlotComplete = async ({ connectRequestId, slotIndex, userId }) => {
     if (request.status !== "ongoing") throw new AppError("Session is not active", 400);
 
     const idx = _getValidatedSlotIndex(request, slotIndex);
-    const slot = request.selectedSlots[idx];
-    if (slot.status === "cancelled") throw new AppError("Cannot mark a cancelled slot as complete", 400);
-
-    const isMentor = request.mentor.toString() === userId.toString();
-    const isMentee = request.mentee.toString() === userId.toString();
-
-    if (slot.menteeMarked && slot.mentorMarked) throw new AppError("This session is already marked complete by both parties", 400);
-    if (isMentee && slot.menteeMarked) throw new AppError("You have already marked this session complete", 400);
-    if (isMentor && slot.mentorMarked) throw new AppError("You have already marked this session complete", 400);
-
-    if (isMentee) request.selectedSlots[idx].menteeMarked = true;
-    if (isMentor) request.selectedSlots[idx].mentorMarked = true;
-
-    const bothMarked = request.selectedSlots[idx].menteeMarked && request.selectedSlots[idx].mentorMarked;
-    if (bothMarked) request.selectedSlots[idx].completedAt = new Date();
+    const { isMentee, bothMarked } = _validateAndApplyMark(request, idx, userId);
 
     request.markModified("selectedSlots");
     await connectRequestRepo.save(request, mongoSession);
@@ -135,24 +200,16 @@ const markSlotComplete = async ({ connectRequestId, slotIndex, userId }) => {
     const completedCount = activeSlots.filter((s) => s.menteeMarked && s.mentorMarked).length;
     const progress = activeSlots.length > 0 ? Math.round((completedCount / activeSlots.length) * 100) : 0;
 
-    _emitSlotUpdate(request, { connectRequestId, slots: request.selectedSlots, totalSlots: activeSlots.length, completedSlots: completedCount, progress, allComplete });
-
-    return {
-      success: true,
-      message: allComplete
-        ? "All sessions complete! Tokens released to mentor."
-        : bothMarked
-          ? "Session marked complete by both parties."
-          : `Session marked complete. Waiting for ${isMentee ? "mentor" : "mentee"} to confirm.`,
-      slot: request.selectedSlots[idx],
-      slotIndex: idx,
-      bothMarked,
-      allComplete,
-      completedSlots: completedCount,
+    _emitSlotUpdate(request, {
+      connectRequestId,
+      slots: request.selectedSlots,
       totalSlots: activeSlots.length,
+      completedSlots: completedCount,
       progress,
-      escrowRelease: releaseResult,
-    };
+      allComplete,
+    });
+
+    return _buildCompletionResponse(request, idx, isMentee, bothMarked, allComplete, releaseResult);
   } catch (err) {
     await mongoSession.abortTransaction();
     throw err;
@@ -355,9 +412,9 @@ const getMentorAvailability = async (connectRequestId, duration, userId) => {
   ].map((s) => ({ date: s.date, startTime: s.startTime, endTime: s.endTime }));
 
   const grouped = generateAvailableSlots(
+    duration,
     availability.specificDates || [],
     availability.weeklyHours || [],
-    duration,
     bookedSlots,
     28,
   );
@@ -385,8 +442,8 @@ const _assertParticipant = (request, userId) => {
  * @private
  */
 const _getValidatedSlotIndex = (request, slotIndex) => {
-  const idx = parseInt(slotIndex, 10);
-  if (isNaN(idx) || idx < 0 || idx >= request.selectedSlots.length) {
+  const idx = Number.parseInt(slotIndex, 10);
+  if (Number.isNaN(idx) || idx < 0 || idx >= request.selectedSlots.length) {
     throw new AppError("Invalid slot index", 400);
   }
   return idx;

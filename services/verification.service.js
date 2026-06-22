@@ -3,7 +3,7 @@
  * @description Generates high-entropy crypto tokens, computes adaptive cryptographic hashes,
  * issues secure notification mail hooks, and enforces registration time blocks.
  */
-const crypto = require("crypto");
+const crypto = require("node:crypto");
 const bcrypt = require("bcryptjs");
 const nodemailer = require("nodemailer");
 const AppError = require("../utils/AppError");
@@ -28,11 +28,20 @@ const transporter = nodemailer.createTransport({
 });
 
 /**
- * Internal Helper: Generates a 6-digit numeric verification OTP code.
+ * Internal Helper: Generates a cryptographically secure 6-digit numeric verification OTP code.
  * @private
+ * @returns {string} A random 6-digit number as a string.
  */
-const generateNumericOtp = () =>
-  String(Math.floor(OTP_GEN_FLOOR + Math.random() * OTP_GEN_CEILING));
+const generateNumericOtp = () => {
+  const randomBuffer = crypto.getRandomValues(new Uint8Array(6));
+  const randomNum =
+    randomBuffer[0] * 10000 +
+    (randomBuffer[1] % 10) * 1000 +
+    (randomBuffer[2] % 10) * 100 +
+    (randomBuffer[3] % 10) * 10 +
+    (randomBuffer[4] % 10);
+  return String(randomNum % 1000000).padStart(6, "0");
+};
 
 /**
  * Internal Helper: Generates a high-entropy string reference key for secure magic links.

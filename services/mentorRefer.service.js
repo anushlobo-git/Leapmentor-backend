@@ -39,7 +39,7 @@ const getSimilarMentorsList = async (connectRequestId, currentUserId) => {
 
   const myProfile =
     await mentorRepository.findMentorProfileByUserId(currentUserId);
-  if (!myProfile || !myProfile.skills || myProfile.skills.length === 0) {
+  if (!myProfile?.skills?.length) {
     return { mentors: [], mySkills: [] };
   }
 

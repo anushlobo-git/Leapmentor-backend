@@ -19,11 +19,11 @@ const STATUS_ONGOING = "ongoing";
 const GOAL_STATUS_ACTIVE = "active";
 const GOAL_STATUS_COMPLETED = "completed";
 const GOAL_STATUS_ABANDONED = "abandoned";
-const VALID_GOAL_STATUSES = [
+const VALID_GOAL_STATUSES = new Set([
   GOAL_STATUS_ACTIVE,
   GOAL_STATUS_COMPLETED,
   GOAL_STATUS_ABANDONED,
-];
+]);
 
 // Real-Time Event Event Constants
 const EVENT_GOAL_CREATED = "goal_created";
@@ -128,7 +128,7 @@ const updateGoal = async ({
   if (endDate !== undefined) goal.endDate = endDate || null;
 
   if (status !== undefined) {
-    if (!VALID_GOAL_STATUSES.includes(status))
+    if (!VALID_GOAL_STATUSES.has(status))
       throw new AppError("Invalid status", 400);
     goal.status = status;
   }

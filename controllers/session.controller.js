@@ -117,7 +117,7 @@ const rescheduleSlot = catchAsync(async (req, res) => {
  * @access  Private (User)
  */
 const getMentorAvailability = catchAsync(async (req, res) => {
-  const duration = parseInt(req.query.duration, 10) || 60;
+  const duration = Number.parseInt(req.query.duration, 10) || 60;
   const result = await sessionService.getMentorAvailability(
     req.params.connectRequestId,
     duration,

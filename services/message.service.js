@@ -25,11 +25,11 @@ const PAGINATION_MAX_LIMIT_CAP = 50;
 const getChatHistory = async (connectRequestId, currentUserId, queryOptions) => {
   const page = Math.max(
     PAGINATION_DEFAULT_PAGE,
-    parseInt(queryOptions.page, 10) || PAGINATION_DEFAULT_PAGE,
+    Number.parseInt(queryOptions.page, 10) || PAGINATION_DEFAULT_PAGE,
   );
   const limit = Math.min(
     PAGINATION_MAX_LIMIT_CAP,
-    parseInt(queryOptions.limit, 10) || PAGINATION_DEFAULT_LIMIT,
+    Number.parseInt(queryOptions.limit, 10) || PAGINATION_DEFAULT_LIMIT,
   );
   const skip = (page - 1) * limit;
 

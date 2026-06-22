@@ -10,7 +10,7 @@ const connectRequestRepository = require("../repositories/connectRequest.reposit
 const adminUserRepository = require("../repositories/admin.repository");
 
 // Upper-case Domain Constants
-const VALID_PAYMENT_STATUSES = ["paid", "released"];
+const VALID_PAYMENT_STATUSES = new Set(["paid", "released"]);
 
 /**
  * Validates session context state attributes and compiles binary invoice PDF buffers.
@@ -35,12 +35,12 @@ const generateInvoicePdfBuffer = async ({ connectRequestId, userId }) => {
     throw new AppError("Not authorized to download this invoice", 403);
   }
 
-  if (!VALID_PAYMENT_STATUSES.includes(connectRequest.paymentStatus)) {
+  if (!VALID_PAYMENT_STATUSES.has(connectRequest.paymentStatus)) {
     throw new AppError("No paid invoice found for this session", 400);
   }
 
   const adminUser = await adminUserRepository.findActiveAdminLean();
-  if (!adminUser || adminUser.commissionRate == null) {
+  if (!adminUser?.commissionRate) {
     throw new AppError("Platform commission rate not configured", 400);
   }
 

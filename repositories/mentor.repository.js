@@ -54,8 +54,8 @@ const findAllMentorProfiles = () =>
     .populate("user", "name email createdAt")
     .select(
       "user verificationStatus phoneNumber resumeDocument workExperienceDocuments " +
-        "profilePicture bio skills currentRole company industry yearsOfExperience " +
-        "languages averageRating totalSessions points",
+      "profilePicture bio skills currentRole company industry yearsOfExperience " +
+      "languages averageRating totalSessions points",
     )
     .sort({ createdAt: -1 })
     .lean();

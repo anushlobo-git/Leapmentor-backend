@@ -569,7 +569,7 @@ const getMyWallet = async (userId) => {
  */
 const getCommissionRate = async () => {
   const admin = await adminUserRepo.findActiveAdmin();
-  if (!admin || admin.commissionRate == null)
+  if (!admin?.commissionRate)
     throw new AppError("Commission rate not configured", 404);
   return admin.commissionRate;
 };

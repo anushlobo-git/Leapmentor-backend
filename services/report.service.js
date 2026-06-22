@@ -24,13 +24,29 @@ const DEFAULT_PAGINATION_LIMIT = 20;
 const ROLE_MENTOR = "mentor";
 const ROLE_MENTEE = "mentee";
 const CLOUDINARY_FOLDER_ROUTE = "leapmentor/reports";
-const TERMINAL_STATUSES = ["resolved", "dismissed"];
-const VALID_ADMIN_STATUS_POOL = [
+const TERMINAL_STATUSES = new Set(["resolved", "dismissed"]);
+const VALID_ADMIN_STATUS_POOL = new Set([
   "open",
   "under_review",
   "resolved",
   "dismissed",
-];
+]);
+
+/**
+ * Helper: Extracts a meaningful error message from various error types.
+ * @private
+ * @param {Error|Object|string} error - The error to extract message from.
+ * @returns {string} Formatted error message.
+ */
+const extractErrorMessage = (error) => {
+  if (error instanceof Error) {
+    return error.message;
+  }
+  if (typeof error === "object") {
+    return JSON.stringify(error);
+  }
+  return String(error);
+};
 
 /**
  * Internal Helper: Channels multipart asset file buffers safely to Cloudinary buckets.
@@ -44,7 +60,13 @@ const uploadScreenshotToCloud = (fileBuffer) => {
         allowed_formats: ["jpg", "jpeg", "png", "webp"],
         transformation: [{ quality: "auto", fetch_format: "auto" }],
       },
-      (error, result) => (error ? reject(error) : resolve(result)),
+      (error, result) => {
+        if (error) {
+          const message = extractErrorMessage(error);
+          return reject(new Error(message));
+        }
+        resolve(result);
+      },
     );
     stream.end(fileBuffer);
   });
@@ -163,7 +185,7 @@ const getMySessionReport = async (connectRequestId, currentUserId) => {
     connectRequestId,
     currentUserId,
   );
-  
+
   // Map the single element safely, falling back to null if empty
   return { report: toReportDTO(report) };
 };
@@ -213,7 +235,7 @@ const processAdminReportUpdate = async (
 ) => {
   const { status, adminNote } = inputPayload;
 
-  if (!VALID_ADMIN_STATUS_POOL.includes(status)) {
+  if (!VALID_ADMIN_STATUS_POOL.has(status)) {
     throw new AppError(
       "Invalid administrative transition status state specified",
       400,
@@ -223,7 +245,7 @@ const processAdminReportUpdate = async (
   const updateFieldsMap = { status };
   if (adminNote !== undefined) updateFieldsMap.adminNote = adminNote.trim();
 
-  if (TERMINAL_STATUSES.includes(status)) {
+  if (TERMINAL_STATUSES.has(status)) {
     updateFieldsMap.resolvedAt = new Date();
     updateFieldsMap.resolvedBy = adminUserId;
   }
@@ -239,7 +261,7 @@ const processAdminReportUpdate = async (
     );
   }
 
-  if (TERMINAL_STATUSES.includes(status)) {
+  if (TERMINAL_STATUSES.has(status)) {
     sendReportResolvedEmail({
       reporterName: updatedReport.reportedBy.name,
       reporterEmail: updatedReport.reportedBy.email,

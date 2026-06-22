@@ -3,72 +3,100 @@ const mongoose = require("mongoose");
 // Additional session slot schema — tracks per-slot payment for extra sessions
 const additionalSlotSchema = new mongoose.Schema(
   {
-    day:       { type: String, required: true, trim: true, maxlength: 10 },
-    date:      { 
-      type: String, required: true, trim: true, maxlength: 10, 
-      match: [/^\d{4}-\d{2}-\d{2}$/, "Date must be in YYYY-MM-DD format"] 
+    day: { type: String, required: true, trim: true, maxlength: 10 },
+    date: {
+      type: String,
+      required: true,
+      trim: true,
+      maxlength: 10,
+      match: [/^\d{4}-\d{2}-\d{2}$/, "Date must be in YYYY-MM-DD format"],
     },
-    startTime: { 
-      type: String, required: true, trim: true, maxlength: 5, 
-      match: [/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "startTime must be in HH:MM format"] 
+    startTime: {
+      type: String,
+      required: true,
+      trim: true,
+      maxlength: 5,
+      match: [
+        /^([0-1]?\d|2[0-3]):[0-5]\d$/,
+        "startTime must be in HH:MM format",
+      ],
     },
-    endTime:   { 
-      type: String, required: true, trim: true, maxlength: 5, 
-      match: [/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "endTime must be in HH:MM format"] 
+    endTime: {
+      type: String,
+      required: true,
+      trim: true,
+      maxlength: 5,
+      match: [/^([0-1]?\d|2[0-3]):[0-5]\d$/, "endTime must be in HH:MM format"],
     },
 
-    meetingLink:  { type: String,  default: "", maxlength: 500 },
+    meetingLink: { type: String, default: "", maxlength: 500 },
     menteeMarked: { type: Boolean, default: false },
     mentorMarked: { type: Boolean, default: false },
-    completedAt:  { type: Date,    default: null },
+    completedAt: { type: Date, default: null },
 
-    paymentStatus: { type: String, enum: ["pending", "paid"], default: "pending" },
-    paidAt:        { type: Date,   default: null },
-    sessionRate:   { type: Number, default: null, min: 0 },
-    totalAmount:   { type: Number, default: null, min: 0 },
+    paymentStatus: {
+      type: String,
+      enum: ["pending", "paid"],
+      default: "pending",
+    },
+    paidAt: { type: Date, default: null },
+    sessionRate: { type: Number, default: null, min: 0 },
+    totalAmount: { type: Number, default: null, min: 0 },
   },
-  { _id: true }
+  { _id: true },
 );
 
 // Single slot schema — reused in array
 const selectedSlotSchema = new mongoose.Schema(
   {
-    day:       { type: String, required: true, trim: true, maxlength: 10 },
-    date:      { 
-      type: String, required: true, trim: true, maxlength: 10, 
-      match: [/^\d{4}-\d{2}-\d{2}$/, "Date must be in YYYY-MM-DD format"] 
+    day: { type: String, required: true, trim: true, maxlength: 10 },
+    date: {
+      type: String,
+      required: true,
+      trim: true,
+      maxlength: 10,
+      match: [/^\d{4}-\d{2}-\d{2}$/, "Date must be in YYYY-MM-DD format"],
     },
-    startTime: { 
-      type: String, required: true, trim: true, maxlength: 5, 
-      match: [/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "startTime must be in HH:MM format"] 
+    startTime: {
+      type: String,
+      required: true,
+      trim: true,
+      maxlength: 5,
+      match: [
+        /^([0-1]?\d|2[0-3]):[0-5]\d$/,
+        "startTime must be in HH:MM format",
+      ],
     },
-    endTime:   { 
-      type: String, required: true, trim: true, maxlength: 5, 
-      match: [/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "endTime must be in HH:MM format"] 
+    endTime: {
+      type: String,
+      required: true,
+      trim: true,
+      maxlength: 5,
+      match: [/^([0-1]?\d|2[0-3]):[0-5]\d$/, "endTime must be in HH:MM format"],
     },
 
-    meetingLink:        { type: String,  default: "", maxlength: 500 },
-    menteeMarked:       { type: Boolean, default: false },
-    mentorMarked:       { type: Boolean, default: false },
-    completedAt:        { type: Date,    default: null  },
+    meetingLink: { type: String, default: "", maxlength: 500 },
+    menteeMarked: { type: Boolean, default: false },
+    mentorMarked: { type: Boolean, default: false },
+    completedAt: { type: Date, default: null },
 
     status: {
-      type:    String,
-      enum:    ["booked", "cancelled"],
+      type: String,
+      enum: ["booked", "cancelled"],
       default: "booked",
     },
     cancelledBy: {
-      type:    String,
-      enum:    ["mentor", "mentee", null],
+      type: String,
+      enum: ["mentor", "mentee", null],
       default: null,
     },
-    cancelledAt:          { type: Date,   default: null },
-    cancellationReason:   { type: String, default: "", maxlength: 500 },
+    cancelledAt: { type: Date, default: null },
+    cancellationReason: { type: String, default: "", maxlength: 500 },
 
-    isRescheduled:        { type: Boolean, default: false },
-    rescheduledFromIndex: { type: Number,  default: null  },
+    isRescheduled: { type: Boolean, default: false },
+    rescheduledFromIndex: { type: Number, default: null },
   },
-  { _id: false }
+  { _id: false },
 );
 
 const connectRequestSchema = new mongoose.Schema(
@@ -108,7 +136,14 @@ const connectRequestSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ["pending", "accepted", "rejected", "referred", "ongoing", "completed"],
+      enum: [
+        "pending",
+        "accepted",
+        "rejected",
+        "referred",
+        "ongoing",
+        "completed",
+      ],
       default: "pending",
     },
     referredTo: {
@@ -138,23 +173,23 @@ const connectRequestSchema = new mongoose.Schema(
     },
     paidAt: { type: Date, default: null },
     completedAt: { type: Date, default: null },
-    requestedAt:  { type: Date, default: Date.now },
-    respondedAt:  { type: Date, default: null },
+    requestedAt: { type: Date, default: Date.now },
+    respondedAt: { type: Date, default: null },
 
     // ── Commission fields ─────────────────────────────────────
-    commissionRate: { type: Number, default: null, min: 0, max: 100 },  
+    commissionRate: { type: Number, default: null, min: 0, max: 100 },
     commissionAmount: { type: Number, default: null, min: 0 },
     mentorPayout: { type: Number, default: null, min: 0 },
 
     // ── Additional Sessions ───────────────────────────────────
     additionalSlots: {
-      type:    [additionalSlotSchema],
+      type: [additionalSlotSchema],
       default: [],
     },
   },
-  { 
+  {
     timestamps: true,
-  }
+  },
 );
 
 // ── Indexes ───────────────────────────────────────────────────
@@ -169,7 +204,7 @@ connectRequestSchema.index(
   {
     unique: true,
     partialFilterExpression: { status: "pending" },
-  }
+  },
 );
 
 module.exports = mongoose.model("ConnectRequest", connectRequestSchema);

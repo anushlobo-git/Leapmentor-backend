@@ -93,7 +93,7 @@ const loginUser = async ({ email, password }) => {
   const user =
     await userRepository.findUserByEmailWithPassword(normalizedEmail);
 
-  if (!user || !user.password) {
+  if (!user?.password) {
     throw new AppError("Invalid email or password.", 401);
   }
 
@@ -116,6 +116,5 @@ const loginUser = async ({ email, password }) => {
     isNewUser: true,
   };
 };
-
 
 module.exports = { registerUser, loginUser };

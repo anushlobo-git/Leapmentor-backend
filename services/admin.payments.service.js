@@ -109,10 +109,10 @@ const getRevenueChartService = async () => {
  * @returns {Promise<Object>}    Normalized rows containing detailed status definitions and pagination data.
  */
 const getTransactionsService = async ({ page, limit, search, type }) => {
-  const safePage = Math.max(1, parseInt(page, 10) || DEFAULT_PAGE_NUMBER);
+  const safePage = Math.max(1, Number.parseInt(page, 10) || DEFAULT_PAGE_NUMBER);
   const safeLimit = Math.min(
     MAX_LIMIT_SIZE,
-    parseInt(limit, 10) || DEFAULT_LIMIT_SIZE,
+    Number.parseInt(limit, 10) || DEFAULT_LIMIT_SIZE,
   );
   const skip = (safePage - 1) * safeLimit;
 

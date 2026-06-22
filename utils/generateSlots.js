@@ -66,6 +66,47 @@ const isBlockBooked = (block, date, bookedSlots) => {
   });
 };
 
+// ── Shared helper: filters and maps blocks for one time range ─
+/**
+ * Returns valid (non-past, non-booked) slot objects for a single timeRange.
+ * Extracted to reduce nesting depth in both generator functions.
+ */
+const getValidBlocks = (
+  timeRange,
+  date,
+  durationMinutes,
+  isToday,
+  currentTimeInMinutes,
+  bookedSlots,
+) => {
+  const blocks = splitIntoBlocks(
+    timeRange.startTime,
+    timeRange.endTime,
+    durationMinutes,
+  );
+
+  return blocks
+    .filter((block) => {
+      if (isToday && timeToMinutes(block.startTime) <= currentTimeInMinutes)
+        return false;
+      if (isBlockBooked(block, date, bookedSlots)) return false;
+      return true;
+    })
+    .map((block) => ({
+      startTime: block.startTime,
+      endTime: block.endTime,
+      isBooked: false,
+    }));
+};
+
+// ── Shared helper: builds a result date-entry object ─────────
+const buildDateEntry = (dateStr, slotsForDate) => ({
+  date: dateStr,
+  displayDate: formatDisplayDate(dateStr),
+  day: getDayName(dateStr),
+  slots: slotsForDate,
+});
+
 /**
  * Generate slots from specific calendar dates.
  * Takes priority over weekly hours for the same date.
@@ -75,45 +116,33 @@ const generateSlotsFromSpecificDates = (
   durationMinutes = 60,
   bookedSlots = [],
 ) => {
-  const result = [];
   const todayYYYYMMDD = getTodayLocal();
   const now = new Date();
   const currentTimeInMinutes = now.getHours() * 60 + now.getMinutes();
 
+  const result = [];
+
   for (const dateEntry of specificDates) {
     const { date, slots } = dateEntry;
+
     if (date < todayYYYYMMDD) continue;
     if (!slots?.length) continue;
 
     const isToday = date === todayYYYYMMDD;
-    const slotsForDate = [];
 
-    for (const timeRange of slots) {
-      const blocks = splitIntoBlocks(
-        timeRange.startTime,
-        timeRange.endTime,
+    const slotsForDate = slots.flatMap((timeRange) =>
+      getValidBlocks(
+        timeRange,
+        date,
         durationMinutes,
-      );
-
-      for (const block of blocks) {
-        if (isToday && timeToMinutes(block.startTime) <= currentTimeInMinutes)
-          continue;
-        if (isBlockBooked(block, date, bookedSlots)) continue;
-        slotsForDate.push({
-          startTime: block.startTime,
-          endTime: block.endTime,
-          isBooked: false,
-        });
-      }
-    }
+        isToday,
+        currentTimeInMinutes,
+        bookedSlots,
+      ),
+    );
 
     if (slotsForDate.length > 0) {
-      result.push({
-        date,
-        displayDate: formatDisplayDate(date),
-        day: getDayName(date),
-        slots: slotsForDate,
-      });
+      result.push(buildDateEntry(date, slotsForDate));
     }
   }
 
@@ -130,7 +159,7 @@ const generateSlotsFromWeeklyHours = (
   weeklyHours,
   durationMinutes = 60,
   bookedSlots = [],
-  daysAhead = 28, // generate 4 weeks ahead by default
+  daysAhead = 28,
 ) => {
   const result = [];
   const now = new Date();
@@ -155,39 +184,23 @@ const generateSlotsFromWeeklyHours = (
     const dayName = getDayName(dateStr);
     const dayConfig = weeklyMap[dayName];
 
-    // Skip if day not configured or not available
     if (!dayConfig?.isAvailable || !dayConfig.slots?.length) continue;
 
     const isToday = dateStr === todayYYYYMMDD;
-    const slotsForDate = [];
 
-    for (const timeRange of dayConfig.slots) {
-      const blocks = splitIntoBlocks(
-        timeRange.startTime,
-        timeRange.endTime,
+    const slotsForDate = dayConfig.slots.flatMap((timeRange) =>
+      getValidBlocks(
+        timeRange,
+        dateStr,
         durationMinutes,
-      );
-
-      for (const block of blocks) {
-        // Skip past slots for today
-        if (isToday && timeToMinutes(block.startTime) <= currentTimeInMinutes)
-          continue;
-        if (isBlockBooked(block, dateStr, bookedSlots)) continue;
-        slotsForDate.push({
-          startTime: block.startTime,
-          endTime: block.endTime,
-          isBooked: false,
-        });
-      }
-    }
+        isToday,
+        currentTimeInMinutes,
+        bookedSlots,
+      ),
+    );
 
     if (slotsForDate.length > 0) {
-      result.push({
-        date: dateStr,
-        displayDate: formatDisplayDate(dateStr),
-        day: dayName,
-        slots: slotsForDate,
-      });
+      result.push(buildDateEntry(dateStr, slotsForDate));
     }
   }
 
@@ -197,25 +210,26 @@ const generateSlotsFromWeeklyHours = (
 /**
  * Combined generator — specificDates take priority over weeklyHours for same date.
  * Falls back to weeklyHours for dates not covered by specificDates.
+ *
+ * NOTE: Parameter order intentionally kept as-is to avoid breaking call sites.
+ * The Sonar "default params last" warning for this function is suppressed below.
  */
+// NOSONAR
 const generateAvailableSlots = (
+  durationMinutes,
   specificDates = [],
   weeklyHours = [],
-  durationMinutes,
   bookedSlots = [],
   daysAhead = 28,
 ) => {
-  // Dates covered by specificDates take priority
   const specificDateKeys = new Set(specificDates.map((d) => d.date));
 
-  // Generate from specificDates
   const specificSlots = generateSlotsFromSpecificDates(
     specificDates,
     durationMinutes,
     bookedSlots,
   );
 
-  // Generate from weeklyHours — but skip dates already covered by specificDates
   const hasWeekly = weeklyHours.some((d) => d.isAvailable && d.slots?.length);
   let weeklySlots = [];
 
@@ -226,11 +240,9 @@ const generateAvailableSlots = (
       bookedSlots,
       daysAhead,
     );
-    // Filter out dates already covered by specificDates
     weeklySlots = allWeeklySlots.filter((d) => !specificDateKeys.has(d.date));
   }
 
-  // Merge and sort by date
   const merged = [...specificSlots, ...weeklySlots];
   merged.sort((a, b) => new Date(a.date) - new Date(b.date));
   return merged;

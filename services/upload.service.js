@@ -21,6 +21,22 @@ const CLOUDINARY_FOLDER_WORK_EXP =
 const VERIFICATION_STATUS_PENDING = "pending";
 
 /**
+ * Helper: Extracts a meaningful error message from various error types.
+ * @private
+ * @param {Error|Object|string} error - The error to extract message from.
+ * @returns {string} Formatted error message.
+ */
+const extractErrorMessage = (error) => {
+  if (error instanceof Error) {
+    return error.message;
+  }
+  if (typeof error === "object") {
+    return JSON.stringify(error);
+  }
+  return String(error);
+};
+
+/**
  * Internal Helper: Pipes binary file buffers directly into Cloudinary streaming instances.
  */
 const uploadToCloudinaryProvider = (buffer, options) => {
@@ -28,7 +44,10 @@ const uploadToCloudinaryProvider = (buffer, options) => {
     const uploadStream = cloudinary.uploader.upload_stream(
       { ...options },
       (error, result) => {
-        if (error) return reject(error);
+        if (error) {
+          const message = extractErrorMessage(error);
+          return reject(new Error(message));
+        }
         resolve(result);
       },
     );

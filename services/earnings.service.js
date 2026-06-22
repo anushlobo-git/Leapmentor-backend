@@ -160,11 +160,11 @@ const getEarningsChartService = async (mentorId, period) => {
 const getPayoutHistoryService = async (mentorId, query) => {
   const page = Math.max(
     1,
-    parseInt(query.page, RADIX_DECIMAL) || DEFAULT_PAGE_NUMBER,
+    Number.parseInt(query.page, RADIX_DECIMAL) || DEFAULT_PAGE_NUMBER,
   );
   const limit = Math.min(
     MAX_LIMIT_SIZE,
-    parseInt(query.limit, RADIX_DECIMAL) || DEFAULT_LIMIT_SIZE,
+    Number.parseInt(query.limit, RADIX_DECIMAL) || DEFAULT_LIMIT_SIZE,
   );
   const search = query.search?.trim() || "";
   const skip = (page - 1) * limit;

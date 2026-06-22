@@ -99,8 +99,8 @@ const getCommissionService = async (adminId) => {
  * @returns {Promise<number>}     The successfully applied structural commission floating rate percentage.
  */
 const updateCommissionService = async (adminId, commissionRate) => {
-  const rate = parseFloat(commissionRate, RADIX_DECIMAL);
-  if (isNaN(rate) || rate < 0 || rate > 100) {
+  const rate = Number.parseFloat(commissionRate, RADIX_DECIMAL);
+  if (Number.isNaN(rate) || rate < 0 || rate > 100) {
     throw new AppError(
       "Commission rate must be a valid percentage metrics number between 0 and 100.",
       400,

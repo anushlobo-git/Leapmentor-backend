@@ -14,7 +14,7 @@ const { toAvailabilityDTO } = require("../mappers/availability.mapper");
 // Configuration Constants
 const DEFAULT_TIMEZONE = "Asia/Kolkata";
 const DEFAULT_DURATIONS = [30, 60];
-const ALLOWED_DURATIONS = [30, 45, 60];
+const ALLOWED_DURATIONS = new Set([30, 45, 60]);
 
 const ALLOWED_UPDATE_FIELDS = [
   "timezone",
@@ -64,7 +64,7 @@ const createAvailability = async (mentorId, body) => {
     );
   }
 
-  const { timezone, sessionDurations, specificDates ,weeklyHours } = body;
+  const { timezone, sessionDurations, specificDates, weeklyHours } = body;
   return await availabilityRepository.createAvailability({
     mentorId,
     timezone,
@@ -139,7 +139,7 @@ const deleteAvailability = async (mentorId) => {
  * @returns {Promise<Object>}  Dynamic collection list array displaying grouped open slot segments.
  */
 const getAvailableSlots = async (mentorId, duration, userId) => {
-  if (!ALLOWED_DURATIONS.includes(duration)) {
+  if (!ALLOWED_DURATIONS.has(duration)) {
     throw new AppError("Duration must be 30, 45, or 60 minutes", 400);
   }
 
@@ -172,9 +172,9 @@ const getAvailableSlots = async (mentorId, duration, userId) => {
   const allBlockedSlots = [...bookedSlots, ...lockedSlots];
 
   const grouped = generateAvailableSlots(
+    duration,
     availability.specificDates || [],
     availability.weeklyHours || [],
-    duration,
     allBlockedSlots,
     28, // generate 4 weeks ahead
   );
