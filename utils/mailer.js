@@ -1,8 +1,15 @@
-// utils/mailer.js
-const nodemailer = require("nodemailer");
-const logger = require("../config/logger");
+/**
+ * @fileoverview SMTP Transporter Singleton
+ * @module utils/mailer
+ *
+ * Creates the transporter ONCE and reuses it everywhere.
+ * SMTP verification is intentionally NOT done here — it is handled
+ * inside connectDatabase() alongside Mongo and Cloudinary so all
+ * startup checks live in one place with unified retry logic.
+ */
 
-//  Created ONCE, reused everywhere — not recreated on every email call
+const nodemailer = require("nodemailer");
+
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST,
   port: Number(process.env.SMTP_PORT || 587),
@@ -11,23 +18,11 @@ const transporter = nodemailer.createTransport({
     user: process.env.SMTP_USER,
     pass: process.env.SMTP_PASS,
   },
-  // Connection timeout — prevents hanging forever if SMTP is down
   connectionTimeout: 10_000, // 10 seconds to connect
   greetingTimeout: 5_000, // 5 seconds for SMTP greeting
   socketTimeout: 15_000, // 15 seconds for data transfer
   pool: true, // reuse connections instead of open/close each time
   maxConnections: 5, // max parallel connections
-});
-
-// Verify on startup so you know immediately if SMTP is misconfigured
-transporter.verify((error) => {
-  if (error) {
-    logger.error("SMTP transporter verification failed", {
-      message: error.message,
-    });
-  } else {
-    logger.info("SMTP transporter ready");
-  }
 });
 
 module.exports = transporter;
