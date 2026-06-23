@@ -4,6 +4,7 @@
  */
 const { cloudinary } = require("../config/cloudinary");
 const AppError = require("../utils/AppError");
+const fireAndForgetEmail = require("../utils/fireAndForgetEmail");
 
 // Repositories
 const reportRepository = require("../repositories/report.repository");
@@ -161,16 +162,16 @@ const createIncidentReport = async (currentUser, bodyPayload, filePayload) => {
   });
 
   // Non-blocking asynchronous email processing chain keeps client gateway speeds decoupled
-  sendReportSubmittedEmail({
-    reporterName: currentUser.name,
-    reporterEmail: currentUser.email,
-    complaintType,
-    description: description.trim(),
-    reporterRole,
-  }).catch((emailError) =>
-    logger.error("sendReportSubmittedEmail failed", {
-      message: emailError.message,
-    }),
+  fireAndForgetEmail(
+    () =>
+      sendReportSubmittedEmail({
+        reporterName: currentUser.name,
+        reporterEmail: currentUser.email,
+        complaintType,
+        description: description.trim(),
+        reporterRole,
+      }),
+    "User Incident Report Submission Ticket Received",
   );
 
   // Wrap the newly created Mongoose instance with the DTO serializer
@@ -262,16 +263,16 @@ const processAdminReportUpdate = async (
   }
 
   if (TERMINAL_STATUSES.has(status)) {
-    sendReportResolvedEmail({
-      reporterName: updatedReport.reportedBy.name,
-      reporterEmail: updatedReport.reportedBy.email,
-      complaintType: updatedReport.complaintType,
-      status,
-      adminNote: adminNote?.trim() || "",
-    }).catch((emailError) =>
-      logger.error("sendReportResolvedEmail failed", {
-        message: emailError.message,
-      }),
+    fireAndForgetEmail(
+      () =>
+        sendReportResolvedEmail({
+          reporterName: updatedReport.reportedBy.name,
+          reporterEmail: updatedReport.reportedBy.email,
+          complaintType: updatedReport.complaintType,
+          status,
+          adminNote: adminNote?.trim() || "",
+        }),
+      "Incident Report Admin Resolution Notification",
     );
   }
 

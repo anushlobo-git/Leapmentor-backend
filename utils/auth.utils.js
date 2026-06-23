@@ -1,5 +1,5 @@
 const jwt = require("jsonwebtoken");
-const crypto = require("crypto");
+const crypto = require("node:crypto");
 const { OAuth2Client } = require("google-auth-library");
 const logger = require("../config/logger");
 // auth.utils.js  — add this line near the top, after the requires
@@ -23,10 +23,10 @@ const signRefreshToken = (userId) =>
 
 
 const validateRoles = (roles) => {
-  const validRoles = ["mentor", "mentee"];
+  const validRoles = new Set(["mentor", "mentee"]);
   const uniqueRoles = [...new Set(roles)];
   for (const r of uniqueRoles) {
-    if (!validRoles.includes(r)) {
+    if (!validRoles.has(r)) {
       return {
         valid: false,
         message: "Invalid role. Use mentor and/or mentee.",

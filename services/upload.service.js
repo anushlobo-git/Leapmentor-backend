@@ -2,6 +2,7 @@ const streamifier = require("streamifier");
 const { cloudinary } = require("../config/cloudinary");
 const AppError = require("../utils/AppError");
 const logger = require("../config/logger"); // Assuming this is your path
+const fireAndForgetEmail = require("../utils/fireAndForgetEmail");
 
 // Repositories
 const mentorProfileRepository = require("../repositories/mentor.repository");
@@ -141,11 +142,13 @@ const processVerificationDocuments = async (
 
     logger.info("Verification docs linked to DB", { userId: currentUser._id });
 
-    sendDocumentsSubmittedEmail({
-      mentorName: currentUser.name,
-      mentorEmail: currentUser.email,
-    }).catch((e) =>
-      logger.error("Email notification failed", { error: e.message }),
+    fireAndForgetEmail(
+      () =>
+        sendDocumentsSubmittedEmail({
+          mentorName: currentUser.name,
+          mentorEmail: currentUser.email,
+        }),
+      "Mentor Credentials Verification Documents Submitted",
     );
 
     //  Return the fully mapped and formatted profile object to the client

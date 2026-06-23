@@ -5,6 +5,7 @@
  */
 
 const AppError = require("../utils/AppError");
+const fireAndForgetEmail = require("../utils/fireAndForgetEmail");
 const {
   findAllMentorProfiles,
   findMentorProfileById,
@@ -79,11 +80,9 @@ const verifyMentorService = async (mentorProfileId) => {
   const mentorEmail = profile.user?.email;
 
   if (mentorEmail) {
-    sendMentorVerifiedEmail({
-      mentorName,
-      mentorEmail,
-    }).catch((err) =>
-      logger.error("sendMentorVerifiedEmail failed", { message: err.message }),
+    fireAndForgetEmail(
+      () => sendMentorVerifiedEmail({ mentorName, mentorEmail }),
+      "Mentor Application Approval Verification",
     );
   }
 

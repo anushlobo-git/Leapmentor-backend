@@ -1,4 +1,5 @@
 const AppError = require("../utils/AppError");
+const fireAndForgetEmail = require("../utils/fireAndForgetEmail");
 const {
   countAllReports,
   countReportsByFilter,
@@ -20,6 +21,7 @@ const {
 const createNotification = require("../utils/createNotification");
 const { sendReportResolvedEmail } = require("../utils/sendNotificationEmail");
 const { toReportDTO } = require("../mappers/report.mapper");
+
 
 const getReportStatsService = async () => {
   const today = new Date();
@@ -104,15 +106,17 @@ const handleReportService = async (
   }
 
   if (report.reportedBy?.email) {
-    sendReportResolvedEmail({
-      reporterName: report.reportedBy.name,
-      reporterEmail: report.reportedBy.email,
-      complaintType: report.complaintType,
-      status,
-      adminNote: adminNote?.trim() || "",
-      reporterRole: report.reporterRole,
-    }).catch((err) =>
-      logger.error("sendReportResolvedEmail failed", { error: err.message }),
+    fireAndForgetEmail(
+      () =>
+        sendReportResolvedEmail({
+          reporterName: report.reportedBy.name,
+          reporterEmail: report.reportedBy.email,
+          complaintType: report.complaintType,
+          status,
+          adminNote: adminNote?.trim() || "",
+          reporterRole: report.reporterRole,
+        }),
+      "Admin Report Handled Resolution",
     );
   }
 
@@ -176,17 +180,17 @@ const processRefundService = async (reportId, adminNote, adminId) => {
   });
 
   if (report.reportedBy?.email) {
-    sendReportResolvedEmail({
-      reporterName: report.reportedBy.name,
-      reporterEmail: report.reportedBy.email,
-      complaintType: report.complaintType,
-      status: "resolved",
-      adminNote: resolvedAdminNote,
-      reporterRole: report.reporterRole,
-    }).catch((err) =>
-      logger.error("sendReportResolvedEmail (refund) failed", {
-        error: err.message,
-      }),
+    fireAndForgetEmail(
+      () =>
+        sendReportResolvedEmail({
+          reporterName: report.reportedBy.name,
+          reporterEmail: report.reportedBy.email,
+          complaintType: report.complaintType,
+          status: "resolved",
+          adminNote: resolvedAdminNote,
+          reporterRole: report.reporterRole,
+        }),
+      "Admin Refund Report Resolution",
     );
   }
 
@@ -235,17 +239,17 @@ const deleteSessionService = async (reportId, adminNote, adminId) => {
   await saveReport(report);
 
   if (report.reportedBy?.email) {
-    sendReportResolvedEmail({
-      reporterName: report.reportedBy.name,
-      reporterEmail: report.reportedBy.email,
-      complaintType: report.complaintType,
-      status: "resolved",
-      adminNote: resolvedAdminNote,
-      reporterRole: report.reporterRole,
-    }).catch((err) =>
-      logger.error("sendReportResolvedEmail (deleteSession) failed", {
-        error: err.message,
-      }),
+    fireAndForgetEmail(
+      () =>
+        sendReportResolvedEmail({
+          reporterName: report.reportedBy.name,
+          reporterEmail: report.reportedBy.email,
+          complaintType: report.complaintType,
+          status: "resolved",
+          adminNote: resolvedAdminNote,
+          reporterRole: report.reporterRole,
+        }),
+      "Admin Delete Session Report Resolution",
     );
   }
 };

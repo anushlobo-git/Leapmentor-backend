@@ -1,142 +1,42 @@
 /**
  * @fileoverview Dispatcher utility for Session Notifications and Calendar Attachments.
- * Compiles dynamic responsive HTML wrappers, generates calendar .ics data structures,
- * and distributes automated confirmation payloads safely using Promise.allSettled.
  * @module utils/sendCalendarInvite
- * @requires ./generateICS
- * @requires ./sendWithRetry
- * @requires ../config/logger
  */
 
 const { generateICS } = require("./generateICS");
 const sendWithRetry = require("./sendWithRetry");
 const logger = require("../config/logger");
+const {
+  BLUE_GRADIENT,
+  wrapEmail,
+  buildHeader,
+  FOOTER,
+  buildInfoCard,
+  buildBanner,
+  buildSlotRows,
+} = require("./emailHelpers");
 
-/** @const {string} LOGO_URL - Remote public secure resource path for branding injects */
-const LOGO_URL =
-  "https://res.cloudinary.com/dturqwsyo/image/upload/v1775526481/logo_rkj2ta.png";
+const BRAND_FROM = `"Leapmentor" <${process.env.SMTP_USER}>`;
 
-/**
- * Normalizes 24-hour military clock strings into readable 12-hour AM/PM representations.
- */
-const formatTime = (time) => {
-  const [h, m] = time.split(":").map(Number);
-  const ampm = h >= 12 ? "PM" : "AM";
-  const hour = h % 12 || 12;
-  return `${String(hour).padStart(2, "0")}:${String(m).padStart(2, "0")} ${ampm}`;
-};
-
-/**
- * Localizes explicit ISO date stamps into comprehensive western long format vectors.
- * FIX (Issue 3): Forces UTC parsing ('Z') and locks timeZone to 'UTC' to prevent server date shifts.
- */
-const formatDate = (date) =>
-  new Date(date + "T00:00:00Z").toLocaleDateString("en-US", {
-    weekday: "long",
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-    timeZone: "UTC",
-  });
-
-/**
- * Envelops granular context markups inside defensive, mobile-responsive semantic boilerplates.
- */
-const wrapEmail = (innerHtml) => `
-  <!DOCTYPE html>
-  <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <style>
-      body { margin:0; padding:0; background:#f1f5f9; }
-      .preheader { display:none !important; max-height:0; overflow:hidden; mso-hide:all; }
-      @media only screen and (max-width:600px) {
-        .email-wrapper { border-radius:0 !important; }
-        .email-body { padding:20px 16px !important; }
-      }
-    </style>
-  </head>
-  <body>
-    <div class="preheader" style="display:none;max-height:0;overflow:hidden;font-size:1px;color:#f1f5f9;line-height:1px;">
-      &nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;
-    </div>
-    <div style="padding:24px 16px;background:#f1f5f9;">
-      <div class="email-wrapper"
-        style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
-        max-width:520px;margin:0 auto;background:#ffffff;border-radius:16px;
-        overflow:hidden;border:1px solid #e2e8f0;">
-        ${innerHtml}
-      </div>
-    </div>
-  </body>
-  </html>
-`;
-
-/**
- * Builds a standardized header layout component block.
- */
-const buildHeader = (bgGradient, title, subtitle) => `
-  <div style="background:${bgGradient};padding:28px 32px 24px;text-align:center;">
-    <div style="margin-bottom:14px;">
-      <div style="display:inline-block;background:#ffffff;border-radius:50%;
-        width:56px;height:56px;line-height:56px;text-align:center;
-        box-shadow:0 2px 8px rgba(0,0,0,0.15);">
-        <img src="${LOGO_URL}" alt="LeapMentor" width="36" height="36"
-          style="display:inline-block;vertical-align:middle;width:36px;height:36px;object-fit:contain;" />
-      </div>
-    </div>
-    <div style="color:rgba(255,255,255,0.85);font-size:12px;font-weight:700;
-      letter-spacing:1.5px;text-transform:uppercase;margin-bottom:10px;">
-      LEAPMENTOR
-    </div>
-    <h1 style="color:#ffffff;font-size:20px;font-weight:700;margin:0 0 8px;line-height:1.3;">
-      ${title}
-    </h1>
-    <p style="color:rgba(255,255,255,0.8);font-size:13px;margin:0;">
-      ${subtitle}
-    </p>
-  </div>
-`;
-
-/** @const {string} FOOTER - Global application footer boilerplate signature component */
-const FOOTER = `
-  <div style="padding:18px 32px;border-top:1px solid #e2e8f0;text-align:center;">
-    <p style="font-size:12px;color:#94a3b8;margin:0;">
-      LeapMentor &middot; Empowering the next generation of talent
-    </p>
-  </div>
-`;
-
-/**
- * Iterates across active booking slot vectors to build individual semantic schedule interface blocks.
- */
-const buildSlotRows = (slots) =>
-  slots
-    .map(
-      (slot, i) => `
-    <div style="display:flex;align-items:center;justify-content:space-between;
-      padding:10px 14px;border-radius:10px;margin-bottom:8px;
-      background:#f8fafc;border:1px solid #e2e8f0;border-left:4px solid #2563eb;">
-      <div>
-        <div style="font-size:13px;font-weight:700;color:#1e293b;">${formatDate(slot.date)}</div>
-        <div style="font-size:12px;color:#64748b;margin-top:2px;">
-          ${formatTime(slot.startTime)} &ndash; ${formatTime(slot.endTime)}
+const buildMessageBlock = (message, senderLabel) =>
+  message
+    ? `<div style="background:#eff6ff;border-radius:12px;padding:14px 16px;margin-bottom:18px;border-left:3px solid #2563eb;">
+        <div style="font-size:11px;font-weight:700;color:#2563eb;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">
+          ${senderLabel}
         </div>
-      </div>
-      <span style="font-size:11px;font-weight:700;color:#2563eb;background:#eff6ff;
-        padding:3px 8px;border-radius:6px;white-space:nowrap;flex-shrink:0;">
-        Session ${i + 1}
-      </span>
-    </div>
-  `,
-    )
-    .join("");
+        <div style="font-size:13px;color:#334155;line-height:1.6;font-style:italic;">"${message}"</div>
+       </div>`
+    : "";
 
-/**
- * Assembles transactional email bodies, generates calendar invitation binaries,
- * and distributes confirmation details concurrently across both paired users.
- */
+const buildCalendarBanner = (slotCount) => `
+  <div style="background:#f0fdf4;border-radius:12px;padding:14px 16px;border:1px solid #bbf7d0;">
+    <p style="font-size:13px;color:#15803d;margin:0;font-weight:500;">
+      📎 ${slotCount} calendar invite${slotCount > 1 ? "s are" : " is"} attached.
+      Add ${slotCount > 1 ? "them" : "it"} to Google Calendar, Outlook, or Apple Calendar.
+    </p>
+  </div>
+`;
+
 const sendCalendarInvite = async ({
   requestId,
   mentorName,
@@ -150,7 +50,6 @@ const sendCalendarInvite = async ({
   timezone = "Asia/Kolkata",
   message = "",
 }) => {
-  // FIX (Issue 4): Input guard at entry point to prevent unexpected runtime crashes
   if (!mentorEmail || !menteeEmail) {
     logger.error("sendCalendarInvite: missing required email addresses", {
       requestId,
@@ -160,7 +59,6 @@ const sendCalendarInvite = async ({
     return;
   }
 
-  // FIX (Issue 2): Tightened slot evaluation logic to catch empty arrays or undefined fallbacks cleanly
   const allSlots =
     slots.length > 0
       ? slots
@@ -168,154 +66,101 @@ const sendCalendarInvite = async ({
         ? [{ date, startTime, endTime }]
         : null;
 
-  if (!allSlots || allSlots.length === 0) {
+  if (!allSlots?.length) {
     logger.error("sendCalendarInvite: no valid slots provided", { requestId });
     return;
   }
 
   const slotCount = allSlots.length;
   const slotRowsHtml = buildSlotRows(allSlots);
-
-  const icsContent = generateICS({
-    requestId,
-    mentorName,
-    mentorEmail,
-    menteeName,
-    menteeEmail,
-    slots: allSlots,
-    timezone,
-    message,
-  });
-
   const icsAttachment = {
     filename: "leapmentor-sessions.ics",
-    content: icsContent,
+    content: generateICS({
+      requestId,
+      mentorName,
+      mentorEmail,
+      menteeName,
+      menteeEmail,
+      slots: allSlots,
+      timezone,
+      message,
+    }),
     contentType: "text/calendar; method=REQUEST",
   };
 
-  const gradient = "linear-gradient(135deg,#2563eb 0%,#1d4ed8 100%)";
-
-  // ── Mentee email compilation ──────────────────────────────
   const menteeHtml = wrapEmail(`
     ${buildHeader(
-      gradient,
+      BLUE_GRADIENT,
       `Your ${slotCount} session${slotCount > 1 ? "s are" : " is"} confirmed! 🎉`,
       `Payment received · Sessions locked in with ${mentorName}`,
     )}
     <div class="email-body" style="padding:24px 32px;">
-      <div style="background:#f8fafc;border-radius:12px;padding:18px;margin-bottom:18px;border:1px solid #e2e8f0;">
-        <div style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;">Mentor</div>
-        <div style="font-size:15px;font-weight:700;color:#1e293b;">${mentorName}</div>
-      </div>
-
+      ${buildInfoCard("Mentor", mentorName)}
       <div style="margin-bottom:18px;">
         <div style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;">
           Booked Sessions (${slotCount})
         </div>
         ${slotRowsHtml}
       </div>
-
-      ${
-        message
-          ? `
-      <div style="background:#eff6ff;border-radius:12px;padding:14px 16px;margin-bottom:18px;border-left:3px solid #2563eb;">
-        <div style="font-size:11px;font-weight:700;color:#2563eb;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Your Message</div>
-        <div style="font-size:13px;color:#334155;line-height:1.6;font-style:italic;">"${message}"</div>
-      </div>`
-          : ""
-      }
-
-      <div style="background:#f0fdf4;border-radius:12px;padding:14px 16px;border:1px solid #bbf7d0;">
-        <p style="font-size:13px;color:#15803d;margin:0;font-weight:500;">
-          📎 ${slotCount} calendar invite${slotCount > 1 ? "s are" : " is"} attached.
-          Add ${slotCount > 1 ? "them" : "it"} to Google Calendar, Outlook, or Apple Calendar.
-        </p>
-      </div>
+      ${buildMessageBlock(message, "Your Message")}
+      ${buildCalendarBanner(slotCount)}
     </div>
     ${FOOTER}
   `);
 
-  // ── Mentor email compilation ──────────────────────────────
   const mentorHtml = wrapEmail(`
     ${buildHeader(
-      gradient,
+      BLUE_GRADIENT,
       `${slotCount} new session${slotCount > 1 ? "s" : ""} scheduled 📅`,
       `${menteeName} has completed payment · Sessions confirmed`,
     )}
     <div class="email-body" style="padding:24px 32px;">
-      <div style="background:#f8fafc;border-radius:12px;padding:18px;margin-bottom:18px;border:1px solid #e2e8f0;">
-        <div style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;">Mentee</div>
-        <div style="font-size:15px;font-weight:700;color:#1e293b;">${menteeName}</div>
-        <div style="font-size:12px;color:#64748b;margin-top:2px;">${menteeEmail}</div>
-      </div>
-
+      ${buildInfoCard("Mentee", `${menteeName}<div style="font-size:12px;color:#64748b;margin-top:2px;">${menteeEmail}</div>`)}
       <div style="margin-bottom:18px;">
         <div style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;">
           Scheduled Sessions (${slotCount})
         </div>
         ${slotRowsHtml}
       </div>
-
-      ${
-        message
-          ? `
-      <div style="background:#eff6ff;border-radius:12px;padding:14px 16px;margin-bottom:18px;border-left:3px solid #2563eb;">
-        <div style="font-size:11px;font-weight:700;color:#2563eb;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">
-          Message from ${menteeName}
-        </div>
-        <div style="font-size:13px;color:#334155;line-height:1.6;font-style:italic;">"${message}"</div>
-      </div>`
-          : ""
-      }
-
-      <div style="background:#f0fdf4;border-radius:12px;padding:14px 16px;border:1px solid #bbf7d0;">
-        <p style="font-size:13px;color:#15803d;margin:0;font-weight:500;">
-          📎 ${slotCount} calendar invite${slotCount > 1 ? "s are" : " is"} attached.
-          Add ${slotCount > 1 ? "them" : "it"} to your calendar to stay on track.
-        </p>
-      </div>
+      ${buildMessageBlock(message, `Message from ${menteeName}`)}
+      ${buildCalendarBanner(slotCount)}
     </div>
     ${FOOTER}
   `);
 
-  // FIX (Issue 1): Replaced Promise.all with Promise.allSettled so delivery statuses remain strictly isolated
   const [menteeResult, mentorResult] = await Promise.allSettled([
     sendWithRetry(
       {
-        from: `"Leapmentor" <${process.env.SMTP_USER}>`,
+        from: BRAND_FROM,
         to: menteeEmail,
+        attachments: [icsAttachment],
         subject: `✅ ${slotCount} Session${slotCount > 1 ? "s" : ""} Confirmed with ${mentorName}`,
         html: menteeHtml,
-        attachments: [icsAttachment],
       },
       "Mentee Calendar Confirmation",
     ),
     sendWithRetry(
       {
-        from: `"Leapmentor" <${process.env.SMTP_USER}>`,
+        from: BRAND_FROM,
         to: mentorEmail,
+        attachments: [icsAttachment],
         subject: `📅 ${slotCount} New Session${slotCount > 1 ? "s" : ""} with ${menteeName}`,
         html: mentorHtml,
-        attachments: [icsAttachment],
       },
       "Mentor Calendar Notification",
     ),
   ]);
 
-  // Log distinct delivery results independently without cutting execution loops short
-  if (menteeResult.status === "rejected") {
+  if (menteeResult.status === "rejected")
     logger.error("Mentee calendar email failed permanently", {
       message: menteeResult.reason?.message,
       to: menteeEmail,
     });
-  }
-
-  if (mentorResult.status === "rejected") {
+  if (mentorResult.status === "rejected")
     logger.error("Mentor calendar email failed permanently", {
       message: mentorResult.reason?.message,
       to: mentorEmail,
     });
-  }
 
   logger.info("Calendar invite dispatch complete", {
     requestId,
@@ -326,3 +171,4 @@ const sendCalendarInvite = async ({
 };
 
 module.exports = { sendCalendarInvite };
+

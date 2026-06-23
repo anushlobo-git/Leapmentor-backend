@@ -185,13 +185,47 @@ const saveUser = (userInstance) => {
  * @param {Array<string>} roles - Array of target user role filters.
  * @returns {Promise<Array<Object>>} Lean list of matching user IDs.
  */
-const findUsersByRoleAndNameRegex = (namePattern, roles) => {
-  return User.find({
-    name: { $regex: namePattern, $options: "i" },
-    roles: { $in: roles },
-  })
-    .select("_id name")
-    .lean();
+const findUsersByRoleAndNameRegex = async (namePattern, roles) => {
+  const pipeline = [
+    {
+      $search: {
+        index: "user_name_search",
+        compound: {
+          must: [
+            {
+              autocomplete: {
+                query: namePattern,
+                path: "name",
+                fuzzy: { maxEdits: 1, prefixLength: 1 },
+              },
+            },
+          ],
+          filter: [{ equals: { path: "isDeleted", value: false } }],
+        },
+      },
+    },
+    {
+      $match: {
+        roles: { $in: roles },
+      },
+    },
+    {
+      $project: { _id: 1, name: 1 },
+    },
+    { $limit: 20 },
+  ];
+
+  try {
+    return await User.aggregate(pipeline);
+  } catch {
+    // Fallback to regex if Atlas index isn't ready
+    return User.find({
+      name: { $regex: namePattern, $options: "i" },
+      roles: { $in: roles },
+    })
+      .select("_id name")
+      .lean();
+  }
 };
 
 module.exports = {

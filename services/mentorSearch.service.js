@@ -207,11 +207,12 @@ const buildAtlasCompound = (skill, industry, minPrice, maxPrice, minRating) => {
 
   if (skill.trim()) {
     shouldClauses.push(
+      // ← RESTORE autocomplete (partial word matching)
       {
         autocomplete: {
           query: skill.trim(),
           path: "skills",
-          fuzzy: { maxEdits: 1 },
+          fuzzy: { maxEdits: 1, prefixLength: 1 },
           score: { boost: { value: 10 } },
         },
       },
@@ -219,15 +220,23 @@ const buildAtlasCompound = (skill, industry, minPrice, maxPrice, minRating) => {
         autocomplete: {
           query: skill.trim(),
           path: "currentRole",
-          fuzzy: { maxEdits: 1 },
+          fuzzy: { maxEdits: 1, prefixLength: 1 },
           score: { boost: { value: 5 } },
         },
       },
       {
         text: {
           query: skill.trim(),
+          path: "skills",
+          fuzzy: { maxEdits: 2, prefixLength: 1 },
+          score: { boost: { value: 8 } },
+        },
+      },
+      {
+        text: {
+          query: skill.trim(),
           path: ["industry", "company"],
-          fuzzy: { maxEdits: 1 },
+          fuzzy: { maxEdits: 1, prefixLength: 1 },
           score: { boost: { value: 3 } },
         },
       },
@@ -259,7 +268,15 @@ const buildAtlasCompound = (skill, industry, minPrice, maxPrice, minRating) => {
 
   const compound = { filter: filterClauses };
   if (mustClauses.length > 0) compound.must = mustClauses;
-  if (shouldClauses.length > 0) compound.should = shouldClauses;
+  if (shouldClauses.length > 0) {
+    compound.should = shouldClauses;
+    compound.minimumShouldMatch = 1; // ← RESTORE this
+  }
+
+  // ← RESTORE wildcard fallback for filter-only queries
+  if (mustClauses.length === 0 && shouldClauses.length === 0) {
+    compound.must = [{ exists: { path: "isProfilePublished" } }];
+  }
 
   return compound;
 };
@@ -284,12 +301,11 @@ const buildExperienceMatch = (minExperience, maxExperience) => {
  * @param {Set|null} nameMatchedProfileUserIds - Set of user IDs matched by name, or null.
  * @returns {Object} MongoDB $match expression.
  */
-const buildScoreMatchStage = (skill, nameMatchedProfileUserIds) => {
-  const skillSearched = !!skill.trim();
-  const nameSearched  = nameMatchedProfileUserIds !== null;
-  if (skillSearched && nameSearched) return { $or: [{ searchScore: { $gt: 0 } }] };
-  if (skillSearched)                 return { searchScore: { $gt: 0 } };
-  return {};
+const buildScoreMatchStage = (skill) => {
+  // Only filter by score when skill was searched
+  // Filter-only queries (price/rating/industry) can have score = 0 legitimately
+  if (skill.trim()) return { searchScore: { $gt: 0 } };
+  return {}; // no score filter for filter-only or name-only searches
 };
 
 /**

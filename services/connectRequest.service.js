@@ -7,6 +7,7 @@ const {
   sendConnectRequestEmail,
   sendRequestAcceptedEmail,
 } = require("../utils/sendNotificationEmail");
+const fireAndForgetEmail = require("../utils/fireAndForgetEmail");
 
 const getEmitToUser = () => require("../socket/socketHandler").emitToUser;
 const { toConnectRequestDTO } = require("../mappers/connectRequest.mapper");
@@ -117,14 +118,16 @@ const sendConnectRequestService = async (menteeId, body, menteeUser) => {
     });
   }
 
-  sendConnectRequestEmail({
-    mentorName: populated.mentor?.name || "Mentor",
-    mentorEmail: populated.mentor?.email,
-    menteeName: menteeUser.name,
-    slots: selectedSlots,
-    message: message?.trim() || "",
-  }).catch((err) =>
-    logger.error("Connect request email failed", { message: err.message }),
+  fireAndForgetEmail(
+    () =>
+      sendConnectRequestEmail({
+        mentorName: populated.mentor?.name || "Mentor",
+        mentorEmail: populated.mentor?.email,
+        menteeName: menteeUser.name,
+        slots: selectedSlots,
+        message: message?.trim() || "",
+      }),
+    "New Connection Request Dispatched",
   );
 
   return toConnectRequestDTO(populated);
@@ -273,14 +276,16 @@ const respondToRequestService = async (requestId, mentorUserId, body) => {
       confirmedSlot,
     );
 
-    sendRequestAcceptedEmail({
-      menteeName: request.mentee.name,
-      menteeEmail: request.mentee.email,
-      mentorName: request.mentor.name,
-      confirmedSlot,
-      slots: request.selectedSlots,
-    }).catch((err) =>
-      logger.error("Request accepted email failed", { message: err.message }),
+    fireAndForgetEmail(
+      () =>
+        sendRequestAcceptedEmail({
+          menteeName: request.mentee.name,
+          menteeEmail: request.mentee.email,
+          mentorName: request.mentor.name,
+          confirmedSlot,
+          slots: request.selectedSlots,
+        }),
+      "Connection Request Accepted Confirmation",
     );
   }
 

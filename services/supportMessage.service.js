@@ -4,6 +4,7 @@
  */
 const AppError = require("../utils/AppError");
 const logger = require("../config/logger");
+const fireAndForgetEmail = require("../utils/fireAndForgetEmail");
 // Repositories
 const supportMessageRepository = require("../repositories/supportMessage.repository");
 const userRepository = require("../repositories/user.repository");
@@ -95,14 +96,14 @@ const resolveTicket = async (ticketId) => {
   }
 
   // Execute non-blocking out-of-band network calls to keep primary endpoint response cycles lightning fast
-  sendSupportResolvedEmail({
-    toEmail: ticket.email,
-    subject: ticket.subject,
-  }).catch((emailTransmissionError) => {
-    logger.error("Support resolution email delivery failed", {
-      message: emailTransmissionError.message,
-    });
-  });
+  fireAndForgetEmail(
+    () =>
+      sendSupportResolvedEmail({
+        toEmail: ticket.email,
+        subject: ticket.subject,
+      }),
+    "Help Center Support Ticket Resolved Status Update",
+  );
 
   //  Map out explicit schema variables before transmitting fields to administrative routes
   return toSupportMessageDTO(ticket);

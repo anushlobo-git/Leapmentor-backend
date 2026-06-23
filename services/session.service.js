@@ -4,6 +4,7 @@
  */
 const mongoose = require("mongoose");
 const AppError = require("../utils/AppError");
+const fireAndForgetEmail = require("../utils/fireAndForgetEmail");
 
 // Repositories
 const connectRequestRepo = require("../repositories/connectRequest.repository");
@@ -502,17 +503,24 @@ const _triggerAdditionalSlotEmail = (id, slot) => {
   connectRequestRepo
     .findByIdWithParticipants(id)
     .then((pop) =>
-      sendAdditionalSlotEmail({
-        connectRequestId: id,
-        mentorName: pop.mentor.name,
-        mentorEmail: pop.mentor.email,
-        menteeName: pop.mentee.name,
-        menteeEmail: pop.mentee.email,
-        slot,
-      }),
+      fireAndForgetEmail(
+        () =>
+          sendAdditionalSlotEmail({
+            connectRequestId: id,
+            mentorName: pop.mentor.name,
+            mentorEmail: pop.mentor.email,
+            menteeName: pop.mentee.name,
+            menteeEmail: pop.mentee.email,
+            slot,
+          }),
+        "Additional Session Slot Added Notification",
+      ),
     )
     .catch((err) =>
-      logger.error("Additional slot email failed", { message: err.message }),
+      logger.error(
+        "Database resolution failed for additional slot email tracking",
+        { message: err.message },
+      ),
     );
 };
 
@@ -520,19 +528,26 @@ const _triggerCancelEmail = (id, slot, cancelledBy, reason) => {
   connectRequestRepo
     .findByIdWithParticipants(id)
     .then((pop) =>
-      sendSlotCancelledEmail({
-        connectRequestId: id,
-        mentorName: pop.mentor.name,
-        mentorEmail: pop.mentor.email,
-        menteeName: pop.mentee.name,
-        menteeEmail: pop.mentee.email,
-        slot,
-        cancelledBy,
-        reason,
-      }),
+      fireAndForgetEmail(
+        () =>
+          sendSlotCancelledEmail({
+            connectRequestId: id,
+            mentorName: pop.mentor.name,
+            mentorEmail: pop.mentor.email,
+            menteeName: pop.mentee.name,
+            menteeEmail: pop.mentee.email,
+            slot,
+            cancelledBy,
+            reason,
+          }),
+        "Session Slot Cancellation Notification",
+      ),
     )
     .catch((err) =>
-      logger.error("Slot cancel email failed", { message: err.message }),
+      logger.error(
+        "Database resolution failed for slot cancel email tracking",
+        { message: err.message },
+      ),
     );
 };
 
@@ -540,18 +555,24 @@ const _triggerRescheduleEmail = (id, oldSlot, newSlot) => {
   connectRequestRepo
     .findByIdWithParticipants(id)
     .then((pop) =>
-      sendSlotRescheduledEmail({
-        connectRequestId: id,
-        mentorName: pop.mentor.name,
-        mentorEmail: pop.mentor.email,
-        menteeName: pop.mentee.name,
-        menteeEmail: pop.mentee.email,
-        oldSlot,
-        newSlot,
-      }),
+      fireAndForgetEmail(
+        () =>
+          sendSlotRescheduledEmail({
+            connectRequestId: id,
+            mentorName: pop.mentor.name,
+            mentorEmail: pop.mentor.email,
+            menteeName: pop.mentee.name,
+            menteeEmail: pop.mentee.email,
+            oldSlot,
+            newSlot,
+          }),
+        "Session Slot Rescheduled Notification",
+      ),
     )
     .catch((err) =>
-      logger.error("Reschedule email failed", { message: err.message }),
+      logger.error("Database resolution failed for reschedule email tracking", {
+        message: err.message,
+      }),
     );
 };
 

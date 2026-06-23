@@ -140,6 +140,8 @@ const findMentorProfile = (userId) =>
     )
     .lean();
 
+
+
 /**
  * Retrieve comprehensive structural details linked to a single mentor user ID.
  * @param {string} userId
@@ -152,17 +154,6 @@ const findMentorProfileFull = (userId) =>
     )
     .lean();
 
-/**
- * Query detailed informational properties mapped for isolated mentor display panels.
- * @param {string} userId
- * @returns {Promise<Object|null>}
- */
-const findMentorProfileForDetail = (userId) =>
-  MentorProfile.findOne({ user: userId })
-    .select(
-      "currentRole company profilePicture skills hourlyRate avgRating bio",
-    )
-    .lean();
 
 /**
  * Retrieve explicit performance evaluation parameters linked to a mentor user ID.
@@ -260,7 +251,6 @@ module.exports = {
   saveMentorProfile,
   findMentorProfile,
   findMentorProfileFull,
-  findMentorProfileForDetail,
   findMentorRating,
   updateAvgRating,
   findSimilarPublishedMentors,

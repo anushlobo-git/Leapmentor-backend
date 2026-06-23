@@ -4,7 +4,7 @@
  */
 const mongoose = require("mongoose");
 const AppError = require("../utils/AppError");
-
+const fireAndForgetEmail = require("../utils/fireAndForgetEmail");
 // Repositories
 const adminUserRepo = require("../repositories/admin.repository");
 const connectRequestRepo = require("../repositories/connectRequest.repository");
@@ -582,31 +582,37 @@ const _triggerPaySideEffects = (
   connectRequest,
   { sessionRate, sessionCount, totalAmount, mentorAmount, commissionRate },
 ) => {
-  sendInvoiceEmail({
-    connectRequestId: connectRequest._id.toString(),
-    menteeName: connectRequest.mentee.name,
-    menteeEmail: connectRequest.mentee.email,
-    mentorName: connectRequest.mentor.name,
-    mentorEmail: connectRequest.mentor.email,
-    selectedSlots: connectRequest.selectedSlots,
-    confirmedSlot: connectRequest.confirmedSlot,
-    sessionRate,
-    sessionCount,
-    totalAmount,
-    paidAt: connectRequest.paidAt,
-  }).catch((err) => logger.error("Invoice email failed", { message: err.message }));
+  fireAndForgetEmail(
+    () =>
+      sendInvoiceEmail({
+        connectRequestId: connectRequest._id.toString(),
+        menteeName: connectRequest.mentee.name,
+        menteeEmail: connectRequest.mentee.email,
+        mentorName: connectRequest.mentor.name,
+        mentorEmail: connectRequest.mentor.email,
+        selectedSlots: connectRequest.selectedSlots,
+        confirmedSlot: connectRequest.confirmedSlot,
+        sessionRate,
+        sessionCount,
+        totalAmount,
+        paidAt: connectRequest.paidAt,
+      }),
+    "Mentee Escrow Payment Invoice Delivery",
+  );
 
-  sendPaymentReceivedEmail({
-    mentorName: connectRequest.mentor.name,
-    mentorEmail: connectRequest.mentor.email,
-    menteeName: connectRequest.mentee.name,
-    slots: connectRequest.selectedSlots,
-    sessionRate,
-    sessionCount,
-    mentorPayout: mentorAmount,
-    commissionRate,
-  }).catch((err) =>
-    logger.error("Payment received email failed", { message: err.message }),
+  fireAndForgetEmail(
+    () =>
+      sendPaymentReceivedEmail({
+        mentorName: connectRequest.mentor.name,
+        mentorEmail: connectRequest.mentor.email,
+        menteeName: connectRequest.mentee.name,
+        slots: connectRequest.selectedSlots,
+        sessionRate,
+        sessionCount,
+        mentorPayout: mentorAmount,
+        commissionRate,
+      }),
+    "Mentor Payment Received Payout Alert",
   );
 
   availabilityRepo
