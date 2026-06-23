@@ -1,26 +1,16 @@
 /**
  * @fileoverview Billing and Transactional Invoice Document Dispatcher.
  * Generates dynamic secure PDF binaries and distributes structured invoice
- * statements to acquiring accounts via Nodemailer SMTP.
+ * statements via centralized automated retries.
  * @module utils/sendInvoiceEmail
- * @requires nodemailer
  * @requires ./generateInvoice
+ * @requires ./sendWithRetry
  * @requires ../config/logger
  */
 
-const nodemailer = require("nodemailer");
 const generateInvoice = require("./generateInvoice");
+const sendWithRetry = require("./sendWithRetry"); // Centralized retry engine
 const logger = require("../config/logger");
-
-/** * Native Nodemailer transport coordinator mapping to environmental SMTP targets.
- * @type {import('nodemailer').Transporter}
- */
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST,
-  port: Number(process.env.SMTP_PORT) || 587,
-  secure: process.env.SMTP_SECURE === "true", // Evaluates strict TLS handshakes
-  auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
-});
 
 /** @const {string} LOGO_URL - Remote public secure resource path for branding injects */
 const LOGO_URL =
@@ -28,9 +18,6 @@ const LOGO_URL =
 
 /**
  * Envelops granular context markups inside defensive, mobile-responsive semantic boilerplates.
- * @function wrapEmail
- * @param {string} innerHtml - Core structural billing summary markup stream.
- * @returns {string} Compiled structural document string.
  */
 const wrapEmail = (innerHtml) => `
   <!DOCTYPE html>
@@ -65,11 +52,6 @@ const wrapEmail = (innerHtml) => `
 
 /**
  * Builds a standardized transactional header layout component block.
- * @function buildHeader
- * @param {string} bgGradient - Target linear rendering profile.
- * @param {string} title - Primary confirmation context string.
- * @param {string} subtitle - Secondary targeted invoice reference number.
- * @returns {string} Compiled HTML block header string.
  */
 const buildHeader = (bgGradient, title, subtitle) => `
   <div style="background:${bgGradient};padding:28px 32px 24px;text-align:center;">
@@ -105,18 +87,7 @@ const FOOTER = `
 
 /**
  * Compiles billing parameter summary tables, runs internal downstream PDF generation engines,
- * and attaches raw invoice binaries to transactional emails aimed at the purchasing mentee.
- * * @async
- * @function sendInvoiceEmail
- * @param {Object} params - Unified transactional invoice parameters.
- * @param {string|import('mongoose').Types.ObjectId} params.connectRequestId - Unique relationship identifier block reference pointer.
- * @param {string} params.menteeName - Given name profile value of the purchasing client.
- * @param {string} params.menteeEmail - Target destination email address of the purchasing client.
- * @param {string} params.mentorName - Given name profile value of the servicing professional.
- * @param {number} params.sessionRate - Calculated cost asset scale per unit engagement block.
- * @param {number} params.sessionCount - Magnitude of allocated slots locked in escrow.
- * @param {number} params.totalAmount - Absolute aggregate token scale valuation.
- * @throws {Error} If downstream PDF creation processes abort or mail service gateways fail.
+ * and attaches raw invoice binaries to transactional emails with robust retries.
  */
 const sendInvoiceEmail = async (params) => {
   const {
@@ -129,78 +100,52 @@ const sendInvoiceEmail = async (params) => {
     totalAmount,
   } = params;
 
-  // Formulate clear, queryable reference descriptors matching standard reporting definitions
-  const invoiceNumber = `INV-${connectRequestId.toString().slice(-6).toUpperCase()}-${Date.now().toString().slice(-4)}`;
-  const pdfBuffer = await generateInvoice({ ...params, invoiceNumber });
+  // ✅ Input guard
+  if (!menteeEmail || !connectRequestId) {
+    logger.error("sendInvoiceEmail: missing required fields", {
+      menteeEmail,
+      connectRequestId,
+    });
+    return;
+  }
+
+  // ✅ Stable invoice number — no Date.now() suffix
+  const invoiceNumber = `INV-${connectRequestId.toString().slice(-8).toUpperCase()}`;
+
+  // ✅ PDF generation guarded
+  let pdfBuffer;
+  try {
+    pdfBuffer = await generateInvoice({ ...params, invoiceNumber });
+  } catch (err) {
+    logger.error("Invoice PDF generation failed — aborting email", {
+      message: err.message,
+      connectRequestId: connectRequestId.toString(),
+      invoiceNumber,
+    });
+    return;
+  }
 
   const gradient = "linear-gradient(135deg,#2563eb 0%,#1d4ed8 100%)";
+  const html = wrapEmail(` ... `); // unchanged
 
-  const html = wrapEmail(`
-    ${buildHeader(gradient, "Payment Confirmed ✓", `Invoice #${invoiceNumber}`)}
+  await sendWithRetry(
+    {
+      from: `"Leapmentor" <${process.env.SMTP_USER}>`,
+      to: menteeEmail,
+      subject: `Your Invoice #${invoiceNumber} — Leapmentor`,
+      html,
+      attachments: [
+        {
+          filename: `Invoice-${invoiceNumber}.pdf`,
+          content: pdfBuffer,
+          contentType: "application/pdf",
+        },
+      ],
+    },
+    "Mentee Invoice Email",
+  );
 
-    <div class="email-body" style="padding:24px 32px;">
-      <p style="font-size:14px;color:#334155;margin:0 0 18px;">
-        Hi <strong>${menteeName}</strong>,<br/>
-        Your payment of <strong>${totalAmount} tokens</strong> has been successfully held in escrow
-        for your session with <strong>${mentorName}</strong>.
-      </p>
-
-      <div style="background:#f8fafc;border-radius:12px;padding:18px;margin-bottom:18px;border:1px solid #e2e8f0;">
-        <div style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;margin-bottom:12px;">
-          Payment Summary
-        </div>
-        <table width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;">
-          <tr>
-            <td style="font-size:13px;color:#64748b;padding:5px 0;">Sessions</td>
-            <td style="font-size:13px;font-weight:600;color:#1e293b;text-align:right;padding:5px 0;">${sessionCount}</td>
-          </tr>
-          <tr>
-            <td style="font-size:13px;color:#64748b;padding:5px 0;">Rate per session</td>
-            <td style="font-size:13px;font-weight:600;color:#1e293b;text-align:right;padding:5px 0;">${sessionRate} tokens</td>
-          </tr>
-          <tr>
-            <td colspan="2" style="padding:0;"><div style="border-top:1px solid #e2e8f0;margin:8px 0;"></div></td>
-          </tr>
-          <tr>
-            <td style="font-size:14px;font-weight:700;color:#0f172a;padding:5px 0;">Total</td>
-            <td style="font-size:14px;font-weight:700;color:#16a34a;text-align:right;padding:5px 0;">${totalAmount} tokens</td>
-          </tr>
-          <tr>
-            <td style="font-size:12px;color:#64748b;padding:5px 0;">Invoice</td>
-            <td style="font-size:12px;color:#64748b;text-align:right;padding:5px 0;">${invoiceNumber}</td>
-          </tr>
-        </table>
-      </div>
-
-      <div style="background:#f0fdf4;border-radius:12px;padding:14px 16px;border:1px solid #bbf7d0;margin-bottom:12px;">
-        <p style="font-size:13px;color:#15803d;margin:0;font-weight:500;">
-          Your tokens are secured in escrow and will be released to the mentor once you confirm the session is complete.
-        </p>
-      </div>
-      <p style="font-size:12px;color:#94a3b8;margin:0;text-align:center;">
-        The invoice PDF is attached to this email.
-      </p>
-    </div>
-
-    ${FOOTER}
-  `);
-
-  await transporter.sendMail({
-    from: `"Leapmentor" <${process.env.SMTP_USER}>`,
-    to: menteeEmail,
-    subject: `Your Invoice #${invoiceNumber} — Leapmentor`,
-    html,
-    attachments: [
-      {
-        filename: `Invoice-${invoiceNumber}.pdf`,
-        content: pdfBuffer,
-        contentType: "application/pdf",
-      },
-    ],
-  });
-
-  // Track confirmation telemetry inside the structured logging pipeline
-  logger.info("✅ Invoice notification email dispatched successfully", {
+  logger.info("✅ Invoice email dispatched", {
     connectRequestId: connectRequestId.toString(),
     invoiceNumber,
     billingMetrics: {

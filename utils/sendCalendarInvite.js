@@ -1,26 +1,16 @@
 /**
  * @fileoverview Dispatcher utility for Session Notifications and Calendar Attachments.
  * Compiles dynamic responsive HTML wrappers, generates calendar .ics data structures,
- * and distributes automated confirmation payloads to users via Nodemailer SMTP.
+ * and distributes automated confirmation payloads safely using Promise.allSettled.
  * @module utils/sendCalendarInvite
- * @requires nodemailer
  * @requires ./generateICS
+ * @requires ./sendWithRetry
  * @requires ../config/logger
  */
 
-const nodemailer = require("nodemailer");
 const { generateICS } = require("./generateICS");
+const sendWithRetry = require("./sendWithRetry");
 const logger = require("../config/logger");
-
-/** * Native Nodemailer transport coordinator mapping to environmental SMTP targets.
- * @type {import('nodemailer').Transporter}
- */
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST,
-  port: Number(process.env.SMTP_PORT || 587),
-  secure: false, // Upgrades to TLS dynamically via STARTTLS over port 587
-  auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
-});
 
 /** @const {string} LOGO_URL - Remote public secure resource path for branding injects */
 const LOGO_URL =
@@ -28,9 +18,6 @@ const LOGO_URL =
 
 /**
  * Normalizes 24-hour military clock strings into readable 12-hour AM/PM representations.
- * @function formatTime
- * @param {string} time - Raw clock index pattern (e.g., '14:30').
- * @returns {string} Standardized time string (e.g., '02:30 PM').
  */
 const formatTime = (time) => {
   const [h, m] = time.split(":").map(Number);
@@ -41,23 +28,19 @@ const formatTime = (time) => {
 
 /**
  * Localizes explicit ISO date stamps into comprehensive western long format vectors.
- * @function formatDate
- * @param {string} date - Raw date string scalar (e.g., '2026-06-15').
- * @returns {string} Formatted string context (e.g., 'Monday, June 15, 2026').
+ * FIX (Issue 3): Forces UTC parsing ('Z') and locks timeZone to 'UTC' to prevent server date shifts.
  */
 const formatDate = (date) =>
-  new Date(date + "T00:00:00").toLocaleDateString("en-US", {
+  new Date(date + "T00:00:00Z").toLocaleDateString("en-US", {
     weekday: "long",
     year: "numeric",
     month: "long",
     day: "numeric",
+    timeZone: "UTC",
   });
 
 /**
  * Envelops granular context markups inside defensive, mobile-responsive semantic boilerplates.
- * @function wrapEmail
- * @param {string} innerHtml - Core structural body markup stream.
- * @returns {string} Compiled structural document string.
  */
 const wrapEmail = (innerHtml) => `
   <!DOCTYPE html>
@@ -92,11 +75,6 @@ const wrapEmail = (innerHtml) => `
 
 /**
  * Builds a standardized header layout component block.
- * @function buildHeader
- * @param {string} bgGradient - Target linear rendering profile.
- * @param {string} title - Primary title string content.
- * @param {string} subtitle - Secondary description string content.
- * @returns {string} Compiled HTML block header string.
  */
 const buildHeader = (bgGradient, title, subtitle) => `
   <div style="background:${bgGradient};padding:28px 32px 24px;text-align:center;">
@@ -132,9 +110,6 @@ const FOOTER = `
 
 /**
  * Iterates across active booking slot vectors to build individual semantic schedule interface blocks.
- * @function buildSlotRows
- * @param {Array<Object>} slots - Array containing explicit date, startTime, and endTime records.
- * @returns {string} Compiled repetitive slot layout HTML markup blocks.
  */
 const buildSlotRows = (slots) =>
   slots
@@ -161,21 +136,6 @@ const buildSlotRows = (slots) =>
 /**
  * Assembles transactional email bodies, generates calendar invitation binaries,
  * and distributes confirmation details concurrently across both paired users.
- * * @async
- * @function sendCalendarInvite
- * @param {Object} options - Payload option configuration properties object.
- * @param {string} options.requestId - Target connection matching sequence identifier.
- * @param {string} options.mentorName - Name profile value of the servicing mentor.
- * @param {string} options.mentorEmail - Email address of the servicing mentor.
- * @param {string} options.menteeName - Name profile value of the acquiring user.
- * @param {string} options.menteeEmail - Email address of the acquiring user.
- * @param {Array<Object>} [options.slots=[]] - Targeted operational calendar slots.
- * @param {string} [options.date] - Fallback singular operational date.
- * @param {string} [options.startTime] - Fallback singular start timeframe index.
- * @param {string} [options.endTime] - Fallback singular expiration timeframe index.
- * @param {string} [options.timezone="Asia/Kolkata"] - Dynamic locality scaling variable index.
- * @param {string} [options.message=""] - Accompanying textual introduction notes block.
- * @returns {Promise<void>} Resolves when upstream mail transport links successfully clear.
  */
 const sendCalendarInvite = async ({
   requestId,
@@ -190,7 +150,29 @@ const sendCalendarInvite = async ({
   timezone = "Asia/Kolkata",
   message = "",
 }) => {
-  const allSlots = slots.length > 0 ? slots : [{ date, startTime, endTime }];
+  // FIX (Issue 4): Input guard at entry point to prevent unexpected runtime crashes
+  if (!mentorEmail || !menteeEmail) {
+    logger.error("sendCalendarInvite: missing required email addresses", {
+      requestId,
+      mentorEmail,
+      menteeEmail,
+    });
+    return;
+  }
+
+  // FIX (Issue 2): Tightened slot evaluation logic to catch empty arrays or undefined fallbacks cleanly
+  const allSlots =
+    slots.length > 0
+      ? slots
+      : date && startTime && endTime
+        ? [{ date, startTime, endTime }]
+        : null;
+
+  if (!allSlots || allSlots.length === 0) {
+    logger.error("sendCalendarInvite: no valid slots provided", { requestId });
+    return;
+  }
+
   const slotCount = allSlots.length;
   const slotRowsHtml = buildSlotRows(allSlots);
 
@@ -296,37 +278,51 @@ const sendCalendarInvite = async ({
     ${FOOTER}
   `);
 
-  // Concurrently dispatch transaction payloads across both client email boxes
-  await Promise.all([
-    transporter.sendMail({
-      from: `"Leapmentor" <${process.env.SMTP_USER}>`,
-      to: menteeEmail,
-      subject: `✅ ${slotCount} Session${slotCount > 1 ? "s" : ""} Confirmed with ${mentorName}`,
-      html: menteeHtml,
-      attachments: [icsAttachment],
-    }),
-    transporter.sendMail({
-      from: `"Leapmentor" <${process.env.SMTP_USER}>`,
-      to: mentorEmail,
-      subject: `📅 ${slotCount} New Session${slotCount > 1 ? "s" : ""} with ${menteeName}`,
-      html: mentorHtml,
-      attachments: [icsAttachment],
-    }),
+  // FIX (Issue 1): Replaced Promise.all with Promise.allSettled so delivery statuses remain strictly isolated
+  const [menteeResult, mentorResult] = await Promise.allSettled([
+    sendWithRetry(
+      {
+        from: `"Leapmentor" <${process.env.SMTP_USER}>`,
+        to: menteeEmail,
+        subject: `✅ ${slotCount} Session${slotCount > 1 ? "s" : ""} Confirmed with ${mentorName}`,
+        html: menteeHtml,
+        attachments: [icsAttachment],
+      },
+      "Mentee Calendar Confirmation",
+    ),
+    sendWithRetry(
+      {
+        from: `"Leapmentor" <${process.env.SMTP_USER}>`,
+        to: mentorEmail,
+        subject: `📅 ${slotCount} New Session${slotCount > 1 ? "s" : ""} with ${menteeName}`,
+        html: mentorHtml,
+        attachments: [icsAttachment],
+      },
+      "Mentor Calendar Notification",
+    ),
   ]);
 
-  // Document notification delivery milestones using structured log data tracking schemas
-  logger.info(
-    "✅ Calendar invites and operational confirmation notifications dispatched successfully",
-    {
-      requestId,
-      deliveryMetrics: {
-        slotsCount: slotCount,
-        recipientMentee: menteeEmail,
-        recipientMentor: mentorEmail,
-        timezoneScope: timezone,
-      },
-    },
-  );
+  // Log distinct delivery results independently without cutting execution loops short
+  if (menteeResult.status === "rejected") {
+    logger.error("Mentee calendar email failed permanently", {
+      message: menteeResult.reason?.message,
+      to: menteeEmail,
+    });
+  }
+
+  if (mentorResult.status === "rejected") {
+    logger.error("Mentor calendar email failed permanently", {
+      message: mentorResult.reason?.message,
+      to: mentorEmail,
+    });
+  }
+
+  logger.info("Calendar invite dispatch complete", {
+    requestId,
+    menteeStatus: menteeResult.status,
+    mentorStatus: mentorResult.status,
+    slotsCount: slotCount,
+  });
 };
 
 module.exports = { sendCalendarInvite };

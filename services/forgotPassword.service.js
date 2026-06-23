@@ -4,8 +4,9 @@
  */
 const crypto = require("node:crypto");
 const bcrypt = require("bcryptjs");
-const nodemailer = require("nodemailer");
 const AppError = require("../utils/AppError");
+// utils/sendWithRetry is now the only dependency needed
+const sendWithRetry = require("../utils/sendWithRetry");
 
 // Repositories
 const userRepo = require("../repositories/user.repository");
@@ -35,16 +36,6 @@ const generateSecureOtp = () => {
   return String(randomNum % 1000000).padStart(6, "0");
 };
 
-// Configuration Mailer Transporter
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST,
-  port: Number(process.env.SMTP_PORT || 587),
-  secure: false,
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
-  },
-});
 
 /**
  * Generates and delivers an authentication OTP string to requested user profiles.
@@ -78,7 +69,7 @@ const sendForgotPasswordOtp = async (email) => {
     expiresAt,
   });
 
-  await transporter.sendMail({
+  await sendWithRetry({
     from: process.env.FROM_EMAIL,
     to: user.email,
     subject: "LeapMentor — Reset your password",
@@ -97,7 +88,9 @@ const sendForgotPasswordOtp = async (email) => {
         </div>
       </div>
     `,
-  });
+  },
+  "Forgot Password OTP"  // label for logs
+  );
 
   return { message: AMBIGUOUS_SUCCESS_MESSAGE };
 };

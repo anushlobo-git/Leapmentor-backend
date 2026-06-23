@@ -5,8 +5,8 @@
  */
 const crypto = require("node:crypto");
 const bcrypt = require("bcryptjs");
-const nodemailer = require("nodemailer");
 const AppError = require("../utils/AppError");
+const sendWithRetry = require("../utils/sendWithRetry");
 
 // Repositories
 const userRepository = require("../repositories/user.repository");
@@ -15,17 +15,10 @@ const verificationTokenRepository = require("../repositories/verificationToken.r
 // Upper-case Architecture Constant Options
 const BCRYPT_SALT_ROUNDS = 10;
 const TOKEN_LIFETIME_MS = 10 * 60 * 1000; // 10 Minutes window
-const DEFAULT_SMTP_PORT = 587;
 const OTP_GEN_FLOOR = 100000;
 const OTP_GEN_CEILING = 900000;
 
-// Initialize Transport Services Gateway
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST,
-  port: Number(process.env.SMTP_PORT || DEFAULT_SMTP_PORT),
-  secure: false,
-  auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
-});
+
 
 /**
  * Internal Helper: Generates a cryptographically secure 6-digit numeric verification OTP code.
@@ -75,12 +68,13 @@ const sendVerificationEmail = async (user, subjectSuffix = "") => {
   const appUrlBase = process.env.APP_BASE_URL || "http://localhost:5173";
   const magicLink = `${appUrlBase}/verify-email?token=${plainToken}&email=${encodeURIComponent(user.email)}`;
 
-  await transporter.sendMail({
-    from: process.env.FROM_EMAIL,
-    to: user.email,
-    subject: `LeapMentor Email Verification${subjectSuffix}`,
-    text: `Verify your LeapMentor account\n\nOption 1 – Click the magic link (expires in 10 minutes):\n${magicLink}\n\nOption 2 – Enter this OTP manually (expires in 10 minutes):\n${plainOtp}`.trim(),
-    html: `
+  await sendWithRetry(
+    {
+      from: process.env.FROM_EMAIL,
+      to: user.email,
+      subject: `LeapMentor Email Verification${subjectSuffix}`,
+      text: `Verify your LeapMentor account\n\nOption 1 – Click the magic link (expires in 10 minutes):\n${magicLink}\n\nOption 2 – Enter this OTP manually (expires in 10 minutes):\n${plainOtp}`.trim(),
+      html: `
       <div style="font-family:sans-serif;max-width:480px;margin:auto">
         <h2 style="color:#4F46E5">Verify your LeapMentor account</h2>
         <p>Use either option — both expire in <strong>10 minutes</strong>.</p>
@@ -95,7 +89,9 @@ const sendVerificationEmail = async (user, subjectSuffix = "") => {
         <p style="font-size:13px;color:#6B7280">Enter this on the verification screen.</p>
       </div>
     `,
-  });
+    },
+    "Email Verification",
+  );
 };
 
 /**
