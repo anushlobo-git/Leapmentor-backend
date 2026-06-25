@@ -85,15 +85,38 @@ const createConnectRequestService = (
       }
     }
 
-    if (sessionRate && Number(sessionRate) < 1) {
-      throw Object.assign(new Error("sessionRate must be at least 1"), {
-        statusCode: 400,
-      });
+    const resolvedSessionCount = selectedSlots.length;
+    let resolvedSessionRate = sessionRate != null ? Number(sessionRate) : null;
+
+    if (resolvedSessionRate == null) {
+      const mentorProfile =
+        await mentorProfileRepository.findMentorProfile(mentorId);
+      resolvedSessionRate = mentorProfile?.hourlyRate ?? null;
     }
-    if (sessionCount && Number(sessionCount) < 1) {
+
+    if (resolvedSessionRate == null || Number(resolvedSessionRate) < 1) {
+      throw Object.assign(
+        new Error(
+          "sessionRate must be provided or stored on the mentor profile",
+        ),
+        { statusCode: 400 },
+      );
+    }
+    if (resolvedSessionCount < 1) {
       throw Object.assign(new Error("sessionCount must be at least 1"), {
         statusCode: 400,
       });
+    }
+
+    if (logger && logger.info) {
+      try {
+        logger.info("sendConnectRequestService - incoming body", {
+          menteeId: menteeId?.toString?.(),
+          mentorId,
+          sessionRate,
+          sessionCount,
+        });
+      } catch (e) {}
     }
 
     const request = await connectRequestRepository.createConnectRequest({
@@ -102,13 +125,20 @@ const createConnectRequestService = (
       message: message?.trim() || "",
       selectedSlots,
       requestedAt: new Date(),
-      sessionRate: sessionRate ? Number(sessionRate) : null,
-      sessionCount: sessionCount ? Number(sessionCount) : null,
-      totalAmount:
-        sessionRate && sessionCount
-          ? Number(sessionRate) * Number(sessionCount)
-          : null,
+      sessionRate: Number(resolvedSessionRate),
+      sessionCount: resolvedSessionCount,
+      totalAmount: Number(resolvedSessionRate) * resolvedSessionCount,
     });
+    if (logger && logger.info) {
+      try {
+        logger.info("sendConnectRequestService - created request", {
+          requestId: request._id?.toString?.(),
+          sessionRate: request.sessionRate,
+          sessionCount: request.sessionCount,
+          totalAmount: request.totalAmount,
+        });
+      } catch (e) {}
+    }
 
     const populated = await connectRequestRepository.findRequestByIdWithMentor(
       request._id,
@@ -271,7 +301,46 @@ const createConnectRequestService = (
 
     request.status = status;
     request.respondedAt = new Date();
-    if (status === "accepted") request.confirmedSlot = confirmedSlot;
+    if (status === "accepted") {
+      request.confirmedSlot = confirmedSlot;
+
+      // Backfill older or partially populated accepted requests so escrow status routes
+      // can return complete session economics metadata.
+      if (request.sessionRate == null || request.sessionCount == null) {
+        const resolvedSessionCount =
+          request.sessionCount ?? request.selectedSlots?.length ?? null;
+
+        let resolvedSessionRate = request.sessionRate;
+        if (resolvedSessionRate == null) {
+          const mentorProfile =
+            await mentorProfileRepository.findMentorProfile(currentMentorId);
+          resolvedSessionRate = mentorProfile?.hourlyRate ?? null;
+        }
+
+        if (resolvedSessionRate == null) {
+          throw Object.assign(
+            new Error(
+              "Unable to accept request without a valid session rate. Please update the mentor hourly rate.",
+            ),
+            { statusCode: 400 },
+          );
+        }
+        if (!resolvedSessionCount || resolvedSessionCount < 1) {
+          throw Object.assign(
+            new Error(
+              "Unable to accept request without a valid session count.",
+            ),
+            { statusCode: 400 },
+          );
+        }
+
+        request.sessionRate = Number(resolvedSessionRate);
+        request.sessionCount = resolvedSessionCount;
+        request.totalAmount =
+          Number(resolvedSessionRate) * resolvedSessionCount;
+      }
+    }
+
     await connectRequestRepository.saveRequest(request);
 
     const currentMenteeId = request.mentee?._id ?? request.mentee;
@@ -443,6 +512,9 @@ const createConnectRequestService = (
       selectedSlots: request.selectedSlots,
       requestedAt: new Date(),
       referredBy: mentorUserId,
+      sessionRate: request.sessionRate,
+      sessionCount: request.sessionCount,
+      totalAmount: request.totalAmount,
     });
 
     await Promise.all([

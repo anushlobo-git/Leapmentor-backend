@@ -4,7 +4,7 @@
  * This is the ONLY file allowed to require models, repositories, services, and routers directly.
  */
 
-// ── 1. IMPORT INFRASTRUCTURE CONFIGS & DRIVERS 
+// ── 1. IMPORT INFRASTRUCTURE CONFIGS & DRIVERS
 const redisClient = require("../config/redis");
 const logger = require("../config/logger");
 const axios = require("axios");
@@ -18,7 +18,7 @@ const mongoose = require("mongoose");
 const { adminAuthenticate } = require("../middleware/adminAuth");
 const { authenticate } = require("../middleware/authenticate");
 const authValidations = require("../validations/auth.validation");
-const { requireRole } = require("../middleware/authenticate"); 
+const { requireRole } = require("../middleware/authenticate");
 const connectRequestValidations = require("../validations/connectRequest.validation");
 const earningsValidations = require("../validations/earnings.validation");
 const sendInvoiceEmail = require("../utils/sendInvoiceEmail");
@@ -86,7 +86,6 @@ const createMenteeProfileService = require("../services/menteeProfile.service");
 const createMenteeProfileController = require("../controllers/menteeProfile.controller");
 const createMenteeProfileRoutes = require("../routes/menteeProfile.routes");
 const menteeProfileValidations = require("../validations/menteeProfile.validation");
-
 
 //mentorProfile
 const createMentorProfileService = require("../services/mentorProfile.service");
@@ -200,7 +199,7 @@ const {
 // ── 2. IMPORT GATEWAY FACTORIES
 const createAiGateway = require("../gateways/ai.gateway");
 
-// ── 3. IMPORT MONGOOSE MODELS 
+// ── 3. IMPORT MONGOOSE MODELS
 const UserModel = require("../models/User");
 const ConnectRequestModel = require("../models/ConnectRequest");
 const AdminUserModel = require("../models/AdminUser");
@@ -215,7 +214,7 @@ const AvailabilityModel = require("../models/Availability");
 const SlotLockModel = require("../models/SlotLock");
 const FeedbackModel = require("../models/Feedback");
 
-// ── 4. IMPORT REPOSITORY FACTORIES 
+// ── 4. IMPORT REPOSITORY FACTORIES
 const createUserRepository = require("../repositories/user.repository");
 const createConnectRequestRepository = require("../repositories/connectRequest.repository");
 const createAdminUserRepository = require("../repositories/adminUser.repository");
@@ -230,7 +229,7 @@ const createAvailabilityRepository = require("../repositories/availability.repos
 const createSlotLockRepository = require("../repositories/slotLock.repository");
 const createFeedbackRepository = require("../repositories/feedback.repository");
 
-// ── 5. IMPORT SERVICE FACTORIES 
+// ── 5. IMPORT SERVICE FACTORIES
 const createAdminEngagementsService = require("../services/admin-engagements.service");
 const createAdminAuthService = require("../services/admin-auth.service");
 const createAdminStatsService = require("../services/admin-stats.service");
@@ -253,7 +252,7 @@ const createEarningsService = require("../services/earnings.service");
 const createEscrowService = require("../services/escrow.service");
 const createFeedbackService = require("../services/feedback.service");
 
-// ── 6. IMPORT CONTROLLER FACTORIES 
+// ── 6. IMPORT CONTROLLER FACTORIES
 const createAdminController = require("../controllers/admin.controller");
 const createLeapRequestController = require("../controllers/leapRequest.controller");
 const createAdminPaymentsController = require("../controllers/admin-payments.controller");
@@ -275,7 +274,7 @@ const createEscrowController = require("../controllers/escrow.controller");
 const createFeedbackController = require("../controllers/feedback.controller");
 const createUserRoutes = require("../routes/user.routes");
 
-// ── 7. IMPORT ROUTER FACTORIES 
+// ── 7. IMPORT ROUTER FACTORIES
 const createAdminRoutes = require("../routes/admin.routes");
 const createLeapRequestRoutes = require("../routes/leapRequest.routes");
 const createAdminPaymentsRoutes = require("../routes/admin-payments.routes");
@@ -289,7 +288,6 @@ const createConnectRequestRoutes = require("../routes/connectRequest.routes");
 const createEarningsRoutes = require("../routes/earnings.routes");
 const createEscrowRoutes = require("../routes/escrow.routes");
 const createFeedbackRoutes = require("../routes/feedback.routes");
-
 
 // ── 8. IMPORT UTILITY FACTORIES
 const createCacheUtility = require("../utils/cache");
@@ -362,7 +360,7 @@ const walletService = createWalletService(
 const socialAuthService = createSocialAuthService(
   userRepository,
   oAuthAccountRepository,
-  walletService, 
+  walletService,
   authUtils,
   logger,
 );
@@ -381,7 +379,7 @@ const linkedinAuthService = createLinkedinAuthService(
 const googleAuthService = createGoogleAuthService(
   userRepository,
   oAuthAccountRepository,
-  walletService, 
+  walletService,
   authUtils,
   jwt,
   { googleClientId: process.env.GOOGLE_CLIENT_ID },
@@ -391,7 +389,7 @@ const googleAuthService = createGoogleAuthService(
 // 4. Standard Identity and Infrastructure Services
 const authService = createAuthService(
   userRepository,
-  walletService, 
+  walletService,
   authUtils,
   bcrypt,
 );
@@ -476,6 +474,7 @@ const escrowService = createEscrowService(
   connectRequestRepository,
   walletRepository,
   transactionRepository,
+  mentorProfileRepository,
   availabilityRepository,
   fireAndForgetEmail,
   { sendInvoiceEmail, sendPaymentReceivedEmail },
@@ -660,10 +659,9 @@ const authControllersPacked = {
 const availabilityController =
   createAvailabilityController(availabilityService);
 
-
 const connectRequestController = createConnectRequestController(
-    connectRequestService,
-  );
+  connectRequestService,
+);
 
 const mentorReferController = createMentorReferController(mentorReferService);
 const connectControllersPacked = {
@@ -764,7 +762,7 @@ const earningsRouter = createEarningsRoutes(
 const escrowRouter = createEscrowRoutes(
   escrowController,
   authenticate,
-  escrowValidations, 
+  escrowValidations,
 );
 const feedbackRouter = createFeedbackRoutes(
   feedbackController,

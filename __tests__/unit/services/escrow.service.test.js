@@ -13,6 +13,7 @@ describe("Escrow Service Unit Tests", () => {
     mockConnectRepo,
     mockWalletRepo,
     mockTransactionRepo,
+    mockMentorProfileRepo,
     mockAvailabilityRepo,
     mockFireAndForgetEmail,
     mockEmailUtils,
@@ -54,6 +55,10 @@ describe("Escrow Service Unit Tests", () => {
       createMany: jest.fn(),
     };
 
+    mockMentorProfileRepo = {
+      findMentorProfile: jest.fn(),
+    };
+
     mockAvailabilityRepo = {
       findAvailabilityByMentor: jest
         .fn()
@@ -82,6 +87,7 @@ describe("Escrow Service Unit Tests", () => {
       mockConnectRepo,
       mockWalletRepo,
       mockTransactionRepo,
+      mockMentorProfileRepo,
       mockAvailabilityRepo,
       mockFireAndForgetEmail,
       mockEmailUtils,
@@ -190,6 +196,46 @@ describe("Escrow Service Unit Tests", () => {
         20,
       );
       expect(result.status).toBe("completed");
+    });
+
+    test("should compute status metrics from selected slots when connect request totals are missing", async () => {
+      mockAdminRepo.findActiveAdmin.mockResolvedValue({ commissionRate: 10 });
+
+      const mockRequest = {
+        _id: "req_id_004",
+        mentee: "mentee_uuid_111",
+        mentor: "mentor_uuid_222",
+        status: "accepted",
+        paymentStatus: "unpaid",
+        selectedSlots: [
+          { date: "2026-06-26", startTime: "10:00", endTime: "11:00" },
+        ],
+        confirmedSlot: {
+          day: "Friday",
+          date: "2026-06-26",
+          startTime: "10:00",
+          endTime: "11:00",
+        },
+      };
+      mockConnectRepo.findByIdRaw.mockResolvedValue(mockRequest);
+      mockMentorProfileRepo.findMentorProfile.mockResolvedValue({
+        hourlyRate: 100,
+      });
+      mockWalletRepo.findByUserId.mockResolvedValue({
+        balance: 851,
+        escrow: 15,
+      });
+
+      const result = await service.getStatus({
+        requestId: "req_id_004",
+        userId: "mentee_uuid_111",
+      });
+
+      expect(result.sessionRate).toBe(100);
+      expect(result.sessionCount).toBe(1);
+      expect(result.totalAmount).toBe(100);
+      expect(result.confirmedSlot).toEqual(mockRequest.confirmedSlot);
+      expect(result.wallet).toEqual({ balance: 851, escrow: 15 });
     });
   });
 

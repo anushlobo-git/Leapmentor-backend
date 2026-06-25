@@ -145,7 +145,16 @@ describe("Connection Request Management Service Unit Tests", () => {
         status: "pending",
         mentor: { _id: "mentor_123", name: "Dr. Smith" },
         mentee: { _id: "user_123", name: "Alice", email: "alice@test.com" },
-        selectedSlots: [],
+        selectedSlots: [
+          {
+            day: "Friday",
+            date: "2026-06-26",
+            startTime: "10:00",
+            endTime: "11:00",
+          },
+        ],
+        sessionRate: 100,
+        sessionCount: 1,
       };
       mockConnectRepo.findByIdWithParticipants.mockResolvedValue(
         mockRequestDoc,

@@ -18,6 +18,7 @@ const createConnectRequestRoutes = (controllers, middlewares, validations) => {
     referRequestValidation,
     validateObjectId,
   } = validations;
+   
 
   // ── MENTEE ENDPOINTS ──────────────────────────────────────────
 
@@ -76,7 +77,6 @@ const createConnectRequestRoutes = (controllers, middlewares, validations) => {
     "/:id/refer",
     authenticate,
     requireRole("mentor"),
-    validateObjectId,
     referRequestValidation,
     connectRequestController.referRequest,
   );
@@ -87,7 +87,6 @@ const createConnectRequestRoutes = (controllers, middlewares, validations) => {
   router.patch(
     "/:id",
     authenticate,
-    validateObjectId,
     respondToRequestValidation,
     connectRequestController.respondToRequest,
   );
