@@ -1,45 +1,61 @@
 /**
  * @fileoverview Escrow Ledger Routes
- * @description  Handles secure mentee token locks, complete settlement releases, and transactional refund operations.
- * @prefix       /api/v1/escrow
- * @access       Private (Authenticated Users)
+ * @description Handles secure mentee token locks, complete settlement releases,
+ * transactional refund operations, and wallet metric queries via parameter injection.
  */
 
 const express = require("express");
-const router = express.Router();
-const { authenticate } = require("../middleware/authenticate");
-const {
-  pay,
-  payAdditional,
-  release,
-  refund,
-  getStatus,
-  getMyWallet,
-  getCommissionRate,
-} = require("../controllers/escrow.controller");
 
-// All escrow endpoints require a verified identity signature
-router.use(authenticate);
+const createEscrowRoutes = (escrowController, authenticate, validations) => {
+  const router = express.Router();
 
-// @route   POST /api/v1/escrow/pay
-router.post("/pay", pay);
+  const {
+    payValidation,
+    payAdditionalValidation,
+    escrowRequestIdParamsValidation,
+  } = validations;
 
-// @route   POST /api/v1/escrow/pay-additional
-router.post("/pay-additional", payAdditional);
+  // All escrow endpoints require a verified identity signature
+  router.use(authenticate);
 
-// @route   POST /api/v1/escrow/release/:requestId
-router.post("/release/:requestId", release);
+  // @route   POST /api/v1/escrow/pay
+  router.post("/pay", payValidation, escrowController.pay);
 
-// @route   POST /api/v1/escrow/refund/:requestId
-router.post("/refund/:requestId", refund);
+  // @route   POST /api/v1/escrow/pay-additional
+  router.post(
+    "/pay-additional",
+    payAdditionalValidation,
+    escrowController.payAdditional,
+  );
 
-// @route   GET /api/v1/escrow/status/:requestId
-router.get("/status/:requestId", getStatus);
+  // @route   POST /api/v1/escrow/release/:requestId
+  router.post(
+    "/release/:requestId",
+    escrowRequestIdParamsValidation,
+    escrowController.release,
+  );
 
-// @route   GET /api/v1/escrow/wallet
-router.get("/wallet", getMyWallet);
+  // @route   POST /api/v1/escrow/refund/:requestId
+  router.post(
+    "/refund/:requestId",
+    escrowRequestIdParamsValidation,
+    escrowController.refund,
+  );
 
-// @route   GET /api/v1/escrow/commission-rate
-router.get("/commission-rate", getCommissionRate);
+  // @route   GET /api/v1/escrow/status/:requestId
+  router.get(
+    "/status/:requestId",
+    escrowRequestIdParamsValidation,
+    escrowController.getStatus,
+  );
 
-module.exports = router;
+  // @route   GET /api/v1/escrow/wallet
+  router.get("/wallet", escrowController.getMyWallet);
+
+  // @route   GET /api/v1/escrow/commission-rate
+  router.get("/commission-rate", escrowController.getCommissionRate);
+
+  return router;
+};
+
+module.exports = createEscrowRoutes;

@@ -1,3 +1,8 @@
+//Leapmentor-backend/utils/generateSlots.js
+/**
+ * @fileoverview Slot Generation Utilities
+ * @description  Provides functions to generate available time slots based on mentor availability configurations.
+ */
 const timeToMinutes = (time) => {
   const [h, m] = time.split(":").map(Number);
   return h * 60 + m;

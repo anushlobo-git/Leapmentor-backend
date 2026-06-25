@@ -1,31 +1,46 @@
 /**
  * @fileoverview User Personal Workspace Notes Systems Configuration Routing Framework
- * @prefix       /api/v1/private-notes
- * @access       Private (Authenticated Session Participants Only)
+ * @description Decouples Express routes, mapping paths parameters directly onto celebrate shields.
  */
+
 const express = require("express");
-const router = express.Router();
-const { authenticate } = require("../middleware/authenticate");
-const {
-  createNote,
-  getNotes,
-  updateNote,
-  deleteNote,
-} = require("../controllers/privateNote.controller");
 
-// Mount declarative authentication firewall boundary rules processing across all down-stream paths
-router.use(authenticate);
+const createPrivateNoteRoutes = (
+  privateNoteController,
+  authenticate,
+  validations,
+) => {
+  const router = express.Router();
+  const {
+    createNoteValidation,
+    connectRequestIdParamValidation,
+    noteIdParamValidation,
+  } = validations;
 
-// @route   POST /api/v1/private-notes
-router.post("/", createNote);
+  // Mount declarative authentication firewall boundary rules processing across paths
+  router.use(authenticate);
 
-// @route   GET /api/v1/private-notes/:connectRequestId
-router.get("/:connectRequestId", getNotes);
+  // @route   POST /api/v1/private-notes
+  router.post("/", createNoteValidation, privateNoteController.createNote);
 
-// @route   PATCH /api/v1/private-notes/:id
-router.patch("/:id", updateNote);
+  // @route   GET /api/v1/private-notes/:connectRequestId
+  router.get(
+    "/:connectRequestId",
+    connectRequestIdParamValidation,
+    privateNoteController.getNotes,
+  );
 
-// @route   DELETE /api/v1/private-notes/:id
-router.delete("/:id", deleteNote);
+  // @route   PATCH /api/v1/private-notes/:id
+  router.patch("/:id", noteIdParamValidation, privateNoteController.updateNote);
 
-module.exports = router;
+  // @route   DELETE /api/v1/private-notes/:id
+  router.delete(
+    "/:id",
+    noteIdParamValidation,
+    privateNoteController.deleteNote,
+  );
+
+  return router;
+};
+
+module.exports = createPrivateNoteRoutes;

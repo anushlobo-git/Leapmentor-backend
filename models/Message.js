@@ -1,3 +1,8 @@
+//Leapmentor-backend/models/Message.js
+/**
+ * @fileoverview Message Mongoose Model
+ * @description Defines the schema and model for message documents in the MongoDB database.
+ */
 const mongoose = require("mongoose");
 
 const messageSchema = new mongoose.Schema(

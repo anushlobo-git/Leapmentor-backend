@@ -1,3 +1,4 @@
+//Leapmentor-backend/models/Note.js
 /**
  * @fileoverview Shared and Private Note Model Schema
  * @description Manages attachment metadata, asset storage locations (Cloudinary public IDs),

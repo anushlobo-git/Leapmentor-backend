@@ -1,21 +1,30 @@
 /**
  * @fileoverview Mentor Discovery and Discovery Analytics Search Routes
- * @prefix       /api/v1/mentors
- * @access       Private (Mentee Only)
+ * @description Secures and routes search traffic mounting declarative schema gate validation rules.
  */
+
 const express = require("express");
-const router = express.Router();
-const {
-  searchMentors,
-} = require("../controllers/mentorSearch.controller");
-const { authenticate, requireRole } = require("../middleware/authenticate");
-const { searchMentorsValidation }=require("../validations/mentorSearch.validation");
 
-// Lock all downstream search channels under verified mentee authorizations
-router.use(authenticate, requireRole("mentee"));
+const createMentorSearchRoutes = (
+  mentorSearchController,
+  middlewares,
+  validations,
+) => {
+  const router = express.Router();
+  const { authenticate, requireRole } = middlewares;
+  const { searchMentorsValidation } = validations;
 
-// @route   GET /api/v1/mentors/search
-router.get("/search", searchMentorsValidation ,searchMentors);
+  // Lock all downstream search channels under verified mentee authorizations
+  router.use(authenticate, requireRole("mentee"));
 
+  // @route   GET /api/v1/mentors/search
+  router.get(
+    "/search",
+    searchMentorsValidation,
+    mentorSearchController.searchMentors,
+  );
 
-module.exports = router;
+  return router;
+};
+
+module.exports = createMentorSearchRoutes;

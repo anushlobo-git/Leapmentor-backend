@@ -1,38 +1,53 @@
 /**
  * @fileoverview Mentor Profiles Customizations Routes
- * @description  Configures onboarding profile parameter generations, records validation, updates, and public displays.
- * @prefix       /api/v1/mentor-profile
- * @access       Public / Private (Mentor Only)
+ * @description Configures onboarding profile parameter generations, records validation, updates, and public displays via injection.
  */
 
 const express = require("express");
-const router = express.Router();
-const { authenticate, requireRole } = require("../middleware/authenticate");
-const {
-  createProfile,
-  getMyProfile,
-  updateProfile,
-  getPublicProfile,
-} = require("../controllers/mentorProfile.controller");
 
-// --- PROTECTED MENTOR LIFECYCLE MANAGEMENT PIPELINES (Static Routes First) ---
+const createMentorProfileRoutes = (
+  mentorProfileController,
+  middlewares,
+  validations,
+) => {
+  const router = express.Router();
+  const { authenticate, requireRole } = middlewares;
+  const {
+    createProfileValidation,
+    updateProfileValidation,
+    mentorIdParamValidation,
+  } = validations;
 
-// @route   GET /api/v1/mentor-profile/me
-// Protected static path evaluated before wildcards
-router.get("/me", authenticate, requireRole("mentor"), getMyProfile);
+  // --- PROTECTED MENTOR LIFECYCLE MANAGEMENT PIPELINES (Static Routes First) ---
+  router.get(
+    "/me",
+    authenticate,
+    requireRole("mentor"),
+    mentorProfileController.getMyProfile,
+  );
+  router.put(
+    "/me",
+    authenticate,
+    requireRole("mentor"),
+    updateProfileValidation,
+    mentorProfileController.updateProfile,
+  );
+  router.post(
+    "/",
+    authenticate,
+    requireRole("mentor"),
+    createProfileValidation,
+    mentorProfileController.createProfile,
+  );
 
-// @route   PUT /api/v1/mentor-profile/me
-// Protected static path evaluated before wildcards
-router.put("/me", authenticate, requireRole("mentor"), updateProfile);
+  // --- PUBLIC READ ONLY VIEWS CHANNELS (Wildcard Routes Last) ---
+  router.get(
+    "/:id",
+    mentorIdParamValidation,
+    mentorProfileController.getPublicProfile,
+  );
 
-// @route   POST /api/v1/mentor-profile
-// Protected creation path
-router.post("/", authenticate, requireRole("mentor"), createProfile);
+  return router;
+};
 
-// --- PUBLIC READ ONLY VIEWS CHANNELS (Wildcard Routes Last) ---
-
-// @route   GET /api/v1/mentor-profile/:id
-// Dynamic catch-all parameter moved safely to the bottom
-router.get("/:id", getPublicProfile);
-
-module.exports = router;
+module.exports = createMentorProfileRoutes;

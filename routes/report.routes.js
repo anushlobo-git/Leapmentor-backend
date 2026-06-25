@@ -1,46 +1,50 @@
 /**
  * @fileoverview Compliance Tracking and Incident Dispute Resolution Systems Routes Blueprint
- * @prefix       /api/v1/reports
- * @access       Private (Authenticated Dashboard Sessions Only)
+ * @description Mounts declarative request verification check parameters directly into core pathways.
  */
+
 const express = require("express");
-const router = express.Router();
 
-const { authenticate, requireRole } = require("../middleware/authenticate");
-const { upload } = require("../middleware/upload.middleware");
-const {
-  submitReport,
-  getMyReport,
-  getAllReports,
-  updateReportStatus,
-} = require("../controllers/report.controller");
+const createReportRoutes = (reportController, middlewares, validations) => {
+  const router = express.Router();
+  const { authenticate, requireRole, upload } = middlewares;
+  const {
+    submitReportValidation,
+    getMyReportValidation,
+    getAllReportsValidation,
+    updateReportStatusValidation,
+  } = validations;
 
-// Establish baseline platform passport verification boundaries rules processing
-router.use(authenticate);
+  // Establish global token lock boundaries across endpoints
+  router.use(authenticate);
 
-// --- USER TRACKS ENDPOINTS (MENTOR / MENTEE ACCESS PRIVILEGES) ---
-// @route   POST /api/v1/reports
-router.post(
-  "/",
-  requireRole("mentor", "mentee"),
-  upload.single("screenshot"),
-  submitReport,
-);
+  // --- USER TRACKS ENDPOINTS (MENTOR / MENTEE ACCESS PRIVILEGES) ---
+  router.post(
+    "/",
+    requireRole("mentor", "mentee"),
+    upload.single("screenshot"),
+    submitReportValidation,
+    reportController.submitReport,
+  );
 
-// @route   GET /api/v1/reports/my/:connectRequestId
-router.get(
-  "/my/:connectRequestId",
-  requireRole("mentor", "mentee"),
-  getMyReport,
-);
+  router.get(
+    "/my/:connectRequestId",
+    requireRole("mentor", "mentee"),
+    getMyReportValidation,
+    reportController.getMyReport,
+  );
 
-// --- COMPLIANCE PANELS TRACKS ENDPOINTS (EXCLUSIVE ADMINISTRATOR FIREWALL GATES) ---
-router.use(requireRole("admin"));
+  // --- COMPLIANCE PANELS TRACKS ENDPOINTS (EXCLUSIVE ADMINISTRATOR FIREWALL GATES) ---
+  router.use(requireRole("admin"));
 
-// @route   GET /api/v1/reports/admin
-router.get("/admin", getAllReports);
+  router.get("/admin", getAllReportsValidation, reportController.getAllReports);
+  router.patch(
+    "/admin/:reportId",
+    updateReportStatusValidation,
+    reportController.updateReportStatus,
+  );
 
-// @route   PATCH /api/v1/reports/admin/:reportId
-router.patch("/admin/:reportId", updateReportStatus);
+  return router;
+};
 
-module.exports = router;
+module.exports = createReportRoutes;

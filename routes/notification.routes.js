@@ -1,35 +1,45 @@
 /**
  * @fileoverview User Real-time Alerts and Notifications Systems Configuration Routing Framework
- * @prefix       /api/v1/notifications
- * @access       Private (Authenticated Dashboard Identity Records Context Only)
+ * @description Decouples endpoints mapping path declarations onto validation shields via factory injection.
  */
+
 const express = require("express");
-const router = express.Router();
-const { authenticate } = require("../middleware/authenticate");
-const {
-  getNotifications,
-  markAllRead,
-  markOneRead,
-  deleteNotification,
-  clearAll,
-} = require("../controllers/notification.controller");
 
-// Establish global pipeline authentication rules context monitoring parameter boundaries
-router.use(authenticate);
+const createNotificationRoutes = (
+  notificationController,
+  authenticate,
+  validations,
+) => {
+  const router = express.Router();
+  const { notificationIdParamValidation } = validations;
 
-// @route   GET /api/v1/notifications
-router.get("/", getNotifications);
+  // Establish identity token security wall across endpoints
+  router.use(authenticate);
 
-// @route   PATCH /api/v1/notifications/mark-all-read
-router.patch("/mark-all-read", markAllRead);
+  // @route   GET /api/v1/notifications
+  router.get("/", notificationController.getNotifications);
 
-// @route   PATCH /api/v1/notifications/:id/read
-router.patch("/:id/read", markOneRead);
+  // @route   PATCH /api/v1/notifications/mark-all-read
+  router.patch("/mark-all-read", notificationController.markAllRead);
 
-// @route   DELETE /api/v1/notifications/clear-all
-router.delete("/clear-all", clearAll);
+  // @route   PATCH /api/v1/notifications/:id/read
+  router.patch(
+    "/:id/read",
+    notificationIdParamValidation,
+    notificationController.markOneRead,
+  );
 
-// @route   DELETE /api/v1/notifications/:id
-router.delete("/:id", deleteNotification);
+  // @route   DELETE /api/v1/notifications/clear-all
+  router.delete("/clear-all", notificationController.clearAll);
 
-module.exports = router;
+  // @route   DELETE /api/v1/notifications/:id
+  router.delete(
+    "/:id",
+    notificationIdParamValidation,
+    notificationController.deleteNotification,
+  );
+
+  return router;
+};
+
+module.exports = createNotificationRoutes;

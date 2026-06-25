@@ -1,19 +1,25 @@
 /**
  * @fileoverview Invoice Retrieval Routes
- * @description  Handles authorization checks and document dispatch processes matching payment logs.
- * @prefix       /api/v1/invoices
- * @access       Private (Mentee Only)
+ * @description Handles authorization checks and document dispatch processes matching payment logs via injection.
  */
 
 const express = require("express");
-const router = express.Router();
-const { downloadInvoice } = require("../controllers/invoice.controller");
-const { authenticate } = require("../middleware/authenticate");
 
-// All billing statements and accounting sheets require a valid user session signature
-router.use(authenticate);
+const createInvoiceRoutes = (invoiceController, authenticate, validations) => {
+  const router = express.Router();
+  const { getInvoicePdfValidation } = validations;
 
-// @route   GET /api/v1/invoices/:connectRequestId
-router.get("/:connectRequestId", downloadInvoice);
+  // All billing statements and accounting sheets require a valid user session signature
+  router.use(authenticate);
 
-module.exports = router;
+  // @route   GET /api/v1/invoices/:connectRequestId
+  router.get(
+    "/:connectRequestId",
+    getInvoicePdfValidation,
+    invoiceController.downloadInvoice,
+  );
+
+  return router;
+};
+
+module.exports = createInvoiceRoutes;

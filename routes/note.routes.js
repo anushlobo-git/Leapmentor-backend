@@ -1,33 +1,48 @@
 /**
  * @fileoverview Shared and Isolated Documents Files Management Routes Documentation Blueprint
- * @prefix       /api/v1/notes
- * @access       Private (Authenticated Session Participants Only)
+ * @description Mounts declarative schema checks onto endpoints handling multi-format artifacts.
  */
+
 const express = require("express");
-const router = express.Router();
 
-const { authenticate } = require("../middleware/authenticate");
-const { upload } = require("../middleware/upload.middleware");
-const {
-  uploadNote,
-  getNotes,
-  getPrivateNotes,
-  deleteNote,
-} = require("../controllers/note.controller");
+const createNoteRoutes = (noteController, middlewares, validations) => {
+  const router = express.Router();
+  const { authenticate, upload } = middlewares;
+  const {
+    uploadNoteValidation,
+    connectRequestIdParamValidation,
+    noteIdParamValidation,
+  } = validations;
 
-// Global pipeline protection firewall across all communication parameters channels endpoints
-router.use(authenticate);
+  // Global protection layer across endpoints
+  router.use(authenticate);
 
-// @route   POST /api/v1/notes/upload
-router.post("/upload", upload.single("file"), uploadNote);
+  // @route   POST /api/v1/notes/upload
+  router.post(
+    "/upload",
+    upload.single("file"),
+    uploadNoteValidation,
+    noteController.uploadNote,
+  );
 
-// @route   GET /api/v1/notes/:connectRequestId/private
-router.get("/:connectRequestId/private", getPrivateNotes);
+  // @route   GET /api/v1/notes/:connectRequestId/private
+  router.get(
+    "/:connectRequestId/private",
+    connectRequestIdParamValidation,
+    noteController.getPrivateNotes,
+  );
 
-// @route   GET /api/v1/notes/:connectRequestId
-router.get("/:connectRequestId", getNotes);
+  // @route   GET /api/v1/notes/:connectRequestId
+  router.get(
+    "/:connectRequestId",
+    connectRequestIdParamValidation,
+    noteController.getNotes,
+  );
 
-// @route   DELETE /api/v1/notes/:id
-router.delete("/:id", deleteNote);
+  // @route   DELETE /api/v1/notes/:id
+  router.delete("/:id", noteIdParamValidation, noteController.deleteNote);
 
-module.exports = router;
+  return router;
+};
+
+module.exports = createNoteRoutes;

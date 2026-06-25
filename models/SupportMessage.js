@@ -1,3 +1,8 @@
+//Leapmentor-backend/models/SupportMessage.js
+/**
+ * @fileoverview Support Message Mongoose Model
+ * @description Defines the schema and model for customer support tickets.
+ */
 const mongoose = require("mongoose");
 
 const supportMessageSchema = new mongoose.Schema(
