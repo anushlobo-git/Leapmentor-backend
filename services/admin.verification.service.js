@@ -5,6 +5,7 @@
  */
 
 const AppError = require("../utils/AppError");
+const fireAndForgetEmail = require("../utils/fireAndForgetEmail");
 const {
   findAllMentorProfiles,
   findMentorProfileById,
@@ -12,6 +13,9 @@ const {
   saveMentorProfile,
 } = require("../repositories/mentor.repository");
 const { sendMentorVerifiedEmail } = require("../utils/sendNotificationEmail");
+const logger = require("../config/logger");
+// Mappers
+const { toMentorProfileDTO } = require("../mappers/mentorProfile.mapper");
 
 // Configured Status Strings
 const STATUS_VERIFIED = "verified";
@@ -23,10 +27,14 @@ const STATUS_UNVERIFIED = "unverified";
  */
 const getAllMentorVerificationsService = async () => {
   const mentorProfiles = await findAllMentorProfiles();
-  return mentorProfiles.map((profile) => ({
-    user: profile.user,
-    mentorProfile: { ...profile, user: undefined },
-  }));
+
+  return mentorProfiles.map((profile) => {
+    const mapped = toMentorProfileDTO(profile);
+    return {
+      user: mapped.user,
+      mentorProfile: { ...mapped, user: undefined },
+    };
+  });
 };
 
 /**
@@ -41,16 +49,15 @@ const getMentorVerificationByIdService = async (mentorProfileId) => {
     throw new AppError("Mentor profile not found.", 404);
   }
 
+  const mapped = toMentorProfileDTO(profile);
   return {
-    user: profile.user,
-    mentorProfile: { ...profile, user: undefined },
+    user: mapped.user,
+    mentorProfile: { ...mapped, user: undefined },
   };
 };
 
 /**
  * Approves and verifies a submitted mentor profile application.
- * @description Validates the existence of the application, checks for redundant verification states,
- * marks the profile status as verified, updates the database, and dispatches an asynchronous notification email.
  * @param {string} mentorProfileId - Unique identifier of the target mentor profile.
  * @throws {AppError} 400          - If the profile application is already verified.
  * @throws {AppError} 404          - If the mentor profile is not found.
@@ -69,17 +76,20 @@ const verifyMentorService = async (mentorProfileId) => {
   profile.verificationStatus = STATUS_VERIFIED;
   await saveMentorProfile(profile);
 
-  sendMentorVerifiedEmail({
-    mentorName: profile.user.name,
-    mentorEmail: profile.user.email,
-  }).catch((err) =>
-    console.error("sendMentorVerifiedEmail failed:", err.message),
-  );
+  const mentorName = profile.user?.name || "Mentor";
+  const mentorEmail = profile.user?.email;
+
+  if (mentorEmail) {
+    fireAndForgetEmail(
+      () => sendMentorVerifiedEmail({ mentorName, mentorEmail }),
+      "Mentor Application Approval Verification",
+    );
+  }
 
   return {
     mentorProfileId: profile._id,
     verificationStatus: profile.verificationStatus,
-    mentorName: profile.user?.name,
+    mentorName,
   };
 };
 
@@ -106,7 +116,7 @@ const revokeMentorVerificationService = async (mentorProfileId) => {
   return {
     mentorProfileId: profile._id,
     verificationStatus: profile.verificationStatus,
-    mentorName: profile.user?.name,
+    mentorName: profile.user?.name || "Mentor",
   };
 };
 

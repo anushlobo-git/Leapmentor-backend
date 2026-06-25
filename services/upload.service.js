@@ -2,10 +2,11 @@ const streamifier = require("streamifier");
 const { cloudinary } = require("../config/cloudinary");
 const AppError = require("../utils/AppError");
 const logger = require("../config/logger"); // Assuming this is your path
+const fireAndForgetEmail = require("../utils/fireAndForgetEmail");
 
 // Repositories
 const mentorProfileRepository = require("../repositories/mentor.repository");
-
+const { toMentorProfileDTO } = require("../mappers/mentorProfile.mapper");
 // Out-of-band Notification Helpers
 const {
   sendDocumentsSubmittedEmail,
@@ -21,6 +22,22 @@ const CLOUDINARY_FOLDER_WORK_EXP =
 const VERIFICATION_STATUS_PENDING = "pending";
 
 /**
+ * Helper: Extracts a meaningful error message from various error types.
+ * @private
+ * @param {Error|Object|string} error - The error to extract message from.
+ * @returns {string} Formatted error message.
+ */
+const extractErrorMessage = (error) => {
+  if (error instanceof Error) {
+    return error.message;
+  }
+  if (typeof error === "object") {
+    return JSON.stringify(error);
+  }
+  return String(error);
+};
+
+/**
  * Internal Helper: Pipes binary file buffers directly into Cloudinary streaming instances.
  */
 const uploadToCloudinaryProvider = (buffer, options) => {
@@ -28,7 +45,10 @@ const uploadToCloudinaryProvider = (buffer, options) => {
     const uploadStream = cloudinary.uploader.upload_stream(
       { ...options },
       (error, result) => {
-        if (error) return reject(error);
+        if (error) {
+          const message = extractErrorMessage(error);
+          return reject(new Error(message));
+        }
         resolve(result);
       },
     );
@@ -122,23 +142,17 @@ const processVerificationDocuments = async (
 
     logger.info("Verification docs linked to DB", { userId: currentUser._id });
 
-    sendDocumentsSubmittedEmail({
-      mentorName: currentUser.name,
-      mentorEmail: currentUser.email,
-    }).catch((e) =>
-      logger.error("Email notification failed", { error: e.message }),
+    fireAndForgetEmail(
+      () =>
+        sendDocumentsSubmittedEmail({
+          mentorName: currentUser.name,
+          mentorEmail: currentUser.email,
+        }),
+      "Mentor Credentials Verification Documents Submitted",
     );
 
-    return {
-      resumeDocument: {
-        url: resumeResult.secure_url,
-        publicId: resumeResult.public_id,
-      },
-      workExperienceDocuments: workResults.map((r) => ({
-        url: r.secure_url,
-        publicId: r.public_id,
-      })),
-    };
+    //  Return the fully mapped and formatted profile object to the client
+    return toMentorProfileDTO(mentorProfile);
   } catch (err) {
     logger.error("Verification upload failed, initiating rollback", {
       userId: currentUser._id,

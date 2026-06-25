@@ -8,6 +8,9 @@ const AppError = require("../utils/AppError");
 const leapRequestRepository = require("../repositories/leapRequest.repository");
 const walletRepository = require("../repositories/wallet.repository");
 
+// Mappers
+const { toLeapRequestDTO } = require("../mappers/leapRequest.mapper");
+
 // Upper-case Domain Constants
 const STATUS_PENDING = "pending";
 const STATUS_APPROVED = "approved";
@@ -26,7 +29,7 @@ const getMyPendingRequest = async (menteeId) => {
     menteeId,
     STATUS_PENDING,
   );
-  return request;
+  return toLeapRequestDTO(request);
 };
 
 /**
@@ -61,10 +64,12 @@ const createLeapRequest = async (menteeId) => {
     );
   }
 
-  return await leapRequestRepository.create({
+  const request = await leapRequestRepository.create({
     mentee: menteeId,
     currentBalance,
   });
+
+  return toLeapRequestDTO(request);
 };
 
 /**
@@ -74,7 +79,9 @@ const createLeapRequest = async (menteeId) => {
  */
 const getAllLeapRequests = async (status) => {
   const filter = status ? { status } : {};
-  return await leapRequestRepository.findAllWithMentee(filter);
+  const requests = await leapRequestRepository.findAllWithMentee(filter);
+
+  return requests.map(toLeapRequestDTO);
 };
 
 /**
@@ -108,9 +115,12 @@ const approveLeapRequest = async (requestId, adminId) => {
     );
   }
 
+  // Safe extraction lookup handles unpopulated or raw identity types completely uniformly
+  const menteeId = request.mentee?._id ?? request.mentee;
+
   // Uses your precise automated wallet mutation helper function
   const wallet = await walletRepository.incrementBalance(
-    request.mentee,
+    menteeId,
     LEAP_POINTS_GRANT_AMOUNT,
   );
 
@@ -119,7 +129,10 @@ const approveLeapRequest = async (requestId, adminId) => {
   request.reviewedBy = adminId;
   await leapRequestRepository.save(request);
 
-  return { newBalance: wallet.balance, request };
+  return {
+    newBalance: wallet.balance,
+    request: toLeapRequestDTO(request),
+  };
 };
 
 /**
@@ -150,7 +163,7 @@ const rejectLeapRequest = async (requestId, adminId) => {
   request.reviewedBy = adminId;
   await leapRequestRepository.save(request);
 
-  return request;
+  return toLeapRequestDTO(request);
 };
 
 module.exports = {

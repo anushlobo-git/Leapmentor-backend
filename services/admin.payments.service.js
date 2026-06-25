@@ -17,6 +17,9 @@ const {
 } = require("../repositories/transaction.repository");
 const { findUsersByName } = require("../repositories/user.repository");
 
+// Mappers
+const { toTransactionDTO } = require("../mappers/transaction.mapper");
+
 // Financial and Layout Constants
 const DEFAULT_COMMISSION_RATE = 20;
 const REVENUE_CHART_MONTHS_LOOKBACK = 6;
@@ -106,10 +109,10 @@ const getRevenueChartService = async () => {
  * @returns {Promise<Object>}    Normalized rows containing detailed status definitions and pagination data.
  */
 const getTransactionsService = async ({ page, limit, search, type }) => {
-  const safePage = Math.max(1, parseInt(page, 10) || DEFAULT_PAGE_NUMBER);
+  const safePage = Math.max(1, Number.parseInt(page, 10) || DEFAULT_PAGE_NUMBER);
   const safeLimit = Math.min(
     MAX_LIMIT_SIZE,
-    parseInt(limit, 10) || DEFAULT_LIMIT_SIZE,
+    Number.parseInt(limit, 10) || DEFAULT_LIMIT_SIZE,
   );
   const skip = (safePage - 1) * safeLimit;
 
@@ -131,34 +134,9 @@ const getTransactionsService = async ({ page, limit, search, type }) => {
     findTransactions(filter, { skip, limit: safeLimit }),
   ]);
 
-  const rows = transactions.map((t) => {
-    let txStatus = "completed";
-    if (t.type === "escrow_refund") {
-      txStatus = "refunded";
-    } else if (t.type === "escrow_hold" || t.type === "withdrawal") {
-      txStatus = "pending";
-    }
-
-    return {
-      id: t._id,
-      txId: `#TRX-${String(t._id).slice(-5).toUpperCase()}`,
-      user: { name: t.user?.name || "—", email: t.user?.email || "—" },
-      amount: t.amount || 0,
-      type: t.type || "—",
-      description: t.description || "—",
-      date: t.createdAt
-        ? new Date(t.createdAt).toLocaleDateString("en-US", {
-            month: "short",
-            day: "numeric",
-            year: "numeric",
-          })
-        : "—",
-      status: txStatus,
-    };
-  });
-
   return {
-    transactions: rows,
+    //  Entire structural mapping block replaced with a clean, decoupled collection map:
+    transactions: transactions.map(toTransactionDTO),
     pagination: {
       totalCount,
       currentPage: safePage,

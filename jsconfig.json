@@ -1,0 +1,8 @@
+{
+  "compilerOptions": {
+    "checkJs": false,
+    "target": "ES2023",
+    "module": "commonJS"
+  },
+  "exclude": ["node_modules", "lib"]
+}

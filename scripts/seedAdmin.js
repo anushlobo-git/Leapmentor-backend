@@ -3,13 +3,21 @@
 // Usage: node backend/scripts/seedAdmin.js
 
 require("dotenv").config();
-const mongoose  = require("mongoose");
+const mongoose = require("mongoose");
 const AdminUser = require("../models/AdminUser");
 
+// Validate required environment variables
+if (!process.env.ADMIN_EMAIL || !process.env.ADMIN_PASSWORD) {
+  console.error(
+    "❌ Error: ADMIN_EMAIL and ADMIN_PASSWORD must be set in .env file",
+  );
+  process.exit(1);
+}
+
 const ADMIN = {
-  name:         "Super Admin",
-  email:        "leapmentor2026@gmail.com",   // ← change this
-  password:     "leapAdminMentor",             // ← change this
+  name: process.env.ADMIN_NAME || "Super Admin",
+  email: process.env.ADMIN_EMAIL,
+  password: process.env.ADMIN_PASSWORD,
   isSuperAdmin: true,
 };
 

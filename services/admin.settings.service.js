@@ -35,56 +35,6 @@ const getOverviewService = async () => {
   return { totalUsers, activeSessions };
 };
 
-
-//This function can be deleted cause its not used 
-/**
- * Modify and update an authenticated administrator's secure password credentials.
- * @param {string} adminId                 - Unique identifier database key of the administrator.
- * @param {Object} payload                 - Password parameters payload block.
- * @param {string} payload.currentPassword - The existing validation password string.
- * @param {string} payload.newPassword     - The newly proposed substitution password string.
- * @throws {AppError} 400                  - For missing parameters, identical entries, or failed lengths.
- * @throws {AppError} 404                  - If target administrator lookup returns empty.
- * @returns {Promise<void>}
- */
-
-/*
-const changeAdminPasswordService = async (
-  adminId,
-  { currentPassword, newPassword },
-) => {
-  if (!currentPassword || !newPassword) {
-    throw new AppError("All password fields are required.", 400);
-  }
-  if (newPassword.length < MIN_PASSWORD_LENGTH) {
-    throw new AppError(
-      `New password must be at least ${MIN_PASSWORD_LENGTH} characters long.`,
-      400,
-    );
-  }
-  if (currentPassword === newPassword) {
-    throw new AppError(
-      "New password must be distinct from your current password.",
-      400,
-    );
-  }
-
-  const admin = await findAdminById(adminId);
-  if (!admin) {
-    throw new AppError("Administrator account not found.", 404);
-  }
-
-  const isMatch = await admin.comparePassword(currentPassword);
-  if (!isMatch) {
-    throw new AppError("Current password is incorrect.", 400);
-  }
-
-  admin.password = newPassword; // Document middleware pre-save hook handles cryptography hashing
-  await saveAdmin(admin);
-};
-*/
-
-
 /**
  * Register and provision a brand-new secondary system administrative entity.
  * @param {Object} payload       - Account initialization fields payload.
@@ -149,8 +99,8 @@ const getCommissionService = async (adminId) => {
  * @returns {Promise<number>}     The successfully applied structural commission floating rate percentage.
  */
 const updateCommissionService = async (adminId, commissionRate) => {
-  const rate = parseFloat(commissionRate, RADIX_DECIMAL);
-  if (isNaN(rate) || rate < 0 || rate > 100) {
+  const rate = Number.parseFloat(commissionRate, RADIX_DECIMAL);
+  if (Number.isNaN(rate) || rate < 0 || rate > 100) {
     throw new AppError(
       "Commission rate must be a valid percentage metrics number between 0 and 100.",
       400,

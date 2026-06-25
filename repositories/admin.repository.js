@@ -11,7 +11,11 @@ const AdminUser = require("../models/AdminUser");
  * @param {string} email - Unique target lookup email address.
  * @returns {Promise<Object|null>} The administrator document tracking map or null.
  */
-const findAdminByEmail = (email) => AdminUser.findOne({ email });
+const findAdminByEmail = (email) =>
+  AdminUser.findOne({ email }).select("+password");
+
+const findAdminByEmailLean = (email) => AdminUser.findOne({ email });
+
 
 /**
  * Persist lifecycle alterations or structural schema updates inside an active Mongoose document instance.
@@ -94,5 +98,6 @@ module.exports = {
   findActiveAdmin,
   incrementWalletBalance,
   findActiveAdminLean,
+  findAdminByEmailLean,
 
 };

@@ -88,7 +88,7 @@ const deleteAvailability = catchAsync(async (req, res) => {
  * @access  Private (User)
  */
 const getAvailableSlots = catchAsync(async (req, res) => {
-  const duration = parseInt(req.query.duration, 10) || DEFAULT_DURATION_MINUTES;
+  const duration = Number.parseInt(req.query.duration, 10) || DEFAULT_DURATION_MINUTES;
   const data = await availabilityService.getAvailableSlots(
     req.params.mentorId,
     duration,

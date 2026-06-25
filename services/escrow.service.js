@@ -4,7 +4,7 @@
  */
 const mongoose = require("mongoose");
 const AppError = require("../utils/AppError");
-
+const fireAndForgetEmail = require("../utils/fireAndForgetEmail");
 // Repositories
 const adminUserRepo = require("../repositories/admin.repository");
 const connectRequestRepo = require("../repositories/connectRequest.repository");
@@ -22,7 +22,7 @@ const DEFAULT_COMMISSION_RATE = 20;
 const DEFAULT_TIMEZONE = "Asia/Kolkata";
 const ROLE_MENTEE = "mentee";
 const ROLE_MENTOR = "mentor";
-
+const logger = require("../config/logger");
 /**
  * Initiates escrow hold payments on newly accepted connection configurations.
  * @param {Object} params Execution parameters.
@@ -357,7 +357,9 @@ const release = async ({ requestId, menteeId }) => {
   try {
     await session.abortTransaction();
   } catch (abortErr) {
-    console.debug("Silent transaction abort warning:", abortErr.message);
+    logger.warn("Silent transaction abort warning", {
+      message: abortErr.message,
+    });
   }
   throw err;
 } finally {
@@ -567,7 +569,7 @@ const getMyWallet = async (userId) => {
  */
 const getCommissionRate = async () => {
   const admin = await adminUserRepo.findActiveAdmin();
-  if (!admin || admin.commissionRate == null)
+  if (!admin?.commissionRate)
     throw new AppError("Commission rate not configured", 404);
   return admin.commissionRate;
 };
@@ -580,35 +582,41 @@ const _triggerPaySideEffects = (
   connectRequest,
   { sessionRate, sessionCount, totalAmount, mentorAmount, commissionRate },
 ) => {
-  sendInvoiceEmail({
-    connectRequestId: connectRequest._id.toString(),
-    menteeName: connectRequest.mentee.name,
-    menteeEmail: connectRequest.mentee.email,
-    mentorName: connectRequest.mentor.name,
-    mentorEmail: connectRequest.mentor.email,
-    selectedSlots: connectRequest.selectedSlots,
-    confirmedSlot: connectRequest.confirmedSlot,
-    sessionRate,
-    sessionCount,
-    totalAmount,
-    paidAt: connectRequest.paidAt,
-  }).catch((err) => console.error("❌ Invoice email failed:", err.message));
+  fireAndForgetEmail(
+    () =>
+      sendInvoiceEmail({
+        connectRequestId: connectRequest._id.toString(),
+        menteeName: connectRequest.mentee.name,
+        menteeEmail: connectRequest.mentee.email,
+        mentorName: connectRequest.mentor.name,
+        mentorEmail: connectRequest.mentor.email,
+        selectedSlots: connectRequest.selectedSlots,
+        confirmedSlot: connectRequest.confirmedSlot,
+        sessionRate,
+        sessionCount,
+        totalAmount,
+        paidAt: connectRequest.paidAt,
+      }),
+    "Mentee Escrow Payment Invoice Delivery",
+  );
 
-  sendPaymentReceivedEmail({
-    mentorName: connectRequest.mentor.name,
-    mentorEmail: connectRequest.mentor.email,
-    menteeName: connectRequest.mentee.name,
-    slots: connectRequest.selectedSlots,
-    sessionRate,
-    sessionCount,
-    mentorPayout: mentorAmount,
-    commissionRate,
-  }).catch((err) =>
-    console.error("❌ Payment received email failed:", err.message),
+  fireAndForgetEmail(
+    () =>
+      sendPaymentReceivedEmail({
+        mentorName: connectRequest.mentor.name,
+        mentorEmail: connectRequest.mentor.email,
+        menteeName: connectRequest.mentee.name,
+        slots: connectRequest.selectedSlots,
+        sessionRate,
+        sessionCount,
+        mentorPayout: mentorAmount,
+        commissionRate,
+      }),
+    "Mentor Payment Received Payout Alert",
   );
 
   availabilityRepo
-    .findByMentorId(connectRequest.mentor._id)
+    .findAvailabilityByMentor(connectRequest.mentor._id)
     .then((availability) =>
       sendCalendarInvite({
         requestId: connectRequest._id.toString(),
@@ -623,7 +631,9 @@ const _triggerPaySideEffects = (
         message: connectRequest.message || "",
       }),
     )
-    .catch((err) => console.error("❌ Calendar invite failed:", err.message));
+    .catch((err) =>
+      logger.error("Calendar invite failed", { message: err.message }),
+    );
 };
 
 module.exports = {

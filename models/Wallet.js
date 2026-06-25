@@ -32,5 +32,8 @@ const walletSchema = new mongoose.Schema(
 
 // Now this index actually works
 walletSchema.index({ user: 1, role: 1 }, { unique: true });
+walletSchema.index({ user: 1 });
+walletSchema.index({ role: 1 });
+
 
 module.exports = mongoose.model("Wallet", walletSchema);

@@ -17,6 +17,17 @@ const findMenteeProfilesByUserIds = (userIds) =>
     .lean();
 
 /**
+ * Queries a list of mentee profiles including full details matching a collection group of user IDs.
+ * @param {Array<string>} userIds
+ * @returns {Promise<Array<Object>>}
+ */
+const findMenteeProfilesByUserIdsFull = (userIds) =>
+  MenteeProfile.find({ user: { $in: userIds } })
+    .select("user currentRole company profilePicture skills bio interestedFields isProfileComplete isProfilePublished")
+    .lean();
+
+
+/**
  * Find an isolated mentee record linked to an explicit user identification key.
  * @param {string} userId - Core reference linking parent identity configurations.
  * @returns {Promise<Object|null>} Target biographical details layout map.
@@ -99,6 +110,7 @@ const findOneAndUpdateByUserId = (userId, updateData) => {
 
 module.exports = {
   findMenteeProfilesByUserIds,
+  findMenteeProfilesByUserIdsFull,
   findMenteeProfileByUserId,
   deleteMenteeProfileByUserId,
   findMenteeProfile,

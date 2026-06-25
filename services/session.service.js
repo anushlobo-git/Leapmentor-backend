@@ -4,6 +4,7 @@
  */
 const mongoose = require("mongoose");
 const AppError = require("../utils/AppError");
+const fireAndForgetEmail = require("../utils/fireAndForgetEmail");
 
 // Repositories
 const connectRequestRepo = require("../repositories/connectRequest.repository");
@@ -11,10 +12,12 @@ const availabilityRepo = require("../repositories/availability.repository");
 
 // Inter-domain Dependency
 const escrowService = require("./escrow.service");
-
+const logger = require("../config/logger");
 // Utilities
 const releaseEscrow = require("../utils/releaseEscrow");
 const { sendSlotCancelledEmail, sendSlotRescheduledEmail, sendAdditionalSlotEmail } = require("../utils/sendNotificationEmail");
+const { generateAvailableSlots } = require("../utils/generateSlots");
+
 
 // Domain Constants
 const ALLOWED_MEETING_DOMAINS = [
@@ -84,7 +87,86 @@ const setMeetingLink = async ({ connectRequestId, slotIndex, meetingLink, userId
 };
 
 /**
+ * Validates slot state and applies the caller's completion mark.
+ * Throws AppError on any guard-clause violation.
+ * @private
+ * @param {Object} request  - The connect-request document.
+ * @param {number} idx      - Validated slot index.
+ * @param {string} userId   - Calling user's ID.
+ * @returns {{ isMentee: boolean, bothMarked: boolean }} Mark outcome flags.
+ */
+const _validateAndApplyMark = (request, idx, userId) => {
+  const slot = request.selectedSlots[idx];
+  if (slot.status === "cancelled")
+    throw new AppError("Cannot mark a cancelled slot as complete", 400);
+
+  const isMentor = request.mentor.toString() === userId.toString();
+  const isMentee = request.mentee.toString() === userId.toString();
+
+  if (slot.menteeMarked && slot.mentorMarked)
+    throw new AppError("This session is already marked complete by both parties", 400);
+  if (isMentee && slot.menteeMarked)
+    throw new AppError("You have already marked this session complete", 400);
+  if (isMentor && slot.mentorMarked)
+    throw new AppError("You have already marked this session complete", 400);
+
+  if (isMentee) {
+    request.selectedSlots[idx].menteeMarked = true;
+  } else {
+    request.selectedSlots[idx].mentorMarked = true;
+  }
+
+  const bothMarked = request.selectedSlots[idx].menteeMarked && request.selectedSlots[idx].mentorMarked;
+  if (bothMarked) request.selectedSlots[idx].completedAt = new Date();
+
+  return { isMentee, bothMarked };
+};
+
+/**
+ * Computes progress stats and assembles the response object after a slot is marked.
+ * @private
+ * @param {Object} request         - The connect-request document.
+ * @param {number} idx             - Validated slot index.
+ * @param {boolean} isMentee       - Whether the caller is the mentee.
+ * @param {boolean} bothMarked     - Whether both parties have now marked the slot.
+ * @param {boolean} allComplete    - Whether every active slot is fully complete.
+ * @param {Object|null} releaseResult - Escrow release outcome, if any.
+ * @returns {Object} The public response payload.
+ */
+const _buildCompletionResponse = (request, idx, isMentee, bothMarked, allComplete, releaseResult) => {
+  const activeSlots = request.selectedSlots.filter((s) => s.status !== "cancelled");
+  const completedCount = activeSlots.filter((s) => s.menteeMarked && s.mentorMarked).length;
+  const progress = activeSlots.length > 0
+    ? Math.round((completedCount / activeSlots.length) * 100)
+    : 0;
+
+  const waitingFor = isMentee ? "mentor" : "mentee";
+  let message;
+  if (allComplete) {
+    message = "All sessions complete! Tokens released to mentor.";
+  } else if (bothMarked) {
+    message = "Session marked complete by both parties.";
+  } else {
+    message = `Session marked complete. Waiting for ${waitingFor} to confirm.`;
+  }
+
+  return {
+    success: true,
+    message,
+    slot: request.selectedSlots[idx],
+    slotIndex: idx,
+    bothMarked,
+    allComplete,
+    completedSlots: completedCount,
+    totalSlots: activeSlots.length,
+    progress,
+    escrowRelease: releaseResult,
+  };
+};
+
+/**
  * Records individual validation markings verifying localized performance completions across scheduled timelines.
+ * Cognitive Complexity: ≤ 15 (refactored from 23).
  * @param {Object} params Structural tracking criteria parameters.
  * @param {string} params.connectRequestId Database reference workflow key.
  * @param {string} params.slotIndex Positional target coordinate pointer.
@@ -103,21 +185,7 @@ const markSlotComplete = async ({ connectRequestId, slotIndex, userId }) => {
     if (request.status !== "ongoing") throw new AppError("Session is not active", 400);
 
     const idx = _getValidatedSlotIndex(request, slotIndex);
-    const slot = request.selectedSlots[idx];
-    if (slot.status === "cancelled") throw new AppError("Cannot mark a cancelled slot as complete", 400);
-
-    const isMentor = request.mentor.toString() === userId.toString();
-    const isMentee = request.mentee.toString() === userId.toString();
-
-    if (slot.menteeMarked && slot.mentorMarked) throw new AppError("This session is already marked complete by both parties", 400);
-    if (isMentee && slot.menteeMarked) throw new AppError("You have already marked this session complete", 400);
-    if (isMentor && slot.mentorMarked) throw new AppError("You have already marked this session complete", 400);
-
-    if (isMentee) request.selectedSlots[idx].menteeMarked = true;
-    if (isMentor) request.selectedSlots[idx].mentorMarked = true;
-
-    const bothMarked = request.selectedSlots[idx].menteeMarked && request.selectedSlots[idx].mentorMarked;
-    if (bothMarked) request.selectedSlots[idx].completedAt = new Date();
+    const { isMentee, bothMarked } = _validateAndApplyMark(request, idx, userId);
 
     request.markModified("selectedSlots");
     await connectRequestRepo.save(request, mongoSession);
@@ -133,24 +201,16 @@ const markSlotComplete = async ({ connectRequestId, slotIndex, userId }) => {
     const completedCount = activeSlots.filter((s) => s.menteeMarked && s.mentorMarked).length;
     const progress = activeSlots.length > 0 ? Math.round((completedCount / activeSlots.length) * 100) : 0;
 
-    _emitSlotUpdate(request, { connectRequestId, slots: request.selectedSlots, totalSlots: activeSlots.length, completedSlots: completedCount, progress, allComplete });
-
-    return {
-      success: true,
-      message: allComplete
-        ? "All sessions complete! Tokens released to mentor."
-        : bothMarked
-          ? "Session marked complete by both parties."
-          : `Session marked complete. Waiting for ${isMentee ? "mentor" : "mentee"} to confirm.`,
-      slot: request.selectedSlots[idx],
-      slotIndex: idx,
-      bothMarked,
-      allComplete,
-      completedSlots: completedCount,
+    _emitSlotUpdate(request, {
+      connectRequestId,
+      slots: request.selectedSlots,
       totalSlots: activeSlots.length,
+      completedSlots: completedCount,
       progress,
-      escrowRelease: releaseResult,
-    };
+      allComplete,
+    });
+
+    return _buildCompletionResponse(request, idx, isMentee, bothMarked, allComplete, releaseResult);
   } catch (err) {
     await mongoSession.abortTransaction();
     throw err;
@@ -241,9 +301,15 @@ const cancelSlot = async ({ connectRequestId, slotIndex, reason, userId }) => {
   let refundResult = null;
   if (request.paymentStatus === "paid") {
     try {
-      refundResult = await escrowService.refundSlot({ connectRequestId, slotIndex: idx, cancelledBy });
+      refundResult = await escrowService.refundSlot({
+        connectRequestId,
+        slotIndex: idx,
+        cancelledBy,
+      });
     } catch (err) {
-      console.error("❌ Slot refund failed (slot remains cancelled):", err.message);
+      logger.error("Slot refund failed — slot remains cancelled", {
+        message: err.message,
+      });
     }
   }
 
@@ -330,23 +396,34 @@ const getMentorAvailability = async (connectRequestId, duration, userId) => {
   if (!request) throw new AppError("Session not found", 404);
   _assertParticipant(request, userId);
 
-  const availability = await availabilityRepo.findByMentorId(request.mentor);
-  if (!availability || !availability.specificDates?.length) {
-    return { slots: [], timezone: DEFAULT_TIMEZONE };
+  const availability = await availabilityRepo.findAvailabilityByMentor(
+    request.mentor,
+  );
+  if (!availability) {
+    return {
+      slots: [],
+      timezone: DEFAULT_TIMEZONE,
+      sessionDurations: [30, 60],
+    };
   }
 
   const bookedSlots = [
     ...(request.selectedSlots || []).filter((s) => s.status !== "cancelled"),
-    ...(request.additionalSlots || [])
+    ...(request.additionalSlots || []),
   ].map((s) => ({ date: s.date, startTime: s.startTime, endTime: s.endTime }));
 
-  const { generateSlotsFromSpecificDates } = require("../utils/generateSlots");
-  const grouped = generateSlotsFromSpecificDates(availability.specificDates, duration, bookedSlots);
+  const grouped = generateAvailableSlots(
+    duration,
+    availability.specificDates || [],
+    availability.weeklyHours || [],
+    bookedSlots,
+    28,
+  );
 
   return {
     slots: grouped,
     timezone: availability.timezone || DEFAULT_TIMEZONE,
-    sessionDurations: availability.sessionDurations || [30, 60]
+    sessionDurations: availability.sessionDurations || [30, 60],
   };
 };
 
@@ -366,8 +443,8 @@ const _assertParticipant = (request, userId) => {
  * @private
  */
 const _getValidatedSlotIndex = (request, slotIndex) => {
-  const idx = parseInt(slotIndex, 10);
-  if (isNaN(idx) || idx < 0 || idx >= request.selectedSlots.length) {
+  const idx = Number.parseInt(slotIndex, 10);
+  if (Number.isNaN(idx) || idx < 0 || idx >= request.selectedSlots.length) {
     throw new AppError("Invalid slot index", 400);
   }
   return idx;
@@ -399,7 +476,7 @@ const _emitSlotUpdate = (request, payload) => {
     emitToUser(request.mentor.toString(), "session_slots_updated", payload);
     emitToUser(request.mentee.toString(), "session_slots_updated", payload);
   } catch (e) {
-    console.warn("⚠️ emitSlotUpdate failed:", e.message);
+    logger.warn("emitSlotUpdate failed", { message: e.message });
   }
 };
 
@@ -411,30 +488,92 @@ const _emitToOther = (request, currentUserId, event, payload) => {
   try {
     const { emitToUser } = require("../socket/socketHandler");
     if (!emitToUser) return;
-    const otherId = request.mentor.toString() === currentUserId.toString() ? request.mentee.toString() : request.mentor.toString();
+    const otherId =
+      request.mentor.toString() === currentUserId.toString()
+        ? request.mentee.toString()
+        : request.mentor.toString();
     emitToUser(otherId, event, payload);
   } catch (e) {
-    console.warn("⚠️ emitToOther failed:", e.message);
+    logger.warn("emitToOther failed", { message: e.message });
   }
 };
 
 /** Emails Side-effects Triggers */
 const _triggerAdditionalSlotEmail = (id, slot) => {
-  connectRequestRepo.findByIdWithParticipants(id)
-    .then((pop) => sendAdditionalSlotEmail({ connectRequestId: id, mentorName: pop.mentor.name, mentorEmail: pop.mentor.email, menteeName: pop.mentee.name, menteeEmail: pop.mentee.email, slot }))
-    .catch((err) => console.error("❌ Additional slot email failed:", err.message));
+  connectRequestRepo
+    .findByIdWithParticipants(id)
+    .then((pop) =>
+      fireAndForgetEmail(
+        () =>
+          sendAdditionalSlotEmail({
+            connectRequestId: id,
+            mentorName: pop.mentor.name,
+            mentorEmail: pop.mentor.email,
+            menteeName: pop.mentee.name,
+            menteeEmail: pop.mentee.email,
+            slot,
+          }),
+        "Additional Session Slot Added Notification",
+      ),
+    )
+    .catch((err) =>
+      logger.error(
+        "Database resolution failed for additional slot email tracking",
+        { message: err.message },
+      ),
+    );
 };
 
 const _triggerCancelEmail = (id, slot, cancelledBy, reason) => {
-  connectRequestRepo.findByIdWithParticipants(id)
-    .then((pop) => sendSlotCancelledEmail({ connectRequestId: id, mentorName: pop.mentor.name, mentorEmail: pop.mentor.email, menteeName: pop.mentee.name, menteeEmail: pop.mentee.email, slot, cancelledBy, reason }))
-    .catch((err) => console.error("❌ Slot cancel email failed:", err.message));
+  connectRequestRepo
+    .findByIdWithParticipants(id)
+    .then((pop) =>
+      fireAndForgetEmail(
+        () =>
+          sendSlotCancelledEmail({
+            connectRequestId: id,
+            mentorName: pop.mentor.name,
+            mentorEmail: pop.mentor.email,
+            menteeName: pop.mentee.name,
+            menteeEmail: pop.mentee.email,
+            slot,
+            cancelledBy,
+            reason,
+          }),
+        "Session Slot Cancellation Notification",
+      ),
+    )
+    .catch((err) =>
+      logger.error(
+        "Database resolution failed for slot cancel email tracking",
+        { message: err.message },
+      ),
+    );
 };
 
 const _triggerRescheduleEmail = (id, oldSlot, newSlot) => {
-  connectRequestRepo.findByIdWithParticipants(id)
-    .then((pop) => sendSlotRescheduledEmail({ connectRequestId: id, mentorName: pop.mentor.name, mentorEmail: pop.mentor.email, menteeName: pop.mentee.name, menteeEmail: pop.mentee.email, oldSlot, newSlot }))
-    .catch((err) => console.error("❌ Reschedule email failed:", err.message));
+  connectRequestRepo
+    .findByIdWithParticipants(id)
+    .then((pop) =>
+      fireAndForgetEmail(
+        () =>
+          sendSlotRescheduledEmail({
+            connectRequestId: id,
+            mentorName: pop.mentor.name,
+            mentorEmail: pop.mentor.email,
+            menteeName: pop.mentee.name,
+            menteeEmail: pop.mentee.email,
+            oldSlot,
+            newSlot,
+          }),
+        "Session Slot Rescheduled Notification",
+      ),
+    )
+    .catch((err) =>
+      logger.error("Database resolution failed for reschedule email tracking", {
+        message: err.message,
+      }),
+    );
 };
 
 module.exports = {

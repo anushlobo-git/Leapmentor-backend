@@ -14,6 +14,7 @@ const {
   signRefreshToken,
 } = require("../utils/auth.utils");
 const { createWalletsForRoles } = require("./wallet.service");
+const { toUserDTO } = require("../mappers/user.mapper");
 
 // Security Configuration Constants
 const BCRYPT_SALT_REGISTER = 10;
@@ -42,7 +43,6 @@ const registerUser = async ({
   roles,
   termsAccepted,
 }) => {
-
   const normalizedEmail = String(email).toLowerCase().trim();
   const { valid, message, uniqueRoles } = validateRoles(roles);
   if (!valid) {
@@ -73,7 +73,7 @@ const registerUser = async ({
   return {
     accessToken,
     refreshToken,
-    user: sanitizeUser(user),
+    user: toUserDTO(user),
     isNewUser: true,
   };
 };
@@ -89,12 +89,11 @@ const registerUser = async ({
  * @returns {Promise<Object>} Access tokens array alongside structural sanitized user profiles.
  */
 const loginUser = async ({ email, password }) => {
-
   const normalizedEmail = String(email).toLowerCase().trim();
   const user =
     await userRepository.findUserByEmailWithPassword(normalizedEmail);
 
-  if (!user || !user.password) {
+  if (!user?.password) {
     throw new AppError("Invalid email or password.", 401);
   }
 
@@ -113,46 +112,9 @@ const loginUser = async ({ email, password }) => {
   return {
     accessToken,
     refreshToken,
-    user: sanitizeUser(user),
+    user: toUserDTO(user),
     isNewUser: true,
   };
 };
 
-/**
- * Modifies and changes an active profile's password record.
- * @param {string} userId                  - Target identity reference database ID.
- * @param {Object} passwords               - Transaction context configuration data payload.
- * @param {string} passwords.currentPassword - Existing active verification password string.
- * @param {string} passwords.newPassword   - The newly generated replacement target password.
- * @throws {AppError} 400                  - Missing inputs or invalid password length metrics.
- * @throws {AppError} 404                  - Identity parameters check returns empty.
- * @throws {AppError} 401                  - Existing matching validation password parameter fails.
- * @returns {Promise<void>}
- */
-const changeUserPassword = async (userId, { currentPassword, newPassword }) => {
-  if (!currentPassword || !newPassword) {
-    throw new AppError("All password fields are required.", 400);
-  }
-  if (newPassword.length < MIN_PASSWORD_LENGTH) {
-    throw new AppError(
-      `New password must be at least ${MIN_PASSWORD_LENGTH} characters long.`,
-      400,
-    );
-  }
-
-  const user = await userRepository.findUserByIdWithPassword(userId);
-  if (!user) {
-    throw new AppError("User not found.", 404);
-  }
-
-  const isMatch = await bcrypt.compare(currentPassword, user.password);
-  if (!isMatch) {
-    throw new AppError("Current password is incorrect.", 401);
-  }
-
-  user.password = await bcrypt.hash(newPassword, BCRYPT_SALT_CHANGE_PASSWORD);
-  user.passwordChangedAt = new Date();
-  await userRepository.saveUser(user);
-};
-
-module.exports = { registerUser, loginUser, changeUserPassword };
+module.exports = { registerUser, loginUser };

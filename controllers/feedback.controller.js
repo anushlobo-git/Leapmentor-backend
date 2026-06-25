@@ -12,7 +12,7 @@ const feedbackService = require("../services/feedback.service");
  */
 const createFeedback = catchAsync(async (req, res) => {
   const slotIndex =
-    req.body.slotIndex !== undefined ? Number(req.body.slotIndex) : undefined;
+    req.body.slotIndex == null ? undefined : Number(req.body.slotIndex);
 
   const populatedFeedback = await feedbackService.createFeedback({
     connectRequestId: req.body.connectRequestId,

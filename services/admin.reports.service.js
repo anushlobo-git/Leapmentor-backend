@@ -1,4 +1,5 @@
 const AppError = require("../utils/AppError");
+const fireAndForgetEmail = require("../utils/fireAndForgetEmail");
 const {
   countAllReports,
   countReportsByFilter,
@@ -19,6 +20,8 @@ const {
 } = require("../repositories/connectRequest.repository");
 const createNotification = require("../utils/createNotification");
 const { sendReportResolvedEmail } = require("../utils/sendNotificationEmail");
+const { toReportDTO } = require("../mappers/report.mapper");
+
 
 const getReportStatsService = async () => {
   const today = new Date();
@@ -55,35 +58,9 @@ const getReportsService = async ({ page, limit, search, status }) => {
     findReports(filter, { skip, limit: safeLimit }),
   ]);
 
-  const rows = reports.map((r) => ({
-    id: r._id,
-    mentee:
-      r.reporterRole === "mentee" ? r.reportedBy?.name : r.reportedUser?.name,
-    menteeEmail:
-      r.reporterRole === "mentee" ? r.reportedBy?.email : r.reportedUser?.email,
-    mentor:
-      r.reporterRole === "mentor" ? r.reportedBy?.name : r.reportedUser?.name,
-    mentorEmail:
-      r.reporterRole === "mentor" ? r.reportedBy?.email : r.reportedUser?.email,
-    reportedBy: r.reportedBy?.name || "—",
-    reportedById: r.reportedBy?._id || null,
-    reportedUser: r.reportedUser?.name || "—",
-    reporterRole: r.reporterRole,
-    category: r.complaintType,
-    description: r.description,
-    screenshotUrl: r.screenshotUrl || "",
-    adminNote: r.adminNote || "",
-    status: r.status,
-    refundProcessed: r.refundProcessed || false,
-    connectRequestId: r.connectRequest?._id || null,
-    sessionStatus: r.connectRequest?.status || null,
-    paymentStatus: r.connectRequest?.paymentStatus || null,
-    totalAmount: r.connectRequest?.totalAmount || 0,
-    date: r.createdAt ? new Date(r.createdAt).toISOString().split("T")[0] : "—",
-  }));
-
   return {
-    reports: rows,
+    //  Entire 30-line handwritten translation array logic cleanly replaced here:
+    reports: reports.map(toReportDTO),
     pagination: {
       totalCount,
       currentPage: safePage,
@@ -129,24 +106,21 @@ const handleReportService = async (
   }
 
   if (report.reportedBy?.email) {
-    sendReportResolvedEmail({
-      reporterName: report.reportedBy.name,
-      reporterEmail: report.reportedBy.email,
-      complaintType: report.complaintType,
-      status,
-      adminNote: adminNote?.trim() || "",
-      reporterRole: report.reporterRole,
-    }).catch((err) =>
-      logger.error("sendReportResolvedEmail failed", { error: err.message }),
+    fireAndForgetEmail(
+      () =>
+        sendReportResolvedEmail({
+          reporterName: report.reportedBy.name,
+          reporterEmail: report.reportedBy.email,
+          complaintType: report.complaintType,
+          status,
+          adminNote: adminNote?.trim() || "",
+          reporterRole: report.reporterRole,
+        }),
+      "Admin Report Handled Resolution",
     );
   }
 
-  return {
-    id: report._id,
-    status: report.status,
-    adminNote: report.adminNote,
-    resolvedAt: report.resolvedAt,
-  };
+  return toReportDTO(report);
 };
 
 const processRefundService = async (reportId, adminNote, adminId) => {
@@ -206,17 +180,17 @@ const processRefundService = async (reportId, adminNote, adminId) => {
   });
 
   if (report.reportedBy?.email) {
-    sendReportResolvedEmail({
-      reporterName: report.reportedBy.name,
-      reporterEmail: report.reportedBy.email,
-      complaintType: report.complaintType,
-      status: "resolved",
-      adminNote: resolvedAdminNote,
-      reporterRole: report.reporterRole,
-    }).catch((err) =>
-      logger.error("sendReportResolvedEmail (refund) failed", {
-        error: err.message,
-      }),
+    fireAndForgetEmail(
+      () =>
+        sendReportResolvedEmail({
+          reporterName: report.reportedBy.name,
+          reporterEmail: report.reportedBy.email,
+          complaintType: report.complaintType,
+          status: "resolved",
+          adminNote: resolvedAdminNote,
+          reporterRole: report.reporterRole,
+        }),
+      "Admin Refund Report Resolution",
     );
   }
 
@@ -265,17 +239,17 @@ const deleteSessionService = async (reportId, adminNote, adminId) => {
   await saveReport(report);
 
   if (report.reportedBy?.email) {
-    sendReportResolvedEmail({
-      reporterName: report.reportedBy.name,
-      reporterEmail: report.reportedBy.email,
-      complaintType: report.complaintType,
-      status: "resolved",
-      adminNote: resolvedAdminNote,
-      reporterRole: report.reporterRole,
-    }).catch((err) =>
-      logger.error("sendReportResolvedEmail (deleteSession) failed", {
-        error: err.message,
-      }),
+    fireAndForgetEmail(
+      () =>
+        sendReportResolvedEmail({
+          reporterName: report.reportedBy.name,
+          reporterEmail: report.reportedBy.email,
+          complaintType: report.complaintType,
+          status: "resolved",
+          adminNote: resolvedAdminNote,
+          reporterRole: report.reporterRole,
+        }),
+      "Admin Delete Session Report Resolution",
     );
   }
 };

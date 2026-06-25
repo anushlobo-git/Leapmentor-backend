@@ -3,11 +3,15 @@
  * @description Manages public ticket ingestion, administrative retrievals, and notification workflows.
  */
 const AppError = require("../utils/AppError");
-
+const logger = require("../config/logger");
+const fireAndForgetEmail = require("../utils/fireAndForgetEmail");
 // Repositories
 const supportMessageRepository = require("../repositories/supportMessage.repository");
 const userRepository = require("../repositories/user.repository");
 const notificationRepository = require("../repositories/notification.repository");
+
+// Mappers
+const { toSupportMessageDTO } = require("../mappers/supportMessage.mapper");
 
 // Out-of-band Notification Helpers
 const { sendSupportResolvedEmail } = require("../utils/sendNotificationEmail");
@@ -34,20 +38,26 @@ const submitTicket = async (inputData) => {
     );
   }
 
-  return supportMessageRepository.create({
+  const ticket = await supportMessageRepository.create({
     email,
     subject,
     message,
     role: role || DEFAULT_USER_ROLE,
     status: STATUS_OPEN,
   });
+
+  //  Enforce serialization layer checks on the newly stored resource document
+  return toSupportMessageDTO(ticket);
 };
 
 /**
  * Returns a comprehensive historical timeline array containing all logged tickets.
  */
 const fetchAllTickets = async () => {
-  return supportMessageRepository.findAllSortedByNewest();
+  const tickets = await supportMessageRepository.findAllSortedByNewest();
+
+  //  Format the individual tickets array components uniformly
+  return tickets.map(toSupportMessageDTO);
 };
 
 /**
@@ -86,17 +96,17 @@ const resolveTicket = async (ticketId) => {
   }
 
   // Execute non-blocking out-of-band network calls to keep primary endpoint response cycles lightning fast
-  sendSupportResolvedEmail({
-    toEmail: ticket.email,
-    subject: ticket.subject,
-  }).catch((emailTransmissionError) => {
-    console.error(
-      "⚠️ Asynchronous support resolution notification email delivery failed:",
-      emailTransmissionError.message,
-    );
-  });
+  fireAndForgetEmail(
+    () =>
+      sendSupportResolvedEmail({
+        toEmail: ticket.email,
+        subject: ticket.subject,
+      }),
+    "Help Center Support Ticket Resolved Status Update",
+  );
 
-  return ticket;
+  //  Map out explicit schema variables before transmitting fields to administrative routes
+  return toSupportMessageDTO(ticket);
 };
 
 module.exports = {

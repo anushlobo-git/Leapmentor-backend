@@ -6,7 +6,7 @@ const multer = require("multer");
 const storage = multer.memoryStorage();
 
 // ✅ Allowed MIME types
-const ALLOWED_MIME_TYPES = [
+const ALLOWED_MIME_TYPES = new Set([
   // PDF
   "application/pdf",
   // Images
@@ -26,29 +26,30 @@ const ALLOWED_MIME_TYPES = [
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   // Text
   "text/plain",
-];
+]);
 
 // ✅ Readable file type label for UI
 const getFileType = (mimetype) => {
-  if (mimetype === "application/pdf")                    return "pdf";
-  if (mimetype.startsWith("image/"))                     return "image";
-  if (mimetype.includes("word"))                         return "doc";
-  if (mimetype.includes("presentation"))                 return "ppt";
-  if (mimetype.includes("excel") || mimetype.includes("spreadsheet")) return "excel";
-  if (mimetype === "text/plain")                         return "txt";
+  if (mimetype === "application/pdf") return "pdf";
+  if (mimetype.startsWith("image/")) return "image";
+  if (mimetype.includes("word")) return "doc";
+  if (mimetype.includes("presentation")) return "ppt";
+  if (mimetype.includes("excel") || mimetype.includes("spreadsheet"))
+    return "excel";
+  if (mimetype === "text/plain") return "txt";
   return "other";
 };
 
 // ✅ File filter — reject unsupported types immediately
 const fileFilter = (req, file, cb) => {
-  if (ALLOWED_MIME_TYPES.includes(file.mimetype)) {
+  if (ALLOWED_MIME_TYPES.has(file.mimetype)) {
     cb(null, true);
   } else {
     cb(
       new Error(
-        `File type not allowed. Supported: PDF, Images, Word, PowerPoint, Excel, Text`
+        `File type not allowed. Supported: PDF, Images, Word, PowerPoint, Excel, Text`,
       ),
-      false
+      false,
     );
   }
 };

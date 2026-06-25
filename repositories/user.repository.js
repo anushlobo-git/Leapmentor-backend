@@ -29,10 +29,10 @@ const findUsersByName = (name) =>
     .lean();
 
 /**
- * Count total number of all user entries across the model schema.
+ * Count active user entries across the model schema (excludes soft-deleted items).
  * @returns {Promise<number>}
  */
-const countAllUsers = () => User.countDocuments();
+const countAllUsers = () => User.countDocuments({ isDeleted: { $ne: true } });
 
 /**
  * Count matching entries using a custom filter query while ignoring soft deletions.
@@ -95,18 +95,20 @@ const findUserById = (id) =>
     .lean();
 
 /**
- * Find an active live Mongoose entity object matching an ID.
+ * Find an active live Mongoose entity object matching an ID regardless of soft-delete state.
  * @param {string} id - Main entity document lookup key.
  * @returns {Promise<Object|null>} Mutable tracking document reference.
  */
-const findUserByIdRaw = (id) => User.findById(id);
+const findUserByIdRaw = (id) =>
+  User.findById(id).setOptions({ ignoreIsDeleted: true });
 
 /**
- * Perform a hard-removal operation on an explicit document index.
+ * Perform a hard-removal operation on an explicit document index, overriding soft-delete filters.
  * @param {string} id - Main entity document lookup key.
  * @returns {Promise<Object|null>}
  */
-const deleteUserById = (id) => User.findByIdAndDelete(id);
+const deleteUserById = (id) =>
+  User.findByIdAndDelete(id, { ignoreIsDeleted: true });
 
 /**
  * Update access validation indices to apply an administrative soft-delete block.
@@ -141,12 +143,13 @@ const findUserByEmailWithPassword = (email) =>
   User.findOne({ email }).select("+password");
 
 /**
- * Find a single profile index by ID including its hidden password hash string.
- * @param {string} userId - Main entity document lookup key.
- * @returns {Promise<Object|null>}
+ * Finds a user account by email address.
+ * @param {string} email
+ * @returns {Promise<User|null>}
  */
-const findUserByIdWithPassword = (userId) =>
-  User.findById(userId).select("+password");
+const findUserByEmail = (email) => {
+  return User.findOne({ email });
+};
 
 /**
  * Instantiate and persist a brand-new user record index within the schema.
@@ -166,14 +169,6 @@ const findUsersByNameSearch = (search) =>
     .lean();
 
 
-/**
- * Finds a user account by email address.
- * @param {string} email
- * @returns {Promise<User|null>}
- */
-const findUserByEmail = (email) => {
-  return User.findOne({ email });
-};
 
 /**
  * Persists modifications on a specific user document instance.
@@ -190,13 +185,47 @@ const saveUser = (userInstance) => {
  * @param {Array<string>} roles - Array of target user role filters.
  * @returns {Promise<Array<Object>>} Lean list of matching user IDs.
  */
-const findUsersByRoleAndNameRegex = (namePattern, roles) => {
-  return User.find({
-    name: { $regex: namePattern, $options: "i" },
-    roles: { $in: roles },
-  })
-    .select("_id name")
-    .lean();
+const findUsersByRoleAndNameRegex = async (namePattern, roles) => {
+  const pipeline = [
+    {
+      $search: {
+        index: "user_name_search",
+        compound: {
+          must: [
+            {
+              autocomplete: {
+                query: namePattern,
+                path: "name",
+                fuzzy: { maxEdits: 1, prefixLength: 1 },
+              },
+            },
+          ],
+          filter: [{ equals: { path: "isDeleted", value: false } }],
+        },
+      },
+    },
+    {
+      $match: {
+        roles: { $in: roles },
+      },
+    },
+    {
+      $project: { _id: 1, name: 1 },
+    },
+    { $limit: 20 },
+  ];
+
+  try {
+    return await User.aggregate(pipeline);
+  } catch {
+    // Fallback to regex if Atlas index isn't ready
+    return User.find({
+      name: { $regex: namePattern, $options: "i" },
+      roles: { $in: roles },
+    })
+      .select("_id name")
+      .lean();
+  }
 };
 
 module.exports = {
@@ -214,7 +243,6 @@ module.exports = {
   unblockUser,
   findUserByEmail,
   findUserByEmailWithPassword,
-  findUserByIdWithPassword,
   createUser,
   saveUser,
   findUsersByNameSearch,

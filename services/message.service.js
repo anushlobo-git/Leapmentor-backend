@@ -5,6 +5,7 @@
 const AppError = require("../utils/AppError");
 const messageRepository = require("../repositories/message.repository");
 const connectRequestRepository = require("../repositories/connectRequest.repository");
+const { toMessageDTO } = require("../mappers/message.mapper");
 
 // Upper-case Domain Architecture Constants
 const PAGINATION_DEFAULT_PAGE = 1;
@@ -21,18 +22,14 @@ const PAGINATION_MAX_LIMIT_CAP = 50;
  * @throws {AppError} 403 | 404
  * @returns {Promise<Object>} Compiled array streams with page-dimension properties parameters tracking.
  */
-const getChatHistory = async (
-  connectRequestId,
-  currentUserId,
-  queryOptions,
-) => {
+const getChatHistory = async (connectRequestId, currentUserId, queryOptions) => {
   const page = Math.max(
     PAGINATION_DEFAULT_PAGE,
-    parseInt(queryOptions.page, 10) || PAGINATION_DEFAULT_PAGE,
+    Number.parseInt(queryOptions.page, 10) || PAGINATION_DEFAULT_PAGE,
   );
   const limit = Math.min(
     PAGINATION_MAX_LIMIT_CAP,
-    parseInt(queryOptions.limit, 10) || PAGINATION_DEFAULT_LIMIT,
+    Number.parseInt(queryOptions.limit, 10) || PAGINATION_DEFAULT_LIMIT,
   );
   const skip = (page - 1) * limit;
 
@@ -61,16 +58,18 @@ const getChatHistory = async (
   ]);
 
   // Execute clean state mutations flagging active incoming records as read asynchronously
+  // Execute clean state mutations flagging active incoming records as read asynchronously
   await messageRepository.markMessagesAsRead(connectRequestId, currentUserId);
 
   return {
-    messages,
+    //  Map individual message objects cleanly through the text DTO layer
+    messages: messages.map(toMessageDTO),
     totalCount,
     page,
     limit,
     hasMore: skip + messages.length < totalCount,
   };
-};
+};;
 
 /**
  * Pulls total outstanding unread text aggregates.

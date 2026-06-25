@@ -8,7 +8,6 @@ const authenticate = async (req, res, next) => {
   try {
     const token = req.headers.authorization?.split(" ")[1]; // Bearer <token>
 
-
     if (!token) return res.status(401).json({ message: "No token provided" });
 
     const decoded = jwt.verify(token, process.env.JWT_ACCESS_SECRET);
@@ -16,15 +15,15 @@ const authenticate = async (req, res, next) => {
     // Fetch fresh from DB (Bypass the isDeleted filter so we can check it manually!)
     const user = await User.findById(decoded.id)
       .select("-password")
-      .setOptions({ ignoreIsDeleted: true }); 
-      
+      .setOptions({ ignoreIsDeleted: true });
+
     if (!user) return res.status(401).json({ message: "User not found" });
 
-    // ACTIVE SESSION KILLER 
+    // ACTIVE SESSION KILLER
     // If the admin blocked them while they were logged in, this stops their next request!
     if (user.isDeleted) {
-      return res.status(403).json({ 
-        message: "Your account has been blocked by an administrator." 
+      return res.status(403).json({
+        message: "Your account has been blocked by an administrator.",
       });
     }
 
@@ -38,7 +37,7 @@ const authenticate = async (req, res, next) => {
     });
 
     next();
-  } catch (err) {
+  } catch {
     return res.status(401).json({ message: "Invalid or expired token" });
   }
 };
@@ -55,8 +54,8 @@ const requireRole = (...roles) => {
     if (!hasRole) {
       return res.status(403).json({
         message: "Access denied: insufficient role",
-        required: roles,       
-        userRoles,             
+        required: roles,
+        userRoles,
       });
     }
     next();

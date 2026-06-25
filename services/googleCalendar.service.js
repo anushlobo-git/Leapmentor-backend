@@ -5,6 +5,7 @@
 const { google } = require("googleapis");
 const AppError = require("../utils/AppError");
 const availabilityRepository = require("../repositories/availability.repository");
+const logger = require("../config/logger");
 
 // Upper-case Domain Constants
 const SCOPES = ["https://www.googleapis.com/auth/calendar.readonly"];
@@ -50,6 +51,7 @@ const handleAuthCallback = async (code, state) => {
     const decoded = JSON.parse(Buffer.from(state, "base64").toString());
     userId = decoded.userId;
   } catch (parseError) {
+    logger.error("Failed to parse state payload", parseError);
     throw new AppError("Invalid state payload context configuration", 400);
   }
 
@@ -172,7 +174,7 @@ const getCalendarEvents = async ({ mentorId, startDate, endDate }) => {
       }));
       allEvents.push(...items);
     } catch (ignoreError) {
-      // Gracefully continue tracking across remaining alternative authorized matrices
+      logger.warn("Failed to fetch calendar items, continuing", ignoreError);
     }
   }
 
@@ -208,10 +210,9 @@ const _bindTokenRefreshListener = (client, currentTokens, mentorId) => {
         googleCalendarToken: JSON.stringify(mergedTokens),
       })
       .catch((refreshErr) =>
-        console.error(
-          "❌ Token automated rewrite storage process failed:",
-          refreshErr.message,
-        ),
+        logger.error("Token refresh storage update failed", {
+          message: refreshErr.message,
+        }),
       );
   });
 };

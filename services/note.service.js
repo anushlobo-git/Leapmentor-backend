@@ -5,24 +5,41 @@
 const streamifier = require("streamifier");
 const { cloudinary } = require("../config/cloudinary");
 const AppError = require("../utils/AppError");
+const logger = require("../config/logger");
 
 // Repositories
 const noteRepository = require("../repositories/note.repository");
 const connectRequestRepository = require("../repositories/connectRequest.repository");
-
+const { toNoteDTO } = require("../mappers/note.mapper");
 // Utilities
 const { getFileType } = require("../middleware/upload.middleware");
 
 // Upper-case Domain Constants
 const SESSION_STATUS_ONGOING = "ongoing";
 const SESSION_STATUS_COMPLETED = "completed";
-const ALLOWED_SESSION_STATUSES = [
+const ALLOWED_SESSION_STATUSES = new Set([
   SESSION_STATUS_ONGOING,
   SESSION_STATUS_COMPLETED,
-];
+]);
 const ROLE_MENTOR = "mentor";
 const ROLE_MENTEE = "mentee";
 const CLOUDINARY_RESOURCE_TYPE_RAW = "raw";
+
+/**
+ * Helper: Extracts a meaningful error message from various error types.
+ * @private
+ * @param {Error|Object|string} error - The error to extract message from.
+ * @returns {string} Formatted error message.
+ */
+const extractErrorMessage = (error) => {
+  if (error instanceof Error) {
+    return error.message;
+  }
+  if (typeof error === "object") {
+    return JSON.stringify(error);
+  }
+  return String(error);
+};
 
 /**
  * Internal Helper: Verifies that the current user belongs to the targeted connection session.
@@ -34,7 +51,7 @@ const verifySessionAccess = async (connectRequestId, userId) => {
     throw new AppError("Target connection session request not found", 404);
   }
 
-  if (!ALLOWED_SESSION_STATUSES.includes(request.status)) {
+  if (!ALLOWED_SESSION_STATUSES.has(request.status)) {
     throw new AppError(
       "Cannot manipulate assets for an inactive connection session context",
       400,
@@ -66,7 +83,10 @@ const uploadToCloudinaryProvider = (buffer, customOptions) => {
     const stream = cloudinary.uploader.upload_stream(
       customOptions,
       (error, uploadResult) => {
-        if (error) return reject(error);
+        if (error) {
+          const message = extractErrorMessage(error);
+          return reject(new Error(message));
+        }
         resolve(uploadResult);
       },
     );
@@ -142,7 +162,9 @@ const processNoteUpload = async (
     isPrivate,
   });
 
-  return noteRepository.findByIdWithUploaderLean(note._id);
+  //  Wrap the populated record with the DTO serializer layer before returning
+  const savedNote = await noteRepository.findByIdWithUploaderLean(note._id);
+  return toNoteDTO(savedNote);
 };
 
 /**
@@ -150,7 +172,11 @@ const processNoteUpload = async (
  */
 const getSharedNotesList = async (connectRequestId, userId) => {
   await verifySessionAccess(connectRequestId, userId);
-  return noteRepository.findSharedByConnectRequest(connectRequestId);
+  const notes =
+    await noteRepository.findSharedByConnectRequest(connectRequestId);
+
+  // Enforce data formatting rules down across the entire collection array
+  return notes.map(toNoteDTO);
 };
 
 /**
@@ -158,10 +184,13 @@ const getSharedNotesList = async (connectRequestId, userId) => {
  */
 const getPrivateNotesList = async (connectRequestId, userId) => {
   await verifySessionAccess(connectRequestId, userId);
-  return noteRepository.findPrivateByConnectRequestAndUser(
+  const notes = await noteRepository.findPrivateByConnectRequestAndUser(
     connectRequestId,
     userId,
   );
+
+  // Enforce data formatting rules down across the entire collection array
+  return notes.map(toNoteDTO);
 };
 
 /**
@@ -190,12 +219,10 @@ const removeNoteRecord = async (noteId, userId) => {
     await cloudinary.uploader.destroy(note.publicId, {
       resource_type: CLOUDINARY_RESOURCE_TYPE_RAW,
     });
-  } catch (cloudinaryDeleteWarning) {
-    // Non-blocking log trace ensures orphan storage structures do not hold down structural tracking deletions
-    console.warn(
-      "Cloudinary file unlinking warning emitted:",
-      cloudinaryDeleteWarning.message,
-    );
+  } catch (error_) {
+    logger.warn("Cloudinary file unlinking warning", {
+      message: error_.message,
+    });
   }
 
   await noteRepository.deleteById(noteId);

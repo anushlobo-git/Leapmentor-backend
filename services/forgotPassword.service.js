@@ -2,9 +2,11 @@
  * @fileoverview Forgot Password Service
  * @description Handles core business rules for secure identity authentication verification, OTP generation, and safe cryptographic updates.
  */
+const crypto = require("node:crypto");
 const bcrypt = require("bcryptjs");
-const nodemailer = require("nodemailer");
 const AppError = require("../utils/AppError");
+// utils/sendWithRetry is now the only dependency needed
+const sendWithRetry = require("../utils/sendWithRetry");
 
 // Repositories
 const userRepo = require("../repositories/user.repository");
@@ -18,16 +20,22 @@ const AMBIGUOUS_SUCCESS_MESSAGE = "If this email exists, an OTP has been sent.";
 const INITIAL_OTP_EXPIRY_MS = 10 * 60 * 1000; // 10 minutes
 const EXTENDED_VERIFIED_EXPIRY_MS = 5 * 60 * 1000; // 5 minutes
 
-// Configuration Mailer Transporter
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST,
-  port: Number(process.env.SMTP_PORT || 587),
-  secure: false,
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
-  },
-});
+/**
+ * Helper: Generates a cryptographically secure 6-digit OTP.
+ * @private
+ * @returns {string} A random 6-digit number as a string.
+ */
+const generateSecureOtp = () => {
+  const randomBuffer = crypto.getRandomValues(new Uint8Array(6));
+  const randomNum =
+    randomBuffer[0] * 10000 +
+    (randomBuffer[1] % 10) * 1000 +
+    (randomBuffer[2] % 10) * 100 +
+    (randomBuffer[3] % 10) * 10 +
+    (randomBuffer[4] % 10);
+  return String(randomNum % 1000000).padStart(6, "0");
+};
+
 
 /**
  * Generates and delivers an authentication OTP string to requested user profiles.
@@ -51,7 +59,7 @@ const sendForgotPasswordOtp = async (email) => {
 
   await verificationTokenRepo.deleteTokensByUserId(user._id);
 
-  const otpPlain = String(Math.floor(100000 + Math.random() * 900000));
+  const otpPlain = generateSecureOtp();
   const otpHash = await bcrypt.hash(otpPlain, BCRYPT_SALT_ROUNDS);
   const expiresAt = new Date(Date.now() + INITIAL_OTP_EXPIRY_MS);
 
@@ -61,7 +69,7 @@ const sendForgotPasswordOtp = async (email) => {
     expiresAt,
   });
 
-  await transporter.sendMail({
+  await sendWithRetry({
     from: process.env.FROM_EMAIL,
     to: user.email,
     subject: "LeapMentor — Reset your password",
@@ -80,7 +88,9 @@ const sendForgotPasswordOtp = async (email) => {
         </div>
       </div>
     `,
-  });
+  },
+  "Forgot Password OTP"  // label for logs
+  );
 
   return { message: AMBIGUOUS_SUCCESS_MESSAGE };
 };
@@ -102,7 +112,7 @@ const verifyResetOtp = async (email, otp) => {
   if (!user) throw new AppError("Invalid OTP", 400);
 
   const record = await verificationTokenRepo.findTokenByUserId(user._id);
-  if (!record || !record.otp) {
+  if (!record?.otp) {
     throw new AppError(
       "No reset request found. Please request a new OTP.",
       400,
@@ -151,7 +161,7 @@ const resetPassword = async ({ email, otp, newPassword }) => {
   if (!user) throw new AppError("Invalid request", 400);
 
   const record = await verificationTokenRepo.findTokenByUserId(user._id);
-  if (!record || !record.otp)
+  if (!record?.otp)
     throw new AppError("Session expired. Please start over.", 400);
 
   if (record.expiresAt < new Date()) {

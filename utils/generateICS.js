@@ -30,11 +30,11 @@ const generateVEVENT = ({
   timezone,
   message,
 }) => {
-  const dtStart     = toICSDate(date, startTime);
-  const dtEnd       = toICSDate(date, endTime);
-  const dtStamp     = nowICSDate();
-  const uid         = generateUID(requestId, slotIndex);
-  const summary     = `LeapMentor Session: ${menteeName} with ${mentorName}`;
+  const dtStart = toICSDate(date, startTime);
+  const dtEnd = toICSDate(date, endTime);
+  const dtStamp = nowICSDate();
+  const uid = generateUID(requestId, slotIndex);
+  const summary = `LeapMentor Session: ${menteeName} with ${mentorName}`;
   const description = message
     ? `Mentorship session on LeapMentor.\\n\\nMessage from ${menteeName}: ${message}`
     : `Mentorship session on LeapMentor between ${menteeName} and ${mentorName}.`;
@@ -47,7 +47,7 @@ const generateVEVENT = ({
     `DTEND;TZID=${timezone}:${dtEnd}`,
     `SUMMARY:${summary}`,
     `DESCRIPTION:${description}`,
-    `ORGANIZER;CN=LeapMentor:mailto:${process.env.FROM_EMAIL?.match(/<(.+)>/)?.[1] || process.env.SMTP_USER}`,
+    `ORGANIZER;CN=LeapMentor:mailto:${process.env.FROM_EMAIL?.match(/<([^>]+)>/)?.[1] || process.env.SMTP_USER}`,
     `ATTENDEE;CN=${mentorName};ROLE=REQ-PARTICIPANT;RSVP=TRUE:mailto:${mentorEmail}`,
     `ATTENDEE;CN=${menteeName};ROLE=REQ-PARTICIPANT;RSVP=TRUE:mailto:${menteeEmail}`,
     "STATUS:CONFIRMED",
@@ -89,24 +89,22 @@ const generateICS = ({
   message = "",
 }) => {
   // ── Normalise: support both slots[] and legacy single slot ─
-  const allSlots = slots.length > 0
-    ? slots
-    : [{ date, startTime, endTime }];
+  const allSlots = slots.length > 0 ? slots : [{ date, startTime, endTime }];
 
   const vevents = allSlots.map((slot, i) =>
     generateVEVENT({
       requestId,
-      slotIndex:  i,
+      slotIndex: i,
       mentorName,
       mentorEmail,
       menteeName,
       menteeEmail,
-      date:       slot.date,
-      startTime:  slot.startTime,
-      endTime:    slot.endTime,
+      date: slot.date,
+      startTime: slot.startTime,
+      endTime: slot.endTime,
       timezone,
       message,
-    })
+    }),
   );
 
   const ics = [

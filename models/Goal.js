@@ -5,51 +5,63 @@ const goalSchema = new mongoose.Schema(
     connectRequest: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "ConnectRequest",
-      required: true,
+      required: [true, "connectRequest field is required"],
       unique: true, // one goal per session
     },
     mentor: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
-      required: true,
+      required: [true, "mentor reference is required"],
     },
     mentee: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
-      required: true,
+      required: [true, "mentee reference is required"],
     },
     title: {
       type: String,
-      required: true,
+      required: [true, "title is required"],
       trim: true,
-      maxlength: 200,
+      maxlength: [200, "Title cannot exceed 200 characters"],
     },
     description: {
       type: String,
       trim: true,
-      maxlength: 1000,
+      maxlength: [1000, "Description cannot exceed 1000 characters"],
       default: "",
     },
     startDate: {
-      type: String, // "YYYY-MM-DD" — consistent with your slot date format
+      type: String,
+      trim: true,
+      maxlength: 10, // "YYYY-MM-DD"
+      match: [/^\d{4}-\d{2}-\d{2}$/, "startDate must be in YYYY-MM-DD format"],
       default: null,
     },
     endDate: {
-      type: String, // "YYYY-MM-DD"
+      type: String,
+      trim: true,
+      maxlength: 10, // "YYYY-MM-DD"
+      match: [/^\d{4}-\d{2}-\d{2}$/, "endDate must be in YYYY-MM-DD format"],
       default: null,
     },
     status: {
       type: String,
-      enum: ["active", "completed", "abandoned"],
+      enum: {
+        values: ["active", "completed", "abandoned"],
+        message: "{VALUE} is not a valid status option",
+      },
       default: "active",
+      trim: true,
     },
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
-      required: true,
+      required: [true, "createdBy reference identification is required"],
     },
   },
-  { timestamps: true }
+  {
+    timestamps: true,
+  },
 );
 
 goalSchema.index({ mentor: 1 });

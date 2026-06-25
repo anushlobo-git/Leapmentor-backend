@@ -13,15 +13,14 @@ const AppError = require("../utils/AppError");
 const mentorSearchRepository = require("../repositories/mentor.repository");
 const userRepository = require("../repositories/user.repository");
 const logger = require("../config/logger");
+const { toMentorProfileDTO } = require("../mappers/mentorProfile.mapper");
 
 const ROLE_MENTOR = "mentor";
 const ATLAS_SEARCH_INDEX = "mentor_search";
-const ATLAS_AUTOCOMPLETE_INDEX = "mentor_autocomplete";
 const DEFAULT_PAGE_MINIMUM = 1;
 const CONFIG_MAX_LIMIT = 20;
 const CONFIG_DEFAULT_LIMIT = 6;
 const ATLAS_PIPELINE_CAP = 200;
-const AUTOCOMPLETE_PIPELINE_LIMIT = 8;
 const EXTRA_NAME_MATCH_SCORE = 2;
 
 /**
@@ -48,7 +47,7 @@ const getPlainList = async (pageNum, limitNum, skip) => {
 
   const totalPages = Math.ceil(totalCount / limitNum);
   return {
-    mentors,
+    mentors: mentors.map(toMentorProfileDTO),
     pagination: {
       totalCount,
       totalPages,
@@ -82,10 +81,10 @@ const executeFallbackSearch = async (queryParams) => {
     limit = 6,
   } = queryParams;
 
-  const pageNum = Math.max(DEFAULT_PAGE_MINIMUM, parseInt(page, 10));
+  const pageNum = Math.max(DEFAULT_PAGE_MINIMUM, Number.parseInt(page, 10));
   const limitNum = Math.min(
     CONFIG_MAX_LIMIT,
-    Math.max(DEFAULT_PAGE_MINIMUM, parseInt(limit, 10)),
+    Math.max(DEFAULT_PAGE_MINIMUM, Number.parseInt(limit, 10)),
   );
   const skip = (pageNum - 1) * limitNum;
 
@@ -137,7 +136,7 @@ const executeFallbackSearch = async (queryParams) => {
   ]);
 
   return {
-    mentors,
+    mentors: mentors.map(toMentorProfileDTO),
     pagination: {
       totalCount,
       totalPages: Math.ceil(totalCount / limitNum),
@@ -150,6 +149,219 @@ const executeFallbackSearch = async (queryParams) => {
 /**
  * Searches and filters mentor registries via unified MongoDB Atlas indexing.
  * Includes auto-reverting fallback routes to eliminate blank responses.
+ * @async
+ * @function queryMentors
+ * @param {Object} queryParams - Search terms and filter metrics from the request query string.
+ * @returns {Promise<Object>} Structured array payload matching schema requirements.
+ */
+// ─────────────────────────────────────────────────────────────────────────────
+// Private helpers — extracted to reduce cognitive complexity of queryMentors
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Parses and clamps page + limit query parameters into safe integers.
+ * @param {*} page  - Raw page value from query string.
+ * @param {*} limit - Raw limit value from query string.
+ * @returns {{ pageNum: number, limitNum: number, skip: number }}
+ */
+const parsePagination = (page, limit) => {
+  const pageNum = Math.max(DEFAULT_PAGE_MINIMUM, Number.parseInt(page, 10));
+  const limitNum = Math.min(
+    CONFIG_MAX_LIMIT,
+    Math.max(DEFAULT_PAGE_MINIMUM, Number.parseInt(limit, 10)),
+  );
+  return { pageNum, limitNum, skip: (pageNum - 1) * limitNum };
+};
+
+/**
+ * Validates that minPrice does not exceed maxPrice when both are supplied.
+ * @param {*} minPrice - Lower bound from query string.
+ * @param {*} maxPrice - Upper bound from query string.
+ * @throws {AppError} When minPrice > maxPrice.
+ */
+const validatePriceRange = (minPrice, maxPrice) => {
+  if (minPrice === undefined || maxPrice === undefined) return;
+  const min = Number(minPrice);
+  const max = Number(maxPrice);
+  if (!Number.isNaN(min) && !Number.isNaN(max) && min > max) {
+    throw new AppError("minPrice cannot exceed maxPrice.", 400);
+  }
+};
+
+/**
+ * Builds the Atlas Search compound object (filter / must / should clauses).
+ * @param {string} skill     - Skill search term.
+ * @param {string} industry  - Industry filter term.
+ * @param {*}      minPrice  - Minimum hourly rate filter.
+ * @param {*}      maxPrice  - Maximum hourly rate filter.
+ * @param {*}      minRating - Minimum average rating filter.
+ * @returns {{ compound: Object, filterClauses: Array }}
+ */
+const buildAtlasCompound = (skill, industry, minPrice, maxPrice, minRating) => {
+  const filterClauses = [
+    { equals: { path: "isProfilePublished", value: true } },
+    { equals: { path: "isProfileComplete", value: true } },
+  ];
+  const mustClauses = [];
+  const shouldClauses = [];
+
+  if (skill.trim()) {
+    shouldClauses.push(
+      // ← RESTORE autocomplete (partial word matching)
+      {
+        autocomplete: {
+          query: skill.trim(),
+          path: "skills",
+          fuzzy: { maxEdits: 1, prefixLength: 1 },
+          score: { boost: { value: 10 } },
+        },
+      },
+      {
+        autocomplete: {
+          query: skill.trim(),
+          path: "currentRole",
+          fuzzy: { maxEdits: 1, prefixLength: 1 },
+          score: { boost: { value: 5 } },
+        },
+      },
+      {
+        text: {
+          query: skill.trim(),
+          path: "skills",
+          fuzzy: { maxEdits: 2, prefixLength: 1 },
+          score: { boost: { value: 8 } },
+        },
+      },
+      {
+        text: {
+          query: skill.trim(),
+          path: ["industry", "company"],
+          fuzzy: { maxEdits: 1, prefixLength: 1 },
+          score: { boost: { value: 3 } },
+        },
+      },
+    );
+  }
+
+  if (industry.trim()) {
+    mustClauses.push({
+      text: {
+        query: industry.trim(),
+        path: "industry",
+        fuzzy: { maxEdits: 1 },
+      },
+    });
+  }
+
+  if (minPrice !== undefined || maxPrice !== undefined) {
+    const range = { path: "hourlyRate" };
+    if (minPrice !== undefined) range.gte = Number(minPrice);
+    if (maxPrice !== undefined) range.lte = Number(maxPrice);
+    filterClauses.push({ range });
+  }
+
+  if (minRating !== undefined) {
+    filterClauses.push({
+      range: { path: "avgRating", gte: Number(minRating) },
+    });
+  }
+
+  const compound = { filter: filterClauses };
+  if (mustClauses.length > 0) compound.must = mustClauses;
+  if (shouldClauses.length > 0) {
+    compound.should = shouldClauses;
+    compound.minimumShouldMatch = 1; // ← RESTORE this
+  }
+
+  // ← RESTORE wildcard fallback for filter-only queries
+  if (mustClauses.length === 0 && shouldClauses.length === 0) {
+    compound.must = [{ exists: { path: "isProfilePublished" } }];
+  }
+
+  return compound;
+};
+/**
+ * Builds the post-search $match stage for experience range filtering.
+ * @param {*} minExperience - Minimum years of experience.
+ * @param {*} maxExperience - Maximum years of experience.
+ * @returns {Object} MongoDB match expression (may be empty).
+ */
+const buildExperienceMatch = (minExperience, maxExperience) => {
+  if (minExperience === undefined && maxExperience === undefined) return {};
+  const yearsOfExperience = {};
+  if (minExperience !== undefined) yearsOfExperience.$gte = Number(minExperience);
+  if (maxExperience !== undefined) yearsOfExperience.$lte = Number(maxExperience);
+  return { yearsOfExperience };
+};
+
+/**
+ * Resolves the $match filter stage used after $unwind in the Atlas pipeline.
+ * Ensures only relevant docs are kept depending on which search terms were used.
+ * @param {string}  skill                   - Skill search term.
+ * @param {Set|null} nameMatchedProfileUserIds - Set of user IDs matched by name, or null.
+ * @returns {Object} MongoDB $match expression.
+ */
+const buildScoreMatchStage = (skill) => {
+  // Only filter by score when skill was searched
+  // Filter-only queries (price/rating/industry) can have score = 0 legitimately
+  if (skill.trim()) return { searchScore: { $gt: 0 } };
+  return {}; // no score filter for filter-only or name-only searches
+};
+
+/**
+ * Merges name-matched mentor profiles into Atlas Search results.
+ * Appends profiles missing from Atlas results and filters by name when no skill is queried.
+ * @param {Array}    results                 - Current Atlas pipeline results.
+ * @param {Set|null} nameMatchedProfileUserIds - Set of user IDs matched by name regex.
+ * @param {string}   skill                   - Skill search term (may be empty).
+ * @param {Object}   expMatch                - Experience range filter.
+ * @returns {Promise<Array>} Merged and filtered results array.
+ */
+const mergeNameMatches = async (results, nameMatchedProfileUserIds, skill, expMatch) => {
+  if (!nameMatchedProfileUserIds || nameMatchedProfileUserIds.size === 0) {
+    return results;
+  }
+
+  const atlasResultUserIds = new Set(results.map((r) => r.user._id.toString()));
+  const missingIds = [...nameMatchedProfileUserIds].filter((id) => !atlasResultUserIds.has(id));
+
+  let merged = results;
+
+  if (missingIds.length > 0) {
+    const extraFilter = {
+      user: { $in: missingIds },
+      isProfilePublished: true,
+      isProfileComplete: true,
+      ...expMatch,
+    };
+    const extraProfiles = await mentorSearchRepository.findMentorsWithUserPopulation(
+      extraFilter,
+      { avgRating: -1 },
+      0,
+      ATLAS_PIPELINE_CAP,
+    );
+    const withScore = extraProfiles.map((p) => ({
+      ...p,
+      searchScore: EXTRA_NAME_MATCH_SCORE,
+      user: { _id: p.user._id, name: p.user.name, email: p.user.email },
+    }));
+    merged = [...withScore, ...results];
+  }
+
+  // When only searching by name (no skill), restrict results to name-matched profiles only
+  if (!skill.trim()) {
+    merged = merged.filter((r) => nameMatchedProfileUserIds.has(r.user._id.toString()));
+  }
+
+  return merged;
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Searches and filters mentor registries via unified MongoDB Atlas indexing.
+ * Includes auto-reverting fallback routes to eliminate blank responses.
+ * Cognitive Complexity: ≤ 15 (refactored from 34).
  * @async
  * @function queryMentors
  * @param {Object} queryParams - Search terms and filter metrics from the request query string.
@@ -169,27 +381,16 @@ const queryMentors = async (queryParams) => {
     limit = CONFIG_DEFAULT_LIMIT,
   } = queryParams;
 
-  const pageNum = Math.max(DEFAULT_PAGE_MINIMUM, parseInt(page, 10));
-  const limitNum = Math.min(
-    CONFIG_MAX_LIMIT,
-    Math.max(DEFAULT_PAGE_MINIMUM, parseInt(limit, 10)),
-  );
-  const skip = (pageNum - 1) * limitNum;
+  const { pageNum, limitNum, skip } = parsePagination(page, limit);
 
-  if (minPrice !== undefined && maxPrice !== undefined) {
-    const min = Number(minPrice);
-    const max = Number(maxPrice);
-    if (!isNaN(min) && !isNaN(max) && min > max) {
-      throw new AppError("minPrice cannot exceed maxPrice.", 400);
-    }
-  }
+  validatePriceRange(minPrice, maxPrice); // throws AppError if invalid
 
-  const hasQuery = !!(skill.trim() || name.trim());
+  const hasQuery   = !!(skill.trim() || name.trim());
   const hasFilters = !!(
-    industry.trim() ||
-    minPrice !== undefined ||
-    maxPrice !== undefined ||
-    minRating !== undefined ||
+    industry.trim()         ||
+    minPrice   !== undefined ||
+    maxPrice   !== undefined ||
+    minRating  !== undefined ||
     minExperience !== undefined ||
     maxExperience !== undefined
   );
@@ -200,86 +401,18 @@ const queryMentors = async (queryParams) => {
   }
 
   try {
+    // Resolve name-matched user IDs via regex (only when name term is present)
     let nameMatchedProfileUserIds = null;
     if (name.trim()) {
       const matchingUsers = await userRepository.findUsersByRoleAndNameRegex(
         name.trim(),
         [ROLE_MENTOR],
       );
-      nameMatchedProfileUserIds = new Set(
-        matchingUsers.map((u) => u._id.toString()),
-      );
+      nameMatchedProfileUserIds = new Set(matchingUsers.map((u) => u._id.toString()));
     }
 
-    const filterClauses = [
-      { equals: { path: "isProfilePublished", value: true } },
-      { equals: { path: "isProfileComplete", value: true } },
-    ];
-    const mustClauses = [];
-    const shouldClauses = [];
-
-    if (skill.trim()) {
-      shouldClauses.push({
-        autocomplete: {
-          query: skill.trim(),
-          path: "skills",
-          fuzzy: { maxEdits: 1 },
-          score: { boost: { value: 10 } },
-        },
-      });
-      shouldClauses.push({
-        autocomplete: {
-          query: skill.trim(),
-          path: "currentRole",
-          fuzzy: { maxEdits: 1 },
-          score: { boost: { value: 5 } },
-        },
-      });
-      shouldClauses.push({
-        text: {
-          query: skill.trim(),
-          path: ["industry", "company"],
-          fuzzy: { maxEdits: 1 },
-          score: { boost: { value: 3 } },
-        },
-      });
-    }
-
-    if (industry.trim()) {
-      mustClauses.push({
-        text: {
-          query: industry.trim(),
-          path: "industry",
-          fuzzy: { maxEdits: 1 },
-        },
-      });
-    }
-
-    if (minPrice !== undefined || maxPrice !== undefined) {
-      const rangeObject = { range: { path: "hourlyRate" } };
-      if (minPrice !== undefined) rangeObject.range.gte = Number(minPrice);
-      if (maxPrice !== undefined) rangeObject.range.lte = Number(maxPrice);
-      filterClauses.push(rangeObject);
-    }
-
-    if (minRating !== undefined) {
-      filterClauses.push({
-        range: { path: "avgRating", gte: Number(minRating) },
-      });
-    }
-
-    const expMatch = {};
-    if (minExperience !== undefined || maxExperience !== undefined) {
-      expMatch.yearsOfExperience = {};
-      if (minExperience !== undefined)
-        expMatch.yearsOfExperience.$gte = Number(minExperience);
-      if (maxExperience !== undefined)
-        expMatch.yearsOfExperience.$lte = Number(maxExperience);
-    }
-
-    const compound = { filter: filterClauses };
-    if (mustClauses.length > 0) compound.must = mustClauses;
-    if (shouldClauses.length > 0) compound.should = shouldClauses;
+    const compound = buildAtlasCompound(skill, industry, minPrice, maxPrice, minRating);
+    const expMatch  = buildExperienceMatch(minExperience, maxExperience);
 
     const pipeline = [
       { $search: { index: ATLAS_SEARCH_INDEX, compound } },
@@ -294,16 +427,7 @@ const queryMentors = async (queryParams) => {
         },
       },
       { $unwind: { path: "$userDoc", preserveNullAndEmptyArrays: false } },
-      {
-        $match: (() => {
-          const skillSearched = !!skill.trim();
-          const nameSearched = nameMatchedProfileUserIds !== null;
-          if (skillSearched && nameSearched)
-            return { $or: [{ searchScore: { $gt: 0 } }] };
-          if (skillSearched) return { searchScore: { $gt: 0 } };
-          return {};
-        })(),
-      },
+      { $match: buildScoreMatchStage(skill, nameMatchedProfileUserIds) },
       {
         $facet: {
           results: [
@@ -312,20 +436,10 @@ const queryMentors = async (queryParams) => {
             { $limit: ATLAS_PIPELINE_CAP },
             {
               $project: {
-                _id: 1,
-                currentRole: 1,
-                industry: 1,
-                company: 1,
-                skills: 1,
-                hourlyRate: 1,
-                avgRating: 1,
-                profilePicture: 1,
-                linkedInUrl: 1,
-                portfolioUrl: 1,
-                searchScore: 1,
-                yearsOfExperience: 1,
-                bio: 1,
-                verificationStatus: 1,
+                _id: 1, currentRole: 1, industry: 1, company: 1,
+                skills: 1, hourlyRate: 1, avgRating: 1, profilePicture: 1,
+                linkedInUrl: 1, portfolioUrl: 1, searchScore: 1,
+                yearsOfExperience: 1, bio: 1, verificationStatus: 1,
                 user: {
                   _id: "$userDoc._id",
                   name: "$userDoc.name",
@@ -338,49 +452,10 @@ const queryMentors = async (queryParams) => {
       },
     ];
 
-    const [facetResult] =
-      await mentorSearchRepository.aggregateMentorProfiles(pipeline);
+    const [facetResult] = await mentorSearchRepository.aggregateMentorProfiles(pipeline);
     let results = facetResult?.results || [];
 
-    if (nameMatchedProfileUserIds && nameMatchedProfileUserIds.size > 0) {
-      const atlasResultUserIds = new Set(
-        results.map((r) => r.user._id.toString()),
-      );
-      const missingIds = [...nameMatchedProfileUserIds].filter(
-        (id) => !atlasResultUserIds.has(id),
-      );
-
-      if (missingIds.length > 0) {
-        const extraFilter = {
-          user: { $in: missingIds },
-          isProfilePublished: true,
-          isProfileComplete: true,
-          ...expMatch,
-        };
-
-        const extraProfiles =
-          await mentorSearchRepository.findMentorsWithUserPopulation(
-            extraFilter,
-            { avgRating: -1 },
-            0,
-            ATLAS_PIPELINE_CAP,
-          );
-
-        const withScore = extraProfiles.map((p) => ({
-          ...p,
-          searchScore: EXTRA_NAME_MATCH_SCORE,
-          user: { _id: p.user._id, name: p.user.name, email: p.user.email },
-        }));
-
-        results = [...withScore, ...results];
-      }
-
-      if (!skill.trim()) {
-        results = results.filter((r) =>
-          nameMatchedProfileUserIds.has(r.user._id.toString()),
-        );
-      }
-    }
+    results = await mergeNameMatches(results, nameMatchedProfileUserIds, skill, expMatch);
 
     /*
      * 🧠 CRITICAL FIX:
@@ -394,25 +469,20 @@ const queryMentors = async (queryParams) => {
       return executeFallbackSearch(queryParams);
     }
 
-    const totalCount = results.length;
-    const totalPages = Math.ceil(totalCount / limitNum);
-    const paginated = results.slice(skip, skip + limitNum);
+    const totalCount  = results.length;
+    const totalPages  = Math.ceil(totalCount / limitNum);
+    const paginated   = results.slice(skip, skip + limitNum);
 
     return {
-      mentors: paginated,
-      pagination: {
-        totalCount,
-        totalPages,
-        currentPage: pageNum,
-        hasMore: pageNum < totalPages,
-      },
+      mentors: paginated.map((m) => ({
+        ...toMentorProfileDTO(m),
+        searchScore: m.searchScore, // Retains Atlas search relevance metrics
+      })),
+      pagination: { totalCount, totalPages, currentPage: pageNum, hasMore: pageNum < totalPages },
     };
   } catch (error) {
     // Intercept hardware cluster search exception events cleanly
-    if (
-      error.message?.includes("$search") ||
-      error.message?.includes("search index")
-    ) {
+    if (error.message?.includes("$search") || error.message?.includes("search index")) {
       logger.error(
         `❌ Atlas Search cluster driver mapping fault: ${error.message}. Initializing emergency fallback sequence.`,
       );

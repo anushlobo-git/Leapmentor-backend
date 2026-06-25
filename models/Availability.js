@@ -4,10 +4,28 @@ const mongoose = require("mongoose");
 // ─── Time Slot ────────────────────────────────────────────────
 const timeSlotSchema = new mongoose.Schema(
   {
-    startTime: { type: String, required: true }, // "HH:MM"
-    endTime:   { type: String, required: true }, // "HH:MM"
+    startTime: {
+      type: String,
+      required: true,
+      trim: true,
+      maxlength: 5, // "HH:MM"
+      match: [
+        /^([0-1]?\d|2[0-3]):[0-5]\d$/,
+        "startTime must be in HH:MM format",
+      ],
+    },
+    endTime: {
+      type: String,
+      required: true,
+      trim: true,
+      maxlength: 5, // "HH:MM"
+      match: [
+        /^([0-1]?\d|2[0-3]):[0-5]\d$/,
+        "endTime must be in HH:MM format",
+      ],
+    },
   },
-  { _id: true }
+  { _id: true },
 );
 
 // ─── Day Schedule (weekly recurring) ─────────────────────────
@@ -15,23 +33,37 @@ const dayScheduleSchema = new mongoose.Schema(
   {
     day: {
       type: String,
-      enum: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
+      enum: [
+        "Monday",
+        "Tuesday",
+        "Wednesday",
+        "Thursday",
+        "Friday",
+        "Saturday",
+        "Sunday",
+      ],
       required: true,
     },
     isAvailable: { type: Boolean, default: false },
-    slots:       { type: [timeSlotSchema], default: [] },
-  },
-  { _id: false }
-);
-
-// ─── Specific Date Schedule (calendar-based) ─────────────────
-// e.g. mentor marks Mar 15 available with custom hours
-const specificDateSchema = new mongoose.Schema(
-  {
-    date:  { type: String, required: true }, // "YYYY-MM-DD"
     slots: { type: [timeSlotSchema], default: [] },
   },
-  { _id: false }
+  { _id: false },
+);
+
+// ─── Specific Date Schedule (calendar-based) ──────────────────
+// Takes priority over weeklyHours for the same date
+const specificDateSchema = new mongoose.Schema(
+  {
+    date: {
+      type: String,
+      required: true,
+      trim: true,
+      maxlength: 10, // "YYYY-MM-DD"
+      match: [/^\d{4}-\d{2}-\d{2}$/, "Date must be in YYYY-MM-DD format"],
+    },
+    slots: { type: [timeSlotSchema], default: [] },
+  },
+  { _id: false },
 );
 
 // ─── Availability ─────────────────────────────────────────────
@@ -48,6 +80,7 @@ const availabilitySchema = new mongoose.Schema(
       type: String,
       default: "Asia/Kolkata",
       trim: true,
+      maxlength: 100,
     },
 
     sessionDurations: {
@@ -59,22 +92,19 @@ const availabilitySchema = new mongoose.Schema(
       },
     },
 
-    // ✅ EXISTING — weekly recurring schedule
     weeklyHours: {
       type: [dayScheduleSchema],
       default: () => [
-        { day: "Monday",    isAvailable: false, slots: [] },
-        { day: "Tuesday",   isAvailable: false, slots: [] },
+        { day: "Monday", isAvailable: false, slots: [] },
+        { day: "Tuesday", isAvailable: false, slots: [] },
         { day: "Wednesday", isAvailable: false, slots: [] },
-        { day: "Thursday",  isAvailable: false, slots: [] },
-        { day: "Friday",    isAvailable: false, slots: [] },
-        { day: "Saturday",  isAvailable: false, slots: [] },
-        { day: "Sunday",    isAvailable: false, slots: [] },
+        { day: "Thursday", isAvailable: false, slots: [] },
+        { day: "Friday", isAvailable: false, slots: [] },
+        { day: "Saturday", isAvailable: false, slots: [] },
+        { day: "Sunday", isAvailable: false, slots: [] },
       ],
     },
 
-    // ✅ NEW — specific date availability (calendar picker)
-    // Takes priority over weeklyHours for the same date
     specificDates: {
       type: [specificDateSchema],
       default: [],
@@ -85,10 +115,14 @@ const availabilitySchema = new mongoose.Schema(
     googleCalendarToken: {
       type: String,
       default: "",
-      select: false,
+      select: false, // Never returned by default queries
     },
   },
-  { timestamps: true }
+  {
+    timestamps: true,
+  },
 );
+
+availabilitySchema.index({ "specificDates.date": 1 });
 
 module.exports = mongoose.model("Availability", availabilitySchema);

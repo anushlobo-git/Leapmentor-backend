@@ -4,13 +4,13 @@ const oAuthAccountRepository = require("../repositories/oAuthAccount.repository"
 const {
   clerkClient,
   signToken,
-  sanitizeUser,
   validateRoles,
 } = require("../utils/auth.utils");
 const {
   createWalletsForRoles,
   createWalletForRole,
 } = require("./wallet.service");
+const { toUserDTO } = require("../mappers/user.mapper");
 
 const clerkSSOAuth = async ({ clerkToken, roles, termsAccepted }) => {
   if (!clerkToken) throw new Error("Missing Clerk token");
@@ -92,7 +92,7 @@ const clerkSSOAuth = async ({ clerkToken, roles, termsAccepted }) => {
   }
 
   const token = signToken(user._id);
-  return { token, user: sanitizeUser(user), isNewUser };
+  return { token, user: toUserDTO(user), isNewUser };
 };
 
 module.exports = { clerkSSOAuth };

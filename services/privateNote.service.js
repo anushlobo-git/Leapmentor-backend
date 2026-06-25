@@ -5,9 +5,10 @@
 const AppError = require("../utils/AppError");
 const privateNoteRepository = require("../repositories/privateNote.repository");
 const connectRequestRepository = require("../repositories/connectRequest.repository");
+const { toPrivateNoteDTO } = require("../mappers/privateNote.mapper");
 
 // Upper-case Domain Architecture Constants
-const ALLOWED_SESSION_STATUSES = ["ongoing", "completed"];
+const ALLOWED_SESSION_STATUSES = new Set(["ongoing", "completed"]);
 const DEFAULT_NOTE_TITLE = "Untitled Note";
 
 /**
@@ -20,7 +21,7 @@ const verifySessionParticipant = async (connectRequestId, userId) => {
     throw new AppError("Target connection session request not found", 404);
   }
 
-  if (!ALLOWED_SESSION_STATUSES.includes(request.status)) {
+  if (!ALLOWED_SESSION_STATUSES.has(request.status)) {
     throw new AppError(
       "Cannot manipulate note assets for an inactive connection session",
       400,
@@ -58,12 +59,15 @@ const createPrivateNote = async (userId, inputData) => {
 
   await verifySessionParticipant(connectRequestId, userId);
 
-  return privateNoteRepository.create({
+  // Capture and serialize the newly spawned private document
+  const note = await privateNoteRepository.create({
     connectRequest: connectRequestId,
     author: userId,
     title: title?.trim() || DEFAULT_NOTE_TITLE,
     content: content || "",
   });
+
+  return toPrivateNoteDTO(note);
 };
 
 /**
@@ -71,7 +75,13 @@ const createPrivateNote = async (userId, inputData) => {
  */
 const getPrivateNotesList = async (connectRequestId, userId) => {
   await verifySessionParticipant(connectRequestId, userId);
-  return privateNoteRepository.findBySessionAndAuthor(connectRequestId, userId);
+  const notes = await privateNoteRepository.findBySessionAndAuthor(
+    connectRequestId,
+    userId,
+  );
+
+  // Map each individual note item array entry cleanly through the serializer
+  return notes.map(toPrivateNoteDTO);
 };
 
 /**
@@ -105,7 +115,9 @@ const updatePrivateNote = async (noteId, userId, updateData) => {
     note.content = updateData.content;
   }
 
-  return privateNoteRepository.save(note);
+  // Persist changes and run the updated document instance through the mapper
+  const updatedNote = await privateNoteRepository.save(note);
+  return toPrivateNoteDTO(updatedNote);
 };
 
 /**

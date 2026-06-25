@@ -6,6 +6,9 @@
 const AppError = require("../utils/AppError");
 const mentorProfileRepository = require("../repositories/mentor.repository");
 
+// Mappers
+const { toMentorProfileDTO } = require("../mappers/mentorProfile.mapper");
+
 // Upper-case Domain Constants
 const DEFAULT_YEARS_OF_EXPERIENCE = 0;
 const DEFAULT_HOURLY_RATE = 0;
@@ -25,7 +28,7 @@ const createProfile = async (userId, data) => {
     throw new AppError("Profile already exists. Use update instead.", 409);
   }
 
-  return await mentorProfileRepository.create({
+  const profile = await mentorProfileRepository.create({
     user: userId,
     currentRole: data.currentRole,
     industry: data.industry,
@@ -42,6 +45,8 @@ const createProfile = async (userId, data) => {
     isProfileComplete: true,
     isProfilePublished: true,
   });
+
+  return toMentorProfileDTO(profile);
 };
 
 /**
@@ -56,7 +61,8 @@ const getMyProfile = async (userId) => {
   if (!profile) {
     throw new AppError("Profile not found", 404);
   }
-  return profile;
+
+  return toMentorProfileDTO(profile);
 };
 
 /**
@@ -74,7 +80,8 @@ const updateMyProfile = async (userId, updateData) => {
   if (!profile) {
     throw new AppError("Profile not found", 404);
   }
-  return profile;
+
+  return toMentorProfileDTO(profile);
 };
 
 /**
@@ -89,7 +96,8 @@ const getPublicProfile = async (targetUserId) => {
   if (!profile) {
     throw new AppError("Mentor profile not found", 404);
   }
-  return profile;
+
+  return toMentorProfileDTO(profile);
 };
 
 module.exports = {

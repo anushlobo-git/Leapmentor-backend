@@ -1,5 +1,5 @@
 const jwt = require("jsonwebtoken");
-const crypto = require("crypto");
+const crypto = require("node:crypto");
 const { OAuth2Client } = require("google-auth-library");
 const logger = require("../config/logger");
 // auth.utils.js  — add this line near the top, after the requires
@@ -16,22 +16,17 @@ const signToken = (userId) => {
 };
 
 const signAccessToken = (userId) =>
-  jwt.sign({ id: userId }, process.env.JWT_ACCESS_SECRET, { expiresIn: "15m" });
+  jwt.sign({ id: userId ,type: "access" }, process.env.JWT_ACCESS_SECRET, { expiresIn: "15m" });
 
 const signRefreshToken = (userId) =>
-  jwt.sign({ id: userId }, process.env.JWT_REFRESH_SECRET, { expiresIn: "7d" });
+  jwt.sign({ id: userId ,type: "refresh" }, process.env.JWT_REFRESH_SECRET, { expiresIn: "7d" });
 
-const sanitizeUser = (user) => {
-  const obj = user.toObject ? user.toObject() : user;
-  delete obj.password;
-  return obj;
-};
 
 const validateRoles = (roles) => {
-  const validRoles = ["mentor", "mentee"];
+  const validRoles = new Set(["mentor", "mentee"]);
   const uniqueRoles = [...new Set(roles)];
   for (const r of uniqueRoles) {
-    if (!validRoles.includes(r)) {
+    if (!validRoles.has(r)) {
       return {
         valid: false,
         message: "Invalid role. Use mentor and/or mentee.",
@@ -65,7 +60,6 @@ const verifyState = (state) => {
 module.exports = {
   googleClient,
   signToken,
-  sanitizeUser,
   validateRoles,
   signState,
   verifyState,

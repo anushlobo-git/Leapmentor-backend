@@ -1,7 +1,21 @@
 const catchAsync = require("../utils/catchAsync");
 const mentorSearchService = require("../services/mentorSearch.service");
 const logger = require("../config/logger");
-const redisClient = require("../config/redis"); // 1. Import your existing Redis client
+const redisClient = require("../config/redis");
+
+/**
+ * Builds a deterministic cache key from all query parameters.
+ * Sorts keys so ?skill=react&page=1 and ?page=1&skill=react hit the same cache.
+ */
+const buildCacheKey = (query) => {
+  const normalized = Object.entries(query)
+    .filter(([, value]) => value !== undefined && value !== "")
+    .map(([key, value]) => `${key}:${String(value).trim().toLowerCase()}`)
+    .sort() // ← sort so param order doesn't create duplicate keys
+    .join("|");
+
+  return `cache:mentors:${normalized || "all"}`;
+};
 
 /**
  * Searches and filters across platform mentor registrations with Redis caching.
@@ -9,32 +23,21 @@ const redisClient = require("../config/redis"); // 1. Import your existing Redis
  * @access  Private (Mentee Only)
  */
 const searchMentors = catchAsync(async (req, res) => {
-  const { skill, limit } = req.query;
+  const cacheKey = buildCacheKey(req.query);
 
-  // 2. Generate the unique, dynamic cache key
-  const cacheKey = `cache:mentors:${skill.trim().toLowerCase()}:limit:${limit}`;
-
-  // 3. Try to fetch from Redis cache first
   const cachedData = await redisClient.get(cacheKey);
-
   if (cachedData) {
-    logger.info(
-      `⚡ Cache HIT | Data retrieved from Redis for key: ${cacheKey}`,
-    );
+    logger.info(`⚡ Cache HIT | ${cacheKey}`);
     return res.status(200).json({
       success: true,
-      ...JSON.parse(cachedData), // Convert string back to JSON object
+      ...JSON.parse(cachedData),
     });
   }
 
-  logger.info(
-    `🐢 Cache MISS | Fetching search results from MongoDB for key: ${cacheKey}`,
-  );
+  logger.info(`🐢 Cache MISS | ${cacheKey}`);
 
-  // 4. Cache Miss: Query the heavy database pipeline
   const result = await mentorSearchService.queryMentors(req.query);
 
-  // 5. Store the fresh result in Redis with a 5-minute (300 seconds) expiration TTL
   await redisClient.set(cacheKey, JSON.stringify(result), "EX", 300);
 
   res.status(200).json({
@@ -43,6 +46,4 @@ const searchMentors = catchAsync(async (req, res) => {
   });
 });
 
-module.exports = {
-  searchMentors,
-};
+module.exports = { searchMentors };

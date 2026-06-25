@@ -8,6 +8,9 @@ const AppError = require("../utils/AppError");
 const slotLockRepository = require("../repositories/slotLock.repository");
 const connectRequestRepository = require("../repositories/connectRequest.repository");
 
+// Mappers
+const { toSlotLockDTO } = require("../mappers/slotLock.mapper");
+
 // Upper-case Domain Architecture Constants
 const LOCK_DURATION_MINUTES = 10;
 const TIME_CONVERSION_BASE = 60;
@@ -163,7 +166,11 @@ const getMentorActiveLocksList = async (mentorId, requestingUserId) => {
     mentorId,
     requestingUserId,
   );
-  return { locks };
+
+  return {
+    //  Clean and format the collection array via the DTO mapper before returning
+    locks: locks.map(toSlotLockDTO),
+  };
 };
 
 module.exports = {

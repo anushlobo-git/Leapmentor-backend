@@ -8,12 +8,13 @@ const AppError = require("../utils/AppError");
 const availabilityRepository = require("../repositories/availability.repository");
 const connectRequestRepository = require("../repositories/connectRequest.repository");
 const slotLockRepository = require("../repositories/slotLock.repository");
-const { generateSlotsFromSpecificDates } = require("../utils/generateSlots");
+const { generateAvailableSlots } = require("../utils/generateSlots");
+const { toAvailabilityDTO } = require("../mappers/availability.mapper");
 
 // Configuration Constants
 const DEFAULT_TIMEZONE = "Asia/Kolkata";
 const DEFAULT_DURATIONS = [30, 60];
-const ALLOWED_DURATIONS = [30, 45, 60];
+const ALLOWED_DURATIONS = new Set([30, 45, 60]);
 
 const ALLOWED_UPDATE_FIELDS = [
   "timezone",
@@ -43,7 +44,7 @@ const getMyAvailability = async (mentorId) => {
     };
   }
 
-  return availability;
+  return toAvailabilityDTO(availability);
 };
 
 /**
@@ -63,12 +64,13 @@ const createAvailability = async (mentorId, body) => {
     );
   }
 
-  const { timezone, sessionDurations, specificDates } = body;
+  const { timezone, sessionDurations, specificDates, weeklyHours } = body;
   return await availabilityRepository.createAvailability({
     mentorId,
     timezone,
     sessionDurations,
     specificDates,
+    weeklyHours,
   });
 };
 
@@ -137,7 +139,7 @@ const deleteAvailability = async (mentorId) => {
  * @returns {Promise<Object>}  Dynamic collection list array displaying grouped open slot segments.
  */
 const getAvailableSlots = async (mentorId, duration, userId) => {
-  if (!ALLOWED_DURATIONS.includes(duration)) {
+  if (!ALLOWED_DURATIONS.has(duration)) {
     throw new AppError("Duration must be 30, 45, or 60 minutes", 400);
   }
 
@@ -169,18 +171,12 @@ const getAvailableSlots = async (mentorId, duration, userId) => {
 
   const allBlockedSlots = [...bookedSlots, ...lockedSlots];
 
-  if (!availability.specificDates?.length) {
-    return {
-      timezone: availability.timezone,
-      sessionDurations: availability.sessionDurations,
-      slots: [],
-    };
-  }
-
-  const grouped = generateSlotsFromSpecificDates(
-    availability.specificDates,
+  const grouped = generateAvailableSlots(
     duration,
+    availability.specificDates || [],
+    availability.weeklyHours || [],
     allBlockedSlots,
+    28, // generate 4 weeks ahead
   );
 
   return {

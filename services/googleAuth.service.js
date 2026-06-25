@@ -8,17 +8,17 @@ const logger = require("../config/logger");
 
 // Repositories
 const userRepository = require("../repositories/user.repository");
-const oauthAccountRepository = require("../repositories/oauthAccount.repository");
+const oauthAccountRepository = require("../repositories/oAuthAccount.repository");
 
 // Inter-domain Dependency
 const { createWalletsForRoles } = require("./wallet.service");
+const { toUserDTO } = require("../mappers/user.mapper");
 
 // Utilities
 const {
   googleClient,
   signAccessToken,
   signRefreshToken,
-  sanitizeUser,
   validateRoles,
 } = require("../utils/auth.utils");
 
@@ -131,7 +131,7 @@ const googleAuthUser = async ({ credential, roles, termsAccepted }) => {
   return {
     accessToken,
     refreshToken,
-    user: sanitizeUser(user),
+    user: toUserDTO(user),
     isNewUser,
   };
 };
