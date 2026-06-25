@@ -1,69 +1,106 @@
 /**
  * @fileoverview Connection Request Routes
- * @description  Orchestrates structural configurations, cancellation loops, status updates,
- * and mentor referrals for mentorship connection engagements.
- * @prefix       /api/v1/connect-requests
- * @access       Private (User / Mentor)
+ * @description Orchestrates structural configurations, cancellation loops, status updates,
+ * and mentor referrals for mentorship connection engagements via parameter dependency injection.
  */
 
 const express = require("express");
-const router = express.Router();
-const {
-  sendConnectRequest,
-  getMyRequests,
-  getIncomingRequests,
-  respondToRequest,
-  cancelRequest,
-  referRequest,
-  getOngoingConnects,
-  getConnectDetail,
-} = require("../controllers/connectRequest.controller");
-const { getSimilarMentors } = require("../controllers/mentorRefer.controller");
-const { authenticate, requireRole } = require("../middleware/authenticate");
 
-// ── MENTEE ENDPOINTS ──────────────────────────────────────────
+const createConnectRequestRoutes = (controllers, middlewares, validations) => {
+  const router = express.Router();
 
-// @route   POST /api/v1/connect-requests
-router.post("/", authenticate, sendConnectRequest);
+  const { connectRequestController, mentorReferController } = controllers;
+  const { authenticate, requireRole } = middlewares;
 
-// @route   GET /api/v1/connect-requests/my-requests
-router.get("/my-requests", authenticate, getMyRequests);
+  const {
+    sendConnectRequestValidation,
+    respondToRequestValidation,
+    referRequestValidation,
+    validateObjectId,
+  } = validations;
 
+  // ── MENTEE ENDPOINTS ──────────────────────────────────────────
 
+  // @route   POST /api/v1/connect-requests
+  router.post(
+    "/",
+    authenticate,
+    sendConnectRequestValidation,
+    connectRequestController.sendConnectRequest,
+  );
 
-// ── MENTOR ENDPOINTS ──────────────────────────────────────────
+  // @route   GET /api/v1/connect-requests/my-requests
+  router.get(
+    "/my-requests",
+    authenticate,
+    connectRequestController.getMyRequests,
+  );
 
-// @route   GET /api/v1/connect-requests/incoming
-router.get("/incoming", authenticate, getIncomingRequests);
+  // ── MENTOR ENDPOINTS ──────────────────────────────────────────
 
-// @route   GET /api/v1/connect-requests/ongoing
-router.get("/ongoing", authenticate, getOngoingConnects);
+  // @route   GET /api/v1/connect-requests/incoming
+  router.get(
+    "/incoming",
+    authenticate,
+    connectRequestController.getIncomingRequests,
+  );
 
-// ── SPECIFIC ROUTE MATCHES (Must execute before generic /:id) ──
+  // @route   GET /api/v1/connect-requests/ongoing
+  router.get(
+    "/ongoing",
+    authenticate,
+    connectRequestController.getOngoingConnects,
+  );
 
-// @route   GET /api/v1/connect-requests/:id/detail
-router.get("/:id/detail", authenticate, getConnectDetail);
+  // ── SPECIFIC ROUTE MATCHES (Must execute before generic /:id) ──
 
-// @route   GET /api/v1/connect-requests/:id/similar-mentors
-router.get(
-  "/:id/similar-mentors",
-  authenticate,
-  requireRole("mentor"),
-  getSimilarMentors,
-);
+  // @route   GET /api/v1/connect-requests/:id/detail
+  router.get(
+    "/:id/detail",
+    authenticate,
+    validateObjectId,
+    connectRequestController.getConnectDetail,
+  );
 
+  // @route   GET /api/v1/connect-requests/:id/similar-mentors
+  router.get(
+    "/:id/similar-mentors",
+    authenticate,
+    requireRole("mentor"),
+    validateObjectId,
+    mentorReferController.getSimilarMentors,
+  );
 
-// @route   PATCH /api/v1/connect-requests/:id/refer
-router.patch("/:id/refer", authenticate, requireRole("mentor"), referRequest);
+  // @route   PATCH /api/v1/connect-requests/:id/refer
+  router.patch(
+    "/:id/refer",
+    authenticate,
+    requireRole("mentor"),
+    validateObjectId,
+    referRequestValidation,
+    connectRequestController.referRequest,
+  );
 
+  // ── GENERIC FALLBACK ENDPOINTS ────────────────────────────────
 
+  // @route   PATCH /api/v1/connect-requests/:id
+  router.patch(
+    "/:id",
+    authenticate,
+    validateObjectId,
+    respondToRequestValidation,
+    connectRequestController.respondToRequest,
+  );
 
-// ── GENERIC FALLBACK ENDPOINTS ────────────────────────────────
+  // @route   DELETE /api/v1/connect-requests/:id
+  router.delete(
+    "/:id",
+    authenticate,
+    validateObjectId,
+    connectRequestController.cancelRequest,
+  );
 
-// @route   PATCH /api/v1/connect-requests/:id
-router.patch("/:id", authenticate, respondToRequest);
+  return router;
+};
 
-// @route   DELETE /api/v1/connect-requests/:id
-router.delete("/:id", authenticate, cancelRequest);
-
-module.exports = router;
+module.exports = createConnectRequestRoutes;

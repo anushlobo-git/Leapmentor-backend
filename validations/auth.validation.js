@@ -139,9 +139,23 @@ const linkedinAuthValidation = celebrate({
   }),
 });
 
+
+
+const refreshTokenCookieValidation = celebrate({
+  [Segments.COOKIES]: Joi.object({
+    refreshToken: Joi.string().trim().required().messages({
+      "string.empty":
+        "The transmission token cookie value cannot be sent empty.",
+      "any.required":
+        "Secure refresh token cookie parameters are required to cycle sessions.",
+    }),
+  }).unknown(true), // Allow other functional browser cookies to pass undisturbed
+});
+
 module.exports = {
   registerValidation,
   loginValidation,
   googleAuthValidation,
   linkedinAuthValidation,
+  refreshTokenCookieValidation,
 };

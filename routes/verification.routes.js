@@ -1,27 +1,44 @@
 /**
  * @fileoverview User Account Verification and Core Communications Channels Delivery Routes Framework
- * @prefix       /api/v1/verification
- * @access       Public
+ * @description Configures pipeline paths mounting declarative celebrate input processing filters via injection.
  */
+
 const express = require("express");
-const router = express.Router();
-const {
-  sendVerification,
-  resendVerification,
-  verifyOtp,
-  verifyLink,
-} = require("../controllers/verification.controller");
 
-// @route   POST /api/v1/verification/send
-router.post("/send", sendVerification);
+const createVerificationRoutes = (verificationController, validations) => {
+  const router = express.Router();
+  const { emailPayloadValidation, verifyOtpValidation, verifyLinkValidation } =
+    validations;
 
-// @route   POST /api/v1/verification/resend
-router.post("/resend", resendVerification);
+  // @route   POST /api/v1/verification/send
+  router.post(
+    "/send",
+    emailPayloadValidation,
+    verificationController.sendVerification,
+  );
 
-// @route   POST /api/v1/verification/verify-otp
-router.post("/verify-otp", verifyOtp);
+  // @route   POST /api/v1/verification/resend
+  router.post(
+    "/resend",
+    emailPayloadValidation,
+    verificationController.resendVerification,
+  );
 
-// @route   GET /api/v1/verification/verify/:token
-router.get("/verify/:token", verifyLink);
+  // @route   POST /api/v1/verification/verify-otp
+  router.post(
+    "/verify-otp",
+    verifyOtpValidation,
+    verificationController.verifyOtp,
+  );
 
-module.exports = router;
+  // @route   GET /api/v1/verification/verify/:token
+  router.get(
+    "/verify/:token",
+    verifyLinkValidation,
+    verificationController.verifyLink,
+  );
+
+  return router;
+};
+
+module.exports = createVerificationRoutes;

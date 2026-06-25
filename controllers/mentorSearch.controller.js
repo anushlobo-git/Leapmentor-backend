@@ -1,7 +1,10 @@
+/**
+ * @fileoverview Mentor Search and Discovery Domain Controller
+ * @description Decoupled transport boundary compiling query filters cache matrices
+ * and routing operations down to stateless query search service layers via injection.
+ */
+
 const catchAsync = require("../utils/catchAsync");
-const mentorSearchService = require("../services/mentorSearch.service");
-const logger = require("../config/logger");
-const redisClient = require("../config/redis");
 
 /**
  * Builds a deterministic cache key from all query parameters.
@@ -11,39 +14,34 @@ const buildCacheKey = (query) => {
   const normalized = Object.entries(query)
     .filter(([, value]) => value !== undefined && value !== "")
     .map(([key, value]) => `${key}:${String(value).trim().toLowerCase()}`)
-    .sort() // ← sort so param order doesn't create duplicate keys
+    .sort()
     .join("|");
 
   return `cache:mentors:${normalized || "all"}`;
 };
 
-/**
- * Searches and filters across platform mentor registrations with Redis caching.
- * @route   GET /api/v1/mentors/search
- * @access  Private (Mentee Only)
- */
-const searchMentors = catchAsync(async (req, res) => {
-  const cacheKey = buildCacheKey(req.query);
+const createMentorSearchController = (mentorSearchService, cacheUtility) => {
+  /**
+   * Searches and filters across platform mentor registrations with standardized Cache-Aside utility hooks.
+   * @route   GET /api/v1/mentors/search
+   * @access  Private (Mentee Only)
+   */
+  const searchMentors = catchAsync(async (req, res, next) => {
+    const cacheKey = buildCacheKey(req.query);
 
-  const cachedData = await redisClient.get(cacheKey);
-  if (cachedData) {
-    logger.info(`⚡ Cache HIT | ${cacheKey}`);
+    const result = await cacheUtility.getOrSetCache(cacheKey, 300, async () => {
+      return await mentorSearchService.queryMentors(req.query);
+    });
+
     return res.status(200).json({
       success: true,
-      ...JSON.parse(cachedData),
+      ...result,
     });
-  }
-
-  logger.info(`🐢 Cache MISS | ${cacheKey}`);
-
-  const result = await mentorSearchService.queryMentors(req.query);
-
-  await redisClient.set(cacheKey, JSON.stringify(result), "EX", 300);
-
-  res.status(200).json({
-    success: true,
-    ...result,
   });
-});
 
-module.exports = { searchMentors };
+  return {
+    searchMentors,
+  };
+};
+
+module.exports = createMentorSearchController;

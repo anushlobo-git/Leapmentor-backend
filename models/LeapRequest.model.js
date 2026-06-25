@@ -1,3 +1,4 @@
+// Leapmentor-backend/models/LeapRequest.model.js
 const mongoose = require("mongoose");
 
 const leapRequestSchema = new mongoose.Schema(

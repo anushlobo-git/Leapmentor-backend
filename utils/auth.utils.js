@@ -1,68 +1,94 @@
-const jwt = require("jsonwebtoken");
-const crypto = require("node:crypto");
-const { OAuth2Client } = require("google-auth-library");
-const logger = require("../config/logger");
-// auth.utils.js  — add this line near the top, after the requires
-const STATE_SECRET = process.env.STATE_SECRET || process.env.JWT_SECRET;
+/**
+ * @fileoverview Authentication Cryptographic Utilities Factory
+ * @description Provides decoupled, parameter-driven methods for token signing,
+ * state signatures generation, and platform user role verification checks.
+ */
 
-// DELETED: createClerkClient — no longer needed after LinkedIn migration
+const createAuthUtils = (config, jwt, crypto, googleClient) => {
+  const {
+    jwtSecret,
+    jwtExpiresIn = "7d",
+    jwtAccessSecret,
+    jwtRefreshSecret,
+    stateSecret,
+  } = config;
 
-const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+  /**
+   * Generates a standard baseline user identifier JSON Web Token block.
+   */
+  const signToken = (userId) => {
+    return jwt.sign({ id: userId }, jwtSecret, {
+      expiresIn: jwtExpiresIn,
+    });
+  };
 
-const signToken = (userId) => {      
-  return jwt.sign({ id: userId }, process.env.JWT_SECRET, {
-    expiresIn: process.env.JWT_EXPIRES_IN || "7d",
-  });
-};
+  /**
+   * Issues a transient, short-lived session access verification key.
+   */
+  const signAccessToken = (userId) =>
+    jwt.sign({ id: userId, type: "access" }, jwtAccessSecret, {
+      expiresIn: "15m",
+    });
 
-const signAccessToken = (userId) =>
-  jwt.sign({ id: userId ,type: "access" }, process.env.JWT_ACCESS_SECRET, { expiresIn: "15m" });
+  /**
+   * Issues a long-lived persistence session refresh rotation token.
+   */
+  const signRefreshToken = (userId) =>
+    jwt.sign({ id: userId, type: "refresh" }, jwtRefreshSecret, {
+      expiresIn: "7d",
+    });
 
-const signRefreshToken = (userId) =>
-  jwt.sign({ id: userId ,type: "refresh" }, process.env.JWT_REFRESH_SECRET, { expiresIn: "7d" });
-
-
-const validateRoles = (roles) => {
-  const validRoles = new Set(["mentor", "mentee"]);
-  const uniqueRoles = [...new Set(roles)];
-  for (const r of uniqueRoles) {
-    if (!validRoles.has(r)) {
-      return {
-        valid: false,
-        message: "Invalid role. Use mentor and/or mentee.",
-      };
+  /**
+   * Screens and aggregates arrays containing incoming platform access permissions flags.
+   */
+  const validateRoles = (roles) => {
+    const validRoles = new Set(["mentor", "mentee"]);
+    const uniqueRoles = [...new Set(roles)];
+    for (const r of uniqueRoles) {
+      if (!validRoles.has(r)) {
+        return {
+          valid: false,
+          message: "Invalid role. Use mentor and/or mentee.",
+        };
+      }
     }
-  }
-  return { valid: true, uniqueRoles };
+    return { valid: true, uniqueRoles };
+  };
+
+  /**
+   * Encodes payload contexts appending a verifiable HMAC metadata integrity hash signature.
+   */
+  const signState = (payload) => {
+    const data = Buffer.from(JSON.stringify(payload)).toString("base64");
+    const sig = crypto
+      .createHmac("sha256", stateSecret)
+      .update(data)
+      .digest("hex");
+    return `${data}.${sig}`;
+  };
+
+  /**
+   * Decodes parameter states verifying they match original signature metrics untampered.
+   */
+  const verifyState = (state) => {
+    const [data, sig] = state.split(".");
+    const expected = crypto
+      .createHmac("sha256", stateSecret)
+      .update(data)
+      .digest("hex");
+    if (sig !== expected) throw new Error("Invalid state parameter");
+    return JSON.parse(Buffer.from(data, "base64").toString());
+  };
+
+  return {
+    googleClient,
+    signToken,
+    validateRoles,
+    signState,
+    verifyState,
+    signAccessToken,
+    signRefreshToken,
+  };
 };
 
-const signState = (payload) => {
-  const data = Buffer.from(JSON.stringify(payload)).toString("base64");
-  const sig = crypto
-    .createHmac("sha256", STATE_SECRET)
-    .update(data)
-    .digest("hex");
-  return `${data}.${sig}`;
-};
-
-// Verify state came back untampered
-const verifyState = (state) => {
-  const [data, sig] = state.split(".");
-  const expected = crypto
-    .createHmac("sha256", STATE_SECRET)
-    .update(data)
-    .digest("hex");
-  if (sig !== expected) throw new Error("Invalid state parameter");
-  return JSON.parse(Buffer.from(data, "base64").toString());
-};
-
-
-module.exports = {
-  googleClient,
-  signToken,
-  validateRoles,
-  signState,
-  verifyState,
-  signAccessToken,
-  signRefreshToken,
-};
+module.exports = createAuthUtils;

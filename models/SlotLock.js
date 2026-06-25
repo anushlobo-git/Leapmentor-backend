@@ -1,3 +1,9 @@
+//Leapmentor-backend/models/SlotLock.js
+/**
+ * @fileoverview Slot Lock Model
+ * @description  Mongoose schema definition for short-term slot lock documents.
+ * Enforces strict validation rules, TTL expiration, and unique constraints for scheduling transactions.
+ */
 const mongoose = require("mongoose");
 
 const slotLockSchema = new mongoose.Schema(

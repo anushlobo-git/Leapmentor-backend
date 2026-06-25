@@ -1,23 +1,32 @@
 /**
- * @fileoverview Real-time Messaging and Chat Streams Configuration Routes
- * @prefix       /api/v1/messages
- * @access       Private (Authenticated Participant Users Only)
+ * @fileoverview Message Domain Routing Blueprint
+ * @description Registers parameter validation layers and secures endpoint bindings via structural dependency injection.
  */
+
 const express = require("express");
-const router = express.Router();
-const { authenticate } = require("../middleware/authenticate");
-const {
-  getMessages,
-  getUnreadCount,
-} = require("../controllers/message.controller");
 
-// Global pipeline protection firewall across all communication parameters channels endpoints
-router.use(authenticate);
+const createMessageRoutes = (messageController, authenticate, validations) => {
+  const router = express.Router();
+  const { getMessagesValidation, getUnreadCountValidation } = validations;
 
-// @route   GET /api/v1/messages/:connectRequestId
-router.get("/:connectRequestId", getMessages);
+  // Enforce mandatory identity validation barrier for all downstream operations
+  router.use(authenticate);
 
-// @route   GET /api/v1/messages/:connectRequestId/unread
-router.get("/:connectRequestId/unread", getUnreadCount);
+  // @route   GET /api/v1/messages/:connectRequestId
+  router.get(
+    "/:connectRequestId",
+    getMessagesValidation,
+    messageController.getMessages,
+  );
 
-module.exports = router;
+  // @route   GET /api/v1/messages/:connectRequestId/unread
+  router.get(
+    "/:connectRequestId/unread",
+    getUnreadCountValidation,
+    messageController.getUnreadCount,
+  );
+
+  return router;
+};
+
+module.exports = createMessageRoutes;

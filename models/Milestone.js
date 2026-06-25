@@ -1,3 +1,4 @@
+//Leapmentor-backend/models/Milestone.js
 const mongoose = require("mongoose");
 
 const milestoneSchema = new mongoose.Schema(

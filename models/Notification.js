@@ -1,3 +1,8 @@
+//Leapmentor-backend/models/Notification.js
+/**
+ * @fileoverview Notification Mongoose Model
+ * @description Defines the schema and model for user notifications, including recipient references, message content, and read status.
+ */
 const mongoose = require("mongoose");
 
 const notificationSchema = new mongoose.Schema(

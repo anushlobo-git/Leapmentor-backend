@@ -1,3 +1,4 @@
+//Leapmentor-backend/models/Goal.js
 const mongoose = require("mongoose");
 
 const goalSchema = new mongoose.Schema(

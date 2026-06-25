@@ -1,66 +1,76 @@
 /**
  * @fileoverview User Authentication Framework Routes
- * @description  Handles core account registration, secure login/logout sessions, session token refreshing,
- * password modification updates, and third-party social OAuth integrations (Google, LinkedIn).
- * @prefix       /api/v1/auth
- * @access       Public / Private (User)
+ * @description Handles core account registration, secure login/logout sessions, session token refreshing,
+ * password modification updates, and third-party social OAuth integrations (Google, LinkedIn) via injection.
  */
 
 const express = require("express");
-const router = express.Router();
 
-const { register } = require("../controllers/register.controller");
-const { login } = require("../controllers/login.controller");
-const { googleAuth } = require("../controllers/googleAuth.controller");
-const { socialAuth } = require("../controllers/socialAuth.controller");
-const { clearAuthCookies } = require("../utils/auth.cookies");
-const { refreshToken } = require("../controllers/refresh.controller");
-const {
-  registerValidation,
-  loginValidation,
-  googleAuthValidation,
-  linkedinAuthValidation,
-} = require("../validations/auth.validation");
-const {
-  linkedinRedirect,
-  linkedinCallback,
-  linkedinAuth,
-} = require("../controllers/linkedinAuth.controller");
+const createAuthRoutes = (controllers, validations, cookieUtils) => {
+  const router = express.Router();
 
-// --- LOCAL AUTHENTICATION & SESSION MANAGEMENT ---
+  const {
+    registerController,
+    loginController,
+    googleAuthController,
+    socialAuthController,
+    refreshController,
+    linkedinAuthController,
+  } = controllers;
 
-// @route   POST /api/v1/auth/register
-router.post("/register", registerValidation, register);
+  const {
+    registerValidation,
+    loginValidation,
+    googleAuthValidation,
+    linkedinAuthValidation,
+    refreshTokenCookieValidation,
+  } = validations;
 
-// @route   POST /api/v1/auth/login
-router.post("/login", loginValidation, login);
+  // ── LOCAL AUTHENTICATION & SESSION MANAGEMENT ─────────────────
 
-// @route   POST /api/v1/auth/refresh
-router.post("/refresh", refreshToken);
+  // @route   POST /api/v1/auth/register
+  router.post("/register", registerValidation, registerController.register);
 
-// @route   POST /api/v1/auth/logout
-router.post("/logout", (req, res) => {
-  clearAuthCookies(res);
-  return res
-    .status(200)
-    .json({ success: true, message: "Logged out successfully" });
-});
+  // @route   POST /api/v1/auth/login
+  router.post("/login", loginValidation, loginController.login);
 
-// --- THIRD-PARTY OAUTH INTEGRATIONS ---
+  // @route   POST /api/v1/auth/refresh
+  router.post(
+    "/refresh",
+    refreshTokenCookieValidation,
+    refreshController.refreshToken,
+  );
 
-// @route   POST /api/v1/auth/google
-router.post("/google", googleAuthValidation, googleAuth);
+  // @route   POST /api/v1/auth/logout
+  router.post("/logout", (req, res) => {
+    cookieUtils.clearAuthCookies(res);
+    return res
+      .status(200)
+      .json({ success: true, message: "Logged out successfully" });
+  });
 
-// @route   POST /api/v1/auth/social
-router.post("/social", socialAuth);
+  // ── THIRD-PARTY OAUTH INTEGRATIONS ────────────────────────────
 
-// @route   GET /api/v1/auth/linkedin
-router.get("/linkedin", linkedinRedirect);
+  // @route   POST /api/v1/auth/google
+  router.post("/google", googleAuthValidation, googleAuthController.googleAuth);
 
-// @route   GET /api/v1/auth/linkedin/callback
-router.get("/linkedin/callback", linkedinCallback);
+  // @route   POST /api/v1/auth/social
+  router.post("/social", socialAuthController.socialAuth);
 
-// @route   POST /api/v1/auth/linkedin/token
-router.post("/linkedin/token", linkedinAuthValidation, linkedinAuth);
+  // @route   GET /api/v1/auth/linkedin
+  router.get("/linkedin", linkedinAuthController.linkedinRedirect);
 
-module.exports = router;
+  // @route   GET /api/v1/auth/linkedin/callback
+  router.get("/linkedin/callback", linkedinAuthController.linkedinCallback);
+
+  // @route   POST /api/v1/auth/linkedin/token
+  router.post(
+    "/linkedin/token",
+    linkedinAuthValidation,
+    linkedinAuthController.linkedinAuth,
+  );
+
+  return router;
+};
+
+module.exports = createAuthRoutes;

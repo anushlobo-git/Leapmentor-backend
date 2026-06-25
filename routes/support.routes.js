@@ -1,28 +1,40 @@
 /**
  * @fileoverview HelpCenter Ingestion & Administrative Ticket Management Routes Framework
- * @prefix       /api/v1/support
- * @access       Public / Private (Admin Only)
+ * @description Decouples Express routes, mapping paths parameters directly onto celebrate shields.
  */
+
 const express = require("express");
-const router = express.Router();
-const {
-  createMessage,
-  getMessages,
-  resolveMessage,
-} = require("../controllers/support.controller");
-const { adminAuthenticate } = require("../middleware/adminAuth");
 
-// --- PUBLIC INGESTION ENDPOINTS (ACCESSIBLE OUT-OF-BAND FROM HELP CENTER SUBMISSIONS) ---
-// @route   POST /api/v1/support/messages
-router.post("/messages", createMessage);
+const createSupportRoutes = (
+  supportController,
+  adminAuthenticate,
+  validations,
+) => {
+  const router = express.Router();
+  const { createMessageValidation, resolveMessageValidation } = validations;
 
-// --- SECURED MANAGEMENT SEGMENTS (RESTRICTED TO VERIFIED ADMINISTRATOR SECURITY REALMS) ---
-router.use("/messages", adminAuthenticate);
+  // --- PUBLIC INGESTION ENDPOINTS (ACCESSIBLE OUT-OF-BAND FROM HELP CENTER SUBMISSIONS) ---
+  // @route   POST /api/v1/support/messages
+  router.post(
+    "/messages",
+    createMessageValidation,
+    supportController.createMessage,
+  );
 
-// @route   GET /api/v1/support/messages
-router.get("/messages", getMessages);
+  // --- SECURED MANAGEMENT SEGMENTS (RESTRICTED TO VERIFIED ADMINISTRATOR SECURITY REALMS) ---
+  router.use("/messages", adminAuthenticate);
 
-// @route   PATCH /api/v1/support/messages/:id/resolve
-router.patch("/messages/:id/resolve", resolveMessage);
+  // @route   GET /api/v1/support/messages
+  router.get("/messages", supportController.getMessages);
 
-module.exports = router;
+  // @route   PATCH /api/v1/support/messages/:id/resolve
+  router.patch(
+    "/messages/:id/resolve",
+    resolveMessageValidation,
+    supportController.resolveMessage,
+  );
+
+  return router;
+};
+
+module.exports = createSupportRoutes;

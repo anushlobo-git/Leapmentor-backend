@@ -1,44 +1,51 @@
 /**
- * @fileoverview Feedback Domain Controller
- * @description Maps incoming HTTP entry gates, parameters, and payloads down straight into corresponding services.
+ * @fileoverview Peer Feedback Interface Controller
+ * @description Thin network boundary processing inbound score submittals and matching lookup lookups.
  */
+
 const catchAsync = require("../utils/catchAsync");
-const feedbackService = require("../services/feedback.service");
 
-/**
- * Processes peer assessment metrics submission parameters.
- * @route   POST /api/feedback
- * @access  Private (User)
- */
-const createFeedback = catchAsync(async (req, res) => {
-  const slotIndex =
-    req.body.slotIndex == null ? undefined : Number(req.body.slotIndex);
+const createFeedbackController = (feedbackService) => {
+  /**
+   * Submit an assessment payload for an individual completed conversation sequence.
+   * @route POST /api/v1/feedback
+   */
+  const createFeedback = catchAsync(async (req, res, next) => {
+    const result = await feedbackService.createFeedback({
+      connectRequestId: req.body.connectRequestId,
+      rating: req.body.rating,
+      comment: req.body.comment,
+      slotIndex: req.body.slotIndex,
+      userId: req.user._id,
+    });
 
-  const populatedFeedback = await feedbackService.createFeedback({
-    connectRequestId: req.body.connectRequestId,
-    rating: req.body.rating,
-    comment: req.body.comment,
-    slotIndex,
-    userId: req.user._id,
+    return res.status(201).json({
+      success: true,
+      message: "Feedback submitted successfully.",
+      feedback: result,
+    });
   });
 
-  res.status(201).json({ success: true, feedback: populatedFeedback });
-});
+  /**
+   * Extract historical assessment payload files corresponding to a distinct contract string ID.
+   * @route GET /api/v1/feedback/:connectRequestId
+   */
+  const getFeedback = catchAsync(async (req, res, next) => {
+    const result = await feedbackService.getFeedback(
+      req.params.connectRequestId,
+      req.user._id,
+    );
 
-/**
- * Exposes recorded peer descriptions matching the targeting workflow environment.
- * @route   GET /api/feedback/:connectRequestId
- * @access  Private (User)
- */
-const getFeedback = catchAsync(async (req, res) => {
-  const result = await feedbackService.getFeedback(
-    req.params.connectRequestId,
-    req.user._id,
-  );
-  res.status(200).json({ success: true, ...result });
-});
+    return res.status(200).json({
+      success: true,
+      ...result,
+    });
+  });
 
-module.exports = {
-  createFeedback,
-  getFeedback,
+  return {
+    createFeedback,
+    getFeedback,
+  };
 };
+
+module.exports = createFeedbackController;

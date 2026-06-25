@@ -1,3 +1,4 @@
+//Leapmentor-backend/models/VerificationToken.js
 const mongoose = require("mongoose");
 
 const verificationTokenSchema = new mongoose.Schema(

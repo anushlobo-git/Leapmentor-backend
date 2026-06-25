@@ -2,8 +2,7 @@
  * @fileoverview Application Entry Point. Responsible for managing the server lifecycle,
  * establishing database connections, spinning up WebSockets, running cron engine routines,
  * and intercepting terminal shutdown signals.
- * * @note This file is deliberately separated from app.js to enable instantaneous,
- * uninhibited endpoint testing via Jest/Supertest without locking network ports.
+ * @description Utilizes a central dependency injection container to boot the factory-constructed application.
  */
 
 require("dotenv").config();
@@ -13,7 +12,10 @@ const http = require("http");
 const { Server } = require("socket.io");
 const mongoose = require("mongoose");
 
-const app = require("./app");
+// Dynamic Dependency Infrastructure
+const container = require("./config/container");
+const createApp = require("./app");
+
 const connectDatabase = require("./config/db");
 const socketAuth = require("./socket/socketAuth");
 const socketHandler = require("./socket/socketHandler");
@@ -29,7 +31,10 @@ const PORT = process.env.PORT || 5000;
    🔹 HTTP SERVER & WEBSOCKET ROUTING CONFIGURATION
 ======================================================== */
 
-/** @const {import('http').Server} httpServer - Native Node HTTP instance wrapping Express */
+// Build the application layer on demand by passing the dependency mapping tree
+const app = createApp(container);
+
+/** @const {import('http').Server} httpServer - Native Node HTTP instance wrapping our DI Express App */
 const httpServer = http.createServer(app);
 
 /** @const {import('socket.io').Server} io - Real-time WebSocket engine instance */
@@ -59,9 +64,6 @@ socketHandler(io);
 /**
  * Orchestrates an ordered, synchronous application startup sequence.
  * Guarantees that networking lanes remain closed until the data layer is safe.
- * * @async
- * @function startServer
- * @returns {Promise<void>} Logs readiness configurations upon successful deployment.
  */
 const startServer = async () => {
   try {
@@ -92,8 +94,6 @@ const startServer = async () => {
 /**
  * Executes a clean disconnect sequence during platform restarts or crashes.
  * Prevents hanging sockets, aborted database queries, or unhandled states.
- * * @function handleGracefulShutdown
- * @param {string} signal - The operational system signal intercept (e.g., 'SIGINT', 'SIGTERM')
  */
 const handleGracefulShutdown = (signal) => {
   logger.info(

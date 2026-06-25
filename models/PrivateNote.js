@@ -1,3 +1,4 @@
+//Leapmentor-backend/models/PrivateNote.js
 const mongoose = require("mongoose");
 
 const privateNoteSchema = new mongoose.Schema(

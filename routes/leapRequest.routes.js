@@ -1,45 +1,59 @@
 /**
  * @fileoverview Leap Request Lifecycle Routes
- * @description  Configures user request pipeline points submissions and administrator verification authorization triggers.
- * @prefix       /api/v1/leap-requests
- * @access       Private (User / Admin Only)
+ * @description Configures user request pipeline points submissions and administrator verification authorization triggers.
+ * Completely decoupled from concrete implementations via parameter injection and protected by Celebrate validations.
  */
 
 const express = require("express");
-const router = express.Router();
 
-const { authenticate } = require("../middleware/authenticate");
-const { adminAuthenticate } = require("../middleware/adminAuth");
 const {
-  getMyRequest,
-  createRequest,
-  getAllRequests,
-  getPendingCount,
-  approveRequest,
-  rejectRequest,
-} = require("../controllers/leapRequest.controller");
+  getAllLeapRequestsQueryValidation,
+  leapRequestIdParamValidation,
+} = require("../validations/leapRequest.validation");
 
-// --- MENTEE OPERATION CHANNELS ---
+const createLeapRequestRoutes = (
+  leapRequestController,
+  authenticate,
+  adminAuthenticate,
+) => {
+  const router = express.Router();
 
-// @route   GET /api/v1/leap-requests/my-request
-router.get("/my-request", authenticate, getMyRequest);
+  // --- MENTEE OPERATION CHANNELS ---
 
-// @route   POST /api/v1/leap-requests
-router.post("/", authenticate, createRequest);
+  // @route   GET /api/v1/leap-requests/my-request
+  router.get("/my-request", authenticate, leapRequestController.getMyRequest);
 
-// --- ADMINISTRATIVE REVIEW PIPELINES ---
-router.use(adminAuthenticate);
+  // @route   POST /api/v1/leap-requests
+  router.post("/", authenticate, leapRequestController.createRequest);
 
-// @route   GET /api/v1/leap-requests
-router.get("/", getAllRequests);
+  // --- ADMINISTRATIVE REVIEW PIPELINES ---
+  router.use(adminAuthenticate);
 
-// @route   GET /api/v1/leap-requests/pending-count
-router.get("/pending-count", getPendingCount);
+  // @route   GET /api/v1/leap-requests
+  router.get(
+    "/",
+    getAllLeapRequestsQueryValidation,
+    leapRequestController.getAllRequests,
+  );
 
-// @route   PATCH /api/v1/leap-requests/:id/approve
-router.patch("/:id/approve", approveRequest);
+  // @route   GET /api/v1/leap-requests/pending-count
+  router.get("/pending-count", leapRequestController.getPendingCount);
 
-// @route   PATCH /api/v1/leap-requests/:id/reject
-router.patch("/:id/reject", rejectRequest);
+  // @route   PATCH /api/v1/leap-requests/:id/approve
+  router.patch(
+    "/:id/approve",
+    leapRequestIdParamValidation,
+    leapRequestController.approveRequest,
+  );
 
-module.exports = router;
+  // @route   PATCH /api/v1/leap-requests/:id/reject
+  router.patch(
+    "/:id/reject",
+    leapRequestIdParamValidation,
+    leapRequestController.rejectRequest,
+  );
+
+  return router;
+};
+
+module.exports = createLeapRequestRoutes;

@@ -1,51 +1,41 @@
 /**
  * @fileoverview Mentor Availability Configuration and Slot Query Routes
- * @description  Orchestrates structural endpoints for managing recurring mentor schedules,
- * administrative day-overrides, transaction slot locking, and public timeline lookups.
- * @prefix       /api/v1/availability
- * @access       Public / Private (User / Mentor)
+ * @description Orchestrates structural endpoints for managing recurring mentor schedules,
+ * administrative day-overrides, transaction slot locking, and public timeline lookups via injection.
  */
 
 const express = require("express");
-const router = express.Router();
-const {
-  getMyAvailability,
-  createAvailability,
-  updateAvailability,
-  getMentorAvailability,
-  deleteAvailability,
-  getAvailableSlots,
-} = require("../controllers/availability.controller");
-const { authenticate } = require("../middleware/authenticate");
 
-// ── AUTHENTICATED MENTOR OPERATIONS ──────────────────────────
+const createAvailabilityRoutes = (availabilityController, authenticate) => {
+  const router = express.Router();
 
-// @route   GET /api/v1/availability/me
-router.get("/me", authenticate, getMyAvailability);
+  // ── AUTHENTICATED MENTOR OPERATIONS ──────────────────────────
 
-// @route   POST /api/v1/availability
-router.post("/", authenticate, createAvailability);
+  // @route   GET /api/v1/availability/me
+  router.get("/me", authenticate, availabilityController.getMyAvailability);
 
-// @route   PATCH /api/v1/availability/me
-router.patch("/me", authenticate, updateAvailability);
+  // @route   POST /api/v1/availability
+  router.post("/", authenticate, availabilityController.createAvailability);
 
-// @route   DELETE /api/v1/availability/me
-router.delete("/me", authenticate, deleteAvailability);
+  // @route   PATCH /api/v1/availability/me
+  router.patch("/me", authenticate, availabilityController.updateAvailability);
 
-// ── SCHEDULING & BOOKING UTILITIES ───────────────────────────
+  // @route   DELETE /api/v1/availability/me
+  router.delete("/me", authenticate, availabilityController.deleteAvailability);
 
-/**
- * Generate a timeline of open, calculable appointment slots for a targeted mentor.
- * @route   GET /api/v1/availability/:mentorId/slots
- * @access  Private (User)
- */
-router.get("/:mentorId/slots", authenticate, getAvailableSlots);
+  // ── SCHEDULING & BOOKING UTILITIES ───────────────────────────
 
-/**
- * Fetch base constraints and structural scheduling properties for a specific mentor profile.
- * @route   GET /api/v1/availability/:mentorId
- * @access  Public
- */
-router.get("/:mentorId", getMentorAvailability);
+  // @route   GET /api/v1/availability/:mentorId/slots
+  router.get(
+    "/:mentorId/slots",
+    authenticate,
+    availabilityController.getAvailableSlots,
+  );
 
-module.exports = router;
+  // @route   GET /api/v1/availability/:mentorId
+  router.get("/:mentorId", availabilityController.getMentorAvailability);
+
+  return router;
+};
+
+module.exports = createAvailabilityRoutes;
