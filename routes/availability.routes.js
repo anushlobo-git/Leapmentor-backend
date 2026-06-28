@@ -6,7 +6,7 @@
 
 const express = require("express");
 
-const createAvailabilityRoutes = (availabilityController, authenticate) => {
+const createAvailabilityRoutes = ({ availabilityController, authenticate }) => {
   const router = express.Router();
 
   // ── AUTHENTICATED MENTOR OPERATIONS ──────────────────────────

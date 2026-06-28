@@ -6,7 +6,7 @@
 
 const express = require("express");
 
-const createConnectRequestRoutes = (controllers, middlewares, validations) => {
+const createConnectRequestRoutes = ({ controllers, middlewares, validations }) => {
   const router = express.Router();
 
   const { connectRequestController, mentorReferController } = controllers;

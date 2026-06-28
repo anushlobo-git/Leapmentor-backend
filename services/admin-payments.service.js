@@ -13,13 +13,13 @@ const DEFAULT_PAGE_NUMBER = 1;
 const DEFAULT_LIMIT_SIZE = 10;
 const MAX_LIMIT_SIZE = 20;
 
-const createAdminPaymentsService = (
+const createAdminPaymentsService = ({
   adminUserRepository,
   connectRequestRepository,
   walletRepository,
   transactionRepository,
   userRepository,
-) => {
+}) => {
   /**
    * Computes platform-wide escrow balances, aggregate transaction revenue, and commission volumes.
    * @param {string} adminId     - Unique identifier database key of the requesting admin.

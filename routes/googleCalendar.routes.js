@@ -5,11 +5,7 @@
 
 const express = require("express");
 
-const createGoogleCalendarRoutes = (
-  googleCalendarController,
-  authenticate,
-  validations,
-) => {
+const createGoogleCalendarRoutes = ({ googleCalendarController, authenticate, validations }) => {
   const router = express.Router();
   const { handleCallbackValidation, getCalendarIntervalValidation } =
     validations;

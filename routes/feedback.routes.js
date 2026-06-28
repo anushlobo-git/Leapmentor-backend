@@ -5,11 +5,7 @@
 
 const express = require("express");
 
-const createFeedbackRoutes = (
-  feedbackController,
-  authenticate,
-  validations,
-) => {
+const createFeedbackRoutes = ({ feedbackController, authenticate, validations }) => {
   const router = express.Router();
   const { createFeedbackValidation, getFeedbackValidation } = validations;
 

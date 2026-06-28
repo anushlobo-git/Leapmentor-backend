@@ -6,7 +6,7 @@
 
 const catchAsync = require("../utils/catchAsync");
 
-const createLoginController = (authService, cookieUtils) => {
+const createLoginController = ({ authService, cookieUtils }) => {
   /**
    * Verify provided credentials to authenticate a platform user session.
    * @route   POST /api/v1/auth/login

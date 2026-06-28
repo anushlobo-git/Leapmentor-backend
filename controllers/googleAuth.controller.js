@@ -6,7 +6,7 @@
 
 const catchAsync = require("../utils/catchAsync");
 
-const createGoogleAuthController = (googleAuthService, cookieUtils) => {
+const createGoogleAuthController = ({ googleAuthService, cookieUtils }) => {
   /**
    * Handles incoming federated Google authentication tokens.
    * @route   POST /api/v1/auth/google

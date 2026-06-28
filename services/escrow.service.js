@@ -12,7 +12,7 @@ const DEFAULT_TIMEZONE = "Asia/Kolkata";
 const ROLE_MENTEE = "mentee";
 const ROLE_MENTOR = "mentor";
 
-const createEscrowService = (
+const createEscrowService = ({
   mongoose,
   adminUserRepo,
   connectRequestRepo,
@@ -24,7 +24,7 @@ const createEscrowService = (
   emailUtils,
   calendarUtils,
   logger,
-) => {
+}) => {
   const { sendInvoiceEmail, sendPaymentReceivedEmail } = emailUtils;
   const { sendCalendarInvite } = calendarUtils;
 

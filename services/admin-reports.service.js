@@ -7,7 +7,7 @@
 const AppError = require("../utils/AppError");
 const { toReportDTO } = require("../mappers/report.mapper");
 
-const createAdminReportsService = (
+const createAdminReportsService = ({
   reportRepository,
   userRepository,
   walletRepository,
@@ -16,7 +16,7 @@ const createAdminReportsService = (
   createNotification,
   fireAndForgetEmail,
   sendReportResolvedEmail,
-) => {
+}) => {
   const getReportStatsService = async () => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);

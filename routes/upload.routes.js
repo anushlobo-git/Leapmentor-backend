@@ -5,13 +5,7 @@
 
 const express = require("express");
 
-const createUploadRoutes = (
-  uploadController,
-  authenticate,
-  uploadImage,
-  uploadFields,
-  validations,
-) => {
+const createUploadRoutes = ({ uploadController, authenticate, uploadImage, uploadFields, validations }) => {
   const router = express.Router();
   const { uploadVerificationDocsValidation } = validations;
 

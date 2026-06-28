@@ -8,10 +8,7 @@ const {
   mentorProfileIdParamValidation,
 } = require("../validations/admin-verification.validation");
 
-const createAdminVerificationRoutes = (
-  adminVerificationController,
-  adminAuthenticate,
-) => {
+const createAdminVerificationRoutes = ({ adminVerificationController, adminAuthenticate }) => {
   const router = express.Router();
 
   // Protect all verification gateways with administrative session authentication

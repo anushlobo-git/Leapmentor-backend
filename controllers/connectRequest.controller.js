@@ -6,7 +6,7 @@
 
 const catchAsync = require("../utils/catchAsync");
 
-const createConnectRequestController = (connectRequestService) => {
+const createConnectRequestController = ({ connectRequestService }) => {
   /**
    * Dispatch a new mentorship engagement connection request to a mentor.
    * @route   POST /api/v1/connect-requests

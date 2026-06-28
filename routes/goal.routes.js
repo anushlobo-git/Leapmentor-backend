@@ -5,7 +5,7 @@
 
 const express = require("express");
 
-const createGoalRoutes = (goalController, authenticate, validations) => {
+const createGoalRoutes = ({ goalController, authenticate, validations }) => {
   const router = express.Router();
   const {
     createGoalValidation,

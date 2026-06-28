@@ -5,7 +5,7 @@
 
 const express = require("express");
 
-const createInvoiceRoutes = (invoiceController, authenticate, validations) => {
+const createInvoiceRoutes = ({ invoiceController, authenticate, validations }) => {
   const router = express.Router();
   const { getInvoicePdfValidation } = validations;
 

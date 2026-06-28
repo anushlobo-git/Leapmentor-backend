@@ -5,7 +5,7 @@
 
 const catchAsync = require("../utils/catchAsync");
 
-const createPrivateNoteController = (privateNoteService) => {
+const createPrivateNoteController = ({ privateNoteService }) => {
   const createNote = catchAsync(async (req, res, next) => {
     const note = await privateNoteService.createPrivateNote(
       req.user._id,

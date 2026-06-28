@@ -12,13 +12,13 @@ const ALLOWED_PROVIDERS = new Set(["linkedin", "apple"]);
 const VALID_ROLE_VALUES = new Set(["mentor", "mentee"]);
 const DEFAULT_FALLBACK_ROLE = "mentee";
 
-const createSocialAuthService = (
+const createSocialAuthService = ({
   userRepository,
   oauthAccountRepository,
   walletService,
   authUtils,
   logger,
-) => {
+}) => {
   /**
    * Resolves authentication parameters matching general incoming multi-provider social payloads.
    */

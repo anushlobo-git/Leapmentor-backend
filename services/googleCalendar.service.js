@@ -12,11 +12,11 @@ const CALENDAR_VERSION = "v3";
 const DEFAULT_TIMEZONE_SUFFIX = "Z";
 const MAX_EVENT_RESULTS = 250;
 
-const createGoogleCalendarService = (
+const createGoogleCalendarService = ({
   google,
   availabilityRepository,
   logger,
-) => {
+}) => {
   /**
    * Instantiates a fresh Google API OAuth2 client mapping configurations dynamically.
    * @private

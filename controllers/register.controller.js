@@ -6,7 +6,7 @@
 
 const catchAsync = require("../utils/catchAsync");
 
-const createRegisterController = (authService, cookieUtils) => {
+const createRegisterController = ({ authService, cookieUtils }) => {
   /**
    * Register and provision a brand-new user profile account.
    * @route   POST /api/v1/auth/register

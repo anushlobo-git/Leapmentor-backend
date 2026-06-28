@@ -9,10 +9,10 @@ const { toMentorProfileDTO } = require("../mappers/mentorProfile.mapper");
 
 const SIMILAR_MENTORS_SEARCH_LIMIT = 20;
 
-const createMentorReferService = (
+const createMentorReferService = ({
   connectRequestRepository,
   mentorProfileRepository,
-) => {
+}) => {
   /**
    * Resolves a ranked, matching collection of active alternative mentors who share professional skill attributes.
    */

@@ -6,7 +6,7 @@
 
 const catchAsync = require("../utils/catchAsync");
 
-const createSocialAuthController = (socialAuthService, cookieUtils, logger) => {
+const createSocialAuthController = ({ socialAuthService, cookieUtils, logger }) => {
   /**
    * Process incoming federated identity criteria to establish secure user sessions.
    * @route   POST /api/v1/auth/social

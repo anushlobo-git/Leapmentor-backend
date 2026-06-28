@@ -23,13 +23,13 @@ const EVENT_MILESTONE_ADDED = "milestone_added";
 const EVENT_MILESTONE_UPDATED = "milestone_updated";
 const EVENT_MILESTONE_DELETED = "milestone_deleted";
 
-const createGoalService = (
+const createGoalService = ({
   connectRequestRepo,
   goalRepo,
   milestoneRepo,
   socketHandler,
   logger,
-) => {
+}) => {
   const _assertParticipant = (connectRequest, userId) => {
     const mentorId = connectRequest.mentor?._id ?? connectRequest.mentor;
     const menteeId = connectRequest.mentee?._id ?? connectRequest.mentee;

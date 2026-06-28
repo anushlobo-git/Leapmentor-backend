@@ -10,10 +10,7 @@ const {
   changePasswordBodyValidation,
 } = require("../validations/admin-settings.validation");
 
-const createAdminSettingsRoutes = (
-  adminSettingsController,
-  adminAuthenticate,
-) => {
+const createAdminSettingsRoutes = ({ adminSettingsController, adminAuthenticate }) => { 
   const router = express.Router();
 
   // Protect all configuration gateways with administrative session authentication

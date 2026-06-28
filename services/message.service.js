@@ -10,7 +10,7 @@ const PAGINATION_DEFAULT_PAGE = 1;
 const PAGINATION_DEFAULT_LIMIT = 30;
 const PAGINATION_MAX_LIMIT_CAP = 50;
 
-const createMessageService = (messageRepository, connectRequestRepository) => {
+const createMessageService = ({messageRepository, connectRequestRepository}) => {
   /**
    * Validates session membership rights and returns historical text exchanges.
    */

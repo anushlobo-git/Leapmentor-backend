@@ -8,9 +8,10 @@ const {
   getTransactionsQueryValidation,
 } = require("../validations/admin-payments.validation");
 
-const createAdminPaymentsRoutes = (
+const createAdminPaymentsRoutes = ({
   adminPaymentsController,
-  adminAuthenticate,
+  adminAuthenticate
+}
 ) => {
   const router = express.Router();
 

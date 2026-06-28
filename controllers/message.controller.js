@@ -5,7 +5,7 @@
 
 const catchAsync = require("../utils/catchAsync");
 
-const createMessageController = (messageService) => {
+const createMessageController = ({ messageService }) => {
   /**
    * Returns a paginated list of chat history elements matching workspace threads channels.
    * @route   GET /api/v1/messages/:connectRequestId

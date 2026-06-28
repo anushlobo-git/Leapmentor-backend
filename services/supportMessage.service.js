@@ -12,14 +12,14 @@ const STATUS_RESOLVED = "resolved";
 const DEFAULT_USER_ROLE = "user";
 const NOTIFICATION_TYPE_RESOLVED = "support_resolved";
 
-const createSupportMessageService = (
+const createSupportMessageService = ({
   supportMessageRepository,
   userRepository,
   notificationRepository,
   toSupportMessageDTO,
   fireAndForgetEmail,
   sendSupportResolvedEmail,
-) => {
+}) => {
   /**
    * Registers a new customer support ticket submitted via the public HelpCenter gateway.
    */

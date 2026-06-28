@@ -9,11 +9,7 @@ const AppError = require("../utils/AppError");
 const DEFAULT_COMMISSION_RATE = 20;
 const RADIX_DECIMAL = 10;
 
-const createAdminSettingsService = (
-  adminUserRepository,
-  userRepository,
-  connectRequestRepository,
-) => {
+const createAdminSettingsService = ({ adminUserRepository, userRepository, connectRequestRepository }) => {
   /**
    * Fetch high-level ecosystem user registry tallies and active engagement counts.
    * @returns {Promise<Object>} Object containing aggregate user and active session counts.

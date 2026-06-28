@@ -5,7 +5,7 @@
 
 const express = require("express");
 
-const createReportRoutes = (reportController, middlewares, validations) => {
+const createReportRoutes = ({ reportController, middlewares, validations }) => {
   const router = express.Router();
   const { authenticate, requireRole, upload } = middlewares;
   const {

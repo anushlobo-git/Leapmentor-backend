@@ -17,14 +17,14 @@ const ROLE_MENTOR = "mentor";
 const ROLE_MENTEE = "mentee";
 const CLOUDINARY_RESOURCE_TYPE_RAW = "raw";
 
-const createNoteService = (
+const createNoteService = ({
   noteRepository,
   connectRequestRepository,
   cloudinary,
   streamifier,
   getFileType,
   logger,
-) => {
+}) => {
   const _extractErrorMessage = (error) => {
     if (error instanceof Error) return error.message;
     if (typeof error === "object") return JSON.stringify(error);

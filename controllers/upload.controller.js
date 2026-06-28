@@ -5,7 +5,7 @@
 
 const catchAsync = require("../utils/catchAsync");
 
-const createUploadController = (uploadService) => {
+const createUploadController = ({ uploadService }) => {
   /**
    * Handles incoming multipart payloads processing avatar image upgrades.
    * @route   POST /api/v1/upload/profile-picture

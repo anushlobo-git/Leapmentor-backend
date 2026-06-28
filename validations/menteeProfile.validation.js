@@ -22,7 +22,7 @@ const createProfileValidation = celebrate({
       "string.empty": "Target industry domain parameter field is required.",
     }),
     company: Joi.string().trim().max(100).allow("").optional(),
-    yearsOfExperience: Joi.number().integer().min(0).max(50).optional(),
+    yearsOfExperience: Joi.string().trim().min(0).max(50).optional(),
     bio: Joi.string().trim().max(2000).required().messages({
       "string.max": "Biographical summary information track cannot exceed 2000 characters.",
     }),

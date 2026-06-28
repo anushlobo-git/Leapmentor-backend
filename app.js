@@ -14,6 +14,10 @@ const cookieParser = require("cookie-parser");
 const Sentry = require("@sentry/node");
 const { errors } = require("celebrate");
 
+// ── ADD THESE TWO LINE ENTRANCES AT THE INITIALIZATION BLOCK ──
+const swaggerUi = require("swagger-ui-express");
+const swaggerSpec = require("./config/swagger/index");
+
 const errorHandler = require("./middleware/errorHandler");
 const requestId = require("./middleware/requestId");
 const requestLogger = require("./middleware/requestLogger");
@@ -23,15 +27,10 @@ const {
   aiLimiter,
 } = require("./middleware/rateLimiter");
 
-/**
- * Configures the pipeline graph of an Express application instance.
- * @param {Object} container - Central resolution container holding fully wired decoupled routers.
- * @returns {express.Application} Compiled application framework processing engine.
- */
 const createApp = (container = {}) => {
   const app = express();
 
-  // ── 1. CORE SYSTEM SECURITY & TUNING PLUGINS ─────────────────────────
+  // ── helmet configurations tuning lines loops etc ──
   app.use(
     cors({
       origin: process.env.APP_BASE_URL || "http://localhost:5173",
@@ -40,20 +39,16 @@ const createApp = (container = {}) => {
   );
 
   const helmet = require("helmet");
-  //const mongoSanitize = require("express-mongo-sanitize");
-
-
   app.use(
     helmet({
-      crossOriginEmbedderPolicy: false, //  google calendar  OAuth 
+      crossOriginEmbedderPolicy: false,
     }),
   );
-  //app.use(mongoSanitize());
 
   app.use(
     compression({
       level: 6,
-      threshold: 1024, // Only compress responses exceeding 1KB
+      threshold: 1024,
     }),
   );
 
@@ -72,10 +67,13 @@ const createApp = (container = {}) => {
     next();
   });
 
+  // ── INJECT SWAGGER ROUTING ENGINE DIRECTLY BEFORE TRAFFIC ROUTERS LANES LSTINGS ──
+  app.use("/api/docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+
   // ── 2. TRAFFIC PROTECTION & RATE BOUNDS ──────────────────────────────
-  app.use("/api/v1", apiLimiter); // General platform middleware
-  app.use("/api/v1/auth", authLimiter); // Strict security auth firewall
-  app.use("/api/v1/ai", aiLimiter); // Strict specialized AI thresholds
+  app.use("/api/v1", apiLimiter);
+  app.use("/api/v1/auth", authLimiter);
+  app.use("/api/v1/ai", aiLimiter);
 
   // ── 3. MONITORED SUBSYSTEMS ROUTER MATRICES ──────────────────────────
   const v1 = express.Router();
@@ -115,14 +113,12 @@ const createApp = (container = {}) => {
   v1.use("/admin", container.adminRouter);
   v1.use("/leap-requests", container.leapRequestRouter);
 
-  // Mount Unified Versioned Routing Lane
   app.use("/api/v1", v1);
 
   app.get("/", (req, res) => res.send("🚀 LeapMentor API Running..."));
 
-  // ── 4. FAULT ACCUMULATION TERMINALS ──────────────────────────────────
   Sentry.setupExpressErrorHandler(app);
-  app.use(errors()); // Celebrate joi validation exception parser middleware
+  app.use(errors());
   app.use(errorHandler);
 
   return app;

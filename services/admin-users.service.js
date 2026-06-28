@@ -15,12 +15,12 @@ const { toUserDTO } = require("../mappers/user.mapper");
 const DEFAULT_PAGE = 1;
 const DEFAULT_LIMIT = 20;
 
-const createAdminUserManagementService = (
+const createAdminUserManagementService = ({
   userRepository,
   mentorProfileRepository,
   menteeProfileRepository,
   connectRequestRepository,
-) => {
+}) => {
   /**
    * Retrieves a detailed, paginated ledger of users cross-referenced with profile states.
    */

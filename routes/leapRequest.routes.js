@@ -11,11 +11,7 @@ const {
   leapRequestIdParamValidation,
 } = require("../validations/leapRequest.validation");
 
-const createLeapRequestRoutes = (
-  leapRequestController,
-  authenticate,
-  adminAuthenticate,
-) => {
+const createLeapRequestRoutes = ({ leapRequestController, authenticate, adminAuthenticate }) => {
   const router = express.Router();
 
   // --- MENTEE OPERATION CHANNELS ---

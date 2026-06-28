@@ -14,7 +14,7 @@ const CLOUDINARY_FOLDER_WORK_EXP =
   "leapmentor/verification-docs/work-experience";
 const VERIFICATION_STATUS_PENDING = "pending";
 
-const createUploadService = (
+const createUploadService = ({
   cloudinary,
   streamifier,
   mentorProfileRepository,
@@ -22,7 +22,7 @@ const createUploadService = (
   fireAndForgetEmail,
   sendDocumentsSubmittedEmail,
   logger,
-) => {
+}) => {
   /**
    * Helper: Extracts a meaningful error message from various error types.
    * @private

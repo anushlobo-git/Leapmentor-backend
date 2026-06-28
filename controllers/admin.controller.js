@@ -16,13 +16,13 @@ const ADMIN_COOKIE_OPTIONS = {
   maxAge: MAX_COOKIE_AGE_HOURS * 60 * 60 * 1000,
 };
 
-const createAdminController = (
+const createAdminController = ({
   adminAuthService,
   adminStatsService,
   adminUserService,
   adminEngagementService,
-  cacheUtility,
-) => {
+  cacheUtility
+}) => {
   // ── AUTHENTICATION HANDLERS ─────────────────────────────────
 
   const adminLogin = catchAsync(async (req, res) => {

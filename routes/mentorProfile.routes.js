@@ -5,11 +5,7 @@
 
 const express = require("express");
 
-const createMentorProfileRoutes = (
-  mentorProfileController,
-  middlewares,
-  validations,
-) => {
+const createMentorProfileRoutes = ({ mentorProfileController, middlewares, validations }) => {
   const router = express.Router();
   const { authenticate, requireRole } = middlewares;
   const {

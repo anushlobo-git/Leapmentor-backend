@@ -9,11 +9,11 @@ const AppError = require("../utils/AppError");
 const LOCK_DURATION_MINUTES = 10;
 const TIME_CONVERSION_BASE = 60;
 
-const createSlotLockService = (
+const createSlotLockService = ({
   slotLockRepository,
   connectRequestRepository,
   toSlotLockDTO,
-) => {
+}) => {
   /**
    * Parses standard string time structures converting entries to integer minutes.
    * @private

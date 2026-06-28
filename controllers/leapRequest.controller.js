@@ -6,7 +6,7 @@
 
 const catchAsync = require("../utils/catchAsync");
 
-const createLeapRequestController = (leapRequestService) => {
+const createLeapRequestController = ({ leapRequestService }) => {
   /**
    * Retrieves the active outstanding request filed by the executing mentee.
    * @route   GET /api/v1/leap-requests/my-request

@@ -5,7 +5,7 @@
 
 const catchAsync = require("../utils/catchAsync");
 
-const createMentorProfileController = (mentorProfileService) => {
+const createMentorProfileController = ({ mentorProfileService }) => {
   /**
    * Processes incoming profile parameters creating fresh onboarding records.
    * @route   POST /api/v1/mentor-profile

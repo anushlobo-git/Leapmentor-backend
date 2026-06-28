@@ -5,11 +5,7 @@
 
 const express = require("express");
 
-const createMenteeProfileRoutes = (
-  menteeProfileController,
-  middlewares,
-  validations,
-) => {
+const createMenteeProfileRoutes = ({ menteeProfileController, middlewares, validations }) => {
   const router = express.Router();
   const { authenticate, requireRole } = middlewares;
   const {

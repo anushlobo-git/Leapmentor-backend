@@ -4,14 +4,15 @@
  * token signatures, and access log tracking. Receives injected repositories.
  */
 
-const jwt = require("jsonwebtoken");
+
 const AppError = require("../utils/AppError");
-const { toAdminDTO } = require("../mappers/admin.mapper");
 
-const signAdminToken = (id) =>
-  jwt.sign({ id, role: "admin" }, process.env.JWT_SECRET, { expiresIn: "7d" });
+const createAdminAuthService = ({adminUserRepository, jwt, toAdminDTO}) => {
 
-const createAdminAuthService = (adminUserRepository) => {
+  const signAdminToken = (id) =>
+    jwt.sign({ id, role: "admin" }, process.env.JWT_SECRET, {
+      expiresIn: "7d",
+    });
   /**
    * Validates administrator credentials and generates an access session.
    * @param {Object} payload

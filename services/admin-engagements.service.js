@@ -18,10 +18,10 @@ const SYSTEM_STATUSES = [
   "completed",
 ];
 
-const createAdminEngagementsService = (
+const createAdminEngagementsService = ({
   connectRequestRepository,
   userRepository,
-) => {
+}) => {
   /**
    * Generates an object mapping system engagement states to total transaction volumes.
    * @returns {Promise<Object>} Structured dictionary displaying distinct phase summaries and totals.

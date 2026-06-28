@@ -9,7 +9,7 @@ const { toMenteeProfileDTO } = require("../mappers/menteeProfile.mapper");
 const DEFAULT_YEARS_OF_EXPERIENCE = 0;
 const DEFAULT_LANGUAGES = ["English"];
 
-const createMenteeProfileService = (menteeProfileRepository) => {
+const createMenteeProfileService = ({ menteeProfileRepository }) => {
   const createProfile = async (userId, data) => {
     const existing = await menteeProfileRepository.findByUserId(userId);
     if (existing) {

@@ -9,7 +9,7 @@ const catchAsync = require("../utils/catchAsync");
 const OVERVIEW_CACHE_KEY = "admin:settings:dashboard-overview";
 const CACHE_TTL_SECONDS = 300; // 5-Minute Cache Window
 
-const createAdminSettingsController = (adminSettingsService, cacheUtility) => {
+const createAdminSettingsController = ({adminSettingsService, cacheUtility}) => {
   const getOverview = catchAsync(async (req, res) => {
     const data = await cacheUtility.getOrSetCache(
       OVERVIEW_CACHE_KEY,

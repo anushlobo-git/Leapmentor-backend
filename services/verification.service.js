@@ -11,11 +11,11 @@ const AppError = require("../utils/AppError");
 const BCRYPT_SALT_ROUNDS = 10;
 const TOKEN_LIFETIME_MS = 10 * 60 * 1000; // 10 Minutes window
 
-const createVerificationService = (
+const createVerificationService = ({
   userRepository,
   verificationTokenRepository,
   sendWithRetry,
-) => {
+}) => {
   /**
    * Internal Helper: Generates a cryptographically secure 6-digit numeric verification OTP code.
    * @private

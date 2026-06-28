@@ -6,7 +6,7 @@
 
 const express = require("express");
 
-const createAuthRoutes = (controllers, validations, cookieUtils) => {
+const createAuthRoutes = ({controllers, validations, cookieUtils}) => {
   const router = express.Router();
 
   const {

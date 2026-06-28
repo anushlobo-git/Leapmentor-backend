@@ -6,7 +6,7 @@
 
 const express = require("express");
 
-const createEarningsRoutes = (earningsController, middlewares, validations) => {
+const createEarningsRoutes = ({ earningsController, middlewares, validations }) => {
   const router = express.Router();
   const { authenticate, requireRole } = middlewares;
   const { getEarningsChartValidation, getPayoutHistoryValidation } =

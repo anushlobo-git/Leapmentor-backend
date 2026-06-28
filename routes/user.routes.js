@@ -5,7 +5,7 @@
 
 const express = require("express");
 
-const createUserRoutes = (authenticate) => {
+const createUserRoutes = ({ authenticate }) => {
   const router = express.Router();
 
   // GET /api/v1/users/me — returns logged-in user's own data

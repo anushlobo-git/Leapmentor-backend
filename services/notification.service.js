@@ -8,7 +8,7 @@ const AppError = require("../utils/AppError");
 
 const NOTIFICATION_RETRIEVAL_LIMIT = 50;
 
-const createNotificationService = (notificationRepository, toNotificationDTO) => {
+const createNotificationService = ({notificationRepository, toNotificationDTO}) => {
   /**
    * Resolves history records allocated down to individual target recipients.
    */

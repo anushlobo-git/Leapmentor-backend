@@ -5,7 +5,7 @@
 
 const catchAsync = require("../utils/catchAsync");
 
-const createForgotPasswordController = (forgotPasswordService) => {
+const createForgotPasswordController = ({ forgotPasswordService }) => {
   /**
    * Dispatches an account recovery numeric security code toward target user email profiles.
    * @route   POST /api/v1/auth/forgot-password

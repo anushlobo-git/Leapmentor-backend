@@ -5,7 +5,7 @@
 
 const catchAsync = require("../utils/catchAsync");
 
-const createAiController = (aiService) => {
+const createAiController = ({ aiService }) => {
   /**
    * Proxy conversational interactions down to the support assistance services.
    * @route   POST /api/v1/ai/chat

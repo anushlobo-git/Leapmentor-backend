@@ -5,7 +5,7 @@
 
 const express = require("express");
 
-const createForgotPasswordRoutes = (forgotPasswordController, validations) => {
+const createForgotPasswordRoutes = ({ forgotPasswordController, validations }) => {
   const router = express.Router();
 
   const {

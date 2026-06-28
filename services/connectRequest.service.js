@@ -9,7 +9,7 @@ const { toConnectRequestDTO } = require("../mappers/connectRequest.mapper");
 const { toMenteeProfileDTO } = require("../mappers/menteeProfile.mapper");
 const { toMentorProfileDTO } = require("../mappers/mentorProfile.mapper");
 
-const createConnectRequestService = (
+const createConnectRequestService = ({
   connectRequestRepository,
   mentorProfileRepository,
   menteeProfileRepository,
@@ -18,7 +18,7 @@ const createConnectRequestService = (
   emailUtils,
   socketService,
   logger,
-) => {
+}) => {
   const { sendConnectRequestEmail, sendRequestAcceptedEmail } = emailUtils;
 
   /**

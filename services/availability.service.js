@@ -21,11 +21,11 @@ const ALLOWED_UPDATE_FIELDS = [
   "googleCalendarConnected",
 ];
 
-const createAvailabilityService = (
+const createAvailabilityService = ({
   availabilityRepository,
   connectRequestRepository,
   slotLockRepository,
-) => {
+}) => {
   /**
    * Retrieve the authenticated mentor's availability record or returns fallback default configurations.
    */

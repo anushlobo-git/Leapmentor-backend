@@ -14,7 +14,7 @@ const STATUS_REJECTED = "rejected";
 const LEAP_POINTS_GRANT_AMOUNT = 500;
 const LEAP_POINTS_MAX_THRESHOLD = 500;
 
-const createLeapRequestService = (leapRequestRepository, walletRepository) => {
+const createLeapRequestService = ({leapRequestRepository, walletRepository}) => {
   /**
    * Retrieves the latest pending request filed by a specific mentee user.
    * @param {string} menteeId - Unique identifier of the targeting mentee user.

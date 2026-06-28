@@ -10,7 +10,7 @@ const { toUserDTO } = require("../mappers/user.mapper");
 const DEFAULT_ROLE = "mentee";
 const PROVIDER_GOOGLE = "google";
 
-const createGoogleAuthService = (
+const createGoogleAuthService = ({
   userRepository,
   oauthAccountRepository,
   walletService,
@@ -18,7 +18,7 @@ const createGoogleAuthService = (
   jwt,
   config,
   logger,
-) => {
+}) => {
   /**
    * Authenticates users leveraging federated Google ID Tokens.
    */

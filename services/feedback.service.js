@@ -13,11 +13,11 @@ const ROLE_MENTEE = "mentee";
 const ROLE_MENTOR = "mentor";
 const STATUS_COMPLETED = "completed";
 
-const createFeedbackService = (
+const createFeedbackService = ({
   feedbackRepo,
   connectRequestRepo,
   mentorProfileRepo,
-) => {
+}) => {
   /**
    * Identifies and isolates specific role bindings relative to explicit session mappings.
    * @private

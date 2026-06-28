@@ -21,14 +21,14 @@ const VALID_ADMIN_STATUS_POOL = new Set([
   "dismissed",
 ]);
 
-const createReportService = (
+const createReportService = ({
   reportRepository,
   connectRequestRepository,
   toReportDTO,
   cloudinary,
   fireAndForgetEmail,
   emailUtils,
-) => {
+}) => {
   const { sendReportSubmittedEmail, sendReportResolvedEmail } = emailUtils;
 
   const _extractErrorMessage = (error) => {

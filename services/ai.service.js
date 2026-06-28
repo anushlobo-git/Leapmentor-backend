@@ -8,7 +8,7 @@ const TARGET_AI_MODEL = "llama-3.1-8b-instant";
 const MAX_TOKEN_LIMIT = 1000;
 const DEFAULT_SYSTEM_PROMPT = "You are a helpful platform support assistant.";
 
-const createAiService = (aiGateway) => {
+const createAiService = ({ aiGateway }) => {
   /**
    * Contextualizes messages arrays and system parameters before dispatching requests.
    * @param {Array<Object>} messages - Conversational thread logs block array.

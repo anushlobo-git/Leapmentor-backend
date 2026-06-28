@@ -25,7 +25,7 @@ const DAYS_OF_WEEK = [
 ];
 const DEFAULT_TIMEZONE = "Asia/Kolkata";
 
-const createSessionService = (
+const createSessionService = ({
   mongoose,
   connectRequestRepo,
   availabilityRepo,
@@ -35,7 +35,7 @@ const createSessionService = (
   emailUtils,
   generateAvailableSlots,
   logger,
-) => {
+}) => {
   const {
     sendSlotCancelledEmail,
     sendSlotRescheduledEmail,

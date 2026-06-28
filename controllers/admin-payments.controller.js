@@ -10,7 +10,7 @@ const CACHE_TTL_SECONDS = 300; // 5 Minutes
 const STATS_CACHE_KEY = "admin:payments:telemetry-stats";
 const CHART_CACHE_KEY = "admin:payments:revenue-charts";
 
-const createAdminPaymentsController = (adminPaymentsService, cacheUtility) => {
+const createAdminPaymentsController = ({adminPaymentsService, cacheUtility}) => {
   /**
    * Fetch high-level platform-wide accounting balances and commission metrics.
    * @route   GET /api/v1/admin/payments/stats

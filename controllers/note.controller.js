@@ -5,7 +5,7 @@
 
 const catchAsync = require("../utils/catchAsync");
 
-const createNoteController = (noteService) => {
+const createNoteController = ({ noteService }) => {
   const uploadNote = catchAsync(async (req, res, next) => {
     const note = await noteService.processNoteUpload(
       req.body.connectRequestId,

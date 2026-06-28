@@ -8,12 +8,12 @@
 require("dotenv").config();
 require("./instrument.js"); // Sentry instrumentation must remain at the absolute top
 
-const http = require("http");
+const http = require("node:http");
 const { Server } = require("socket.io");
 const mongoose = require("mongoose");
 
 // Dynamic Dependency Infrastructure
-const container = require("./config/container");
+const container = require("./container");
 const createApp = require("./app");
 
 const connectDatabase = require("./config/db");
