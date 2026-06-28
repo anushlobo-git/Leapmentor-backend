@@ -9,13 +9,12 @@ const toMentorProfileDTO = (profile) => {
   return {
     // Dual-ID Support: Complete frontend backward compatibility
     _id: profile._id,
-    
 
     // Safe extraction fallback paths handle either raw ObjectIds or populated entities cleanly
     user: profile.user?._id
       ? {
           _id: profile.user._id.toString(),
-          
+
           name: profile.user.name,
           email: profile.user.email,
         }
@@ -26,6 +25,7 @@ const toMentorProfileDTO = (profile) => {
     company: profile.company || "",
     bio: profile.bio || "",
     profilePicture: profile.profilePicture || "",
+    profilePictureFileName: profile.profilePictureFileName || "", 
     yearsOfExperience: profile.yearsOfExperience ?? 0,
     hourlyRate: profile.hourlyRate ?? 0,
     avgRating: profile.avgRating ?? 0,

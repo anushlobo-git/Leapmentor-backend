@@ -14,7 +14,7 @@ const buildCacheKey = ( query ) => {
   const normalized = Object.entries(query)
     .filter(([, value]) => value !== undefined && value !== "")
     .map(([key, value]) => `${key}:${String(value).trim().toLowerCase()}`)
-    .sort()
+    .sort((a, b) => a.localeCompare(b))
     .join("|");
 
   return `cache:mentors:${normalized || "all"}`;

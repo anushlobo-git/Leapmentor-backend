@@ -41,6 +41,7 @@ const createMentorSearchService = require("../services/mentorSearch.service");
 // ── DEPENDENCIES
 const {
   axios,
+  crypto,
   jwt,
   bcrypt,
   mongoose,
@@ -81,6 +82,8 @@ const {
   toReportDTO,
   toSlotLockDTO,
   toSupportMessageDTO,
+  toMenteeProfileDTO,
+  toConnectRequestDTO,
 } = require("./infrastructure");
 
 const {
@@ -192,12 +195,14 @@ const adminReportsService = createAdminReportsService({
   createNotification,
   fireAndForgetEmail,
   sendReportResolvedEmail,
+  toReportDTO,
 });
 
 const adminSettingsService = createAdminSettingsService({
   adminUserRepository,
   userRepository,
   connectRequestRepository,
+  crypto,
 });
 
 const adminVerificationService = createAdminVerificationService({
@@ -220,6 +225,10 @@ const connectRequestService = createConnectRequestService({
   fireAndForgetEmail,
   emailUtils: { sendConnectRequestEmail, sendRequestAcceptedEmail },
   socketService: socketHandlerPacked,
+  toMenteeProfileDTO,
+  toMentorProfileDTO,
+  toConnectRequestDTO,
+  mongoose,
   logger,
 });
 

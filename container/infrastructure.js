@@ -69,6 +69,8 @@ const { toPrivateNoteDTO } = require("../mappers/privateNote.mapper");
 const { toReportDTO } = require("../mappers/report.mapper");
 const { toSlotLockDTO } = require("../mappers/slotLock.mapper");
 const { toSupportMessageDTO } = require("../mappers/supportMessage.mapper");
+const { toConnectRequestDTO } = require("../mappers/connectRequest.mapper");
+const { toMenteeProfileDTO } = require("../mappers/menteeProfile.mapper");
 
 // ── VALIDATIONS
 const authValidations = require("../validations/auth.validation");
@@ -198,7 +200,9 @@ module.exports = {
   toReportDTO,
   toSlotLockDTO,
   toSupportMessageDTO,
-
+  toConnectRequestDTO,
+  toMenteeProfileDTO,
+  
   // configs
   authConfig,
   cookieConfig,

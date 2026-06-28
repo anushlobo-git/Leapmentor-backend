@@ -74,7 +74,7 @@ const createAdminEngagementsService = ({
       }
     }
 
-    if (search && search.trim()) {
+    if (search?.trim()) {
       const matchingUsers = await userRepository.findUsersBySearchTerm(search);
       const ids = matchingUsers.map((u) => u._id);
       filter.$or = [{ mentor: { $in: ids } }, { mentee: { $in: ids } }];

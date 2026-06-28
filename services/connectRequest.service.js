@@ -4,11 +4,6 @@
  * and referring interaction requests between mentors and mentees via dependency injection.
  */
 
-const mongoose = require("mongoose");
-const { toConnectRequestDTO } = require("../mappers/connectRequest.mapper");
-const { toMenteeProfileDTO } = require("../mappers/menteeProfile.mapper");
-const { toMentorProfileDTO } = require("../mappers/mentorProfile.mapper");
-
 const createConnectRequestService = ({
   connectRequestRepository,
   mentorProfileRepository,
@@ -17,6 +12,10 @@ const createConnectRequestService = ({
   fireAndForgetEmail,
   emailUtils,
   socketService,
+  toMenteeProfileDTO,
+  toMentorProfileDTO,
+  toConnectRequestDTO,
+  mongoose,
   logger,
 }) => {
   const { sendConnectRequestEmail, sendRequestAcceptedEmail } = emailUtils;

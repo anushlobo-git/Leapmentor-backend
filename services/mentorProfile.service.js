@@ -32,6 +32,7 @@ const createMentorProfileService = ({
       company: data.company,
       bio: data.bio,
       profilePicture: data.profilePicture || "",
+      profilePictureFileName: data.profilePictureFileName || "",
       yearsOfExperience: data.yearsOfExperience || DEFAULT_YEARS_OF_EXPERIENCE,
       hourlyRate: data.hourlyRate || DEFAULT_HOURLY_RATE,
       skills: data.skills || [],

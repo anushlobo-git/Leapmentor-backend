@@ -32,6 +32,7 @@ const createProfileValidation = celebrate({
       "string.max": "Biography cannot exceed 2000 characters.",
     }),
     profilePicture: Joi.string().trim().uri().allow("").optional(),
+    profilePictureFileName: Joi.string().trim().max(255).allow("").optional(),
     yearsOfExperience: Joi.number().integer().min(0).max(50).optional(),
     hourlyRate: Joi.number().min(0).optional(),
     skills: Joi.array().items(Joi.string().trim()).min(1).required().messages({

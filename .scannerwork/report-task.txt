@@ -2,5 +2,5 @@ projectKey=Leapmentor-backend
 serverUrl=http://localhost:9000
 serverVersion=26.5.0.122743
 dashboardUrl=http://localhost:9000/dashboard?id=Leapmentor-backend
-ceTaskId=0fd910b4-8ac1-4b6c-9926-b680f4c9b0ae
-ceTaskUrl=http://localhost:9000/api/ce/task?id=0fd910b4-8ac1-4b6c-9926-b680f4c9b0ae
+ceTaskId=fa76b404-c46e-4652-bd60-edbd31926548
+ceTaskUrl=http://localhost:9000/api/ce/task?id=fa76b404-c46e-4652-bd60-edbd31926548

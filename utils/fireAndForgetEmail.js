@@ -21,7 +21,7 @@ const fireAndForgetEmail = (emailFn, label) => {
       logger.error(`Background email failed permanently: ${label}`, {
         message: err.message,
       });
-      // TODO: push to a dead-letter queue or alert here
+     
     }
   });
 };

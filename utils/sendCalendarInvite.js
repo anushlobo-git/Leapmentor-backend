@@ -59,12 +59,12 @@ const sendCalendarInvite = async ({
     return;
   }
 
-  const allSlots =
-    slots.length > 0
-      ? slots
-      : date && startTime && endTime
-        ? [{ date, startTime, endTime }]
-        : null;
+  let allSlots = null;
+  if (slots && slots.length > 0) {
+    allSlots = slots;
+  } else if (date && startTime && endTime) {
+    allSlots = [{ date, startTime, endTime }];
+  }
 
   if (!allSlots?.length) {
     logger.error("sendCalendarInvite: no valid slots provided", { requestId });

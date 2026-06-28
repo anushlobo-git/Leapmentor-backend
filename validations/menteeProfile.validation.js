@@ -24,13 +24,16 @@ const createProfileValidation = celebrate({
     company: Joi.string().trim().max(100).allow("").optional(),
     yearsOfExperience: Joi.string().trim().min(0).max(50).optional(),
     bio: Joi.string().trim().max(2000).required().messages({
-      "string.max": "Biographical summary information track cannot exceed 2000 characters.",
+      "string.max":
+        "Biographical summary information track cannot exceed 2000 characters.",
     }),
     profilePicture: Joi.string().trim().uri().allow("").optional(),
+    profilePictureFileName: Joi.string().trim().max(255).allow("").optional(),
     linkedInUrl: Joi.string().trim().uri().allow("").optional(),
     portfolioUrl: Joi.string().trim().uri().allow("").optional(),
     skills: Joi.array().items(Joi.string().trim()).min(1).required().messages({
-      "array.min": "At least one distinct functional skill element must be supplied.",
+      "array.min":
+        "At least one distinct functional skill element must be supplied.",
     }),
     interestedFields: Joi.array().items(Joi.string().trim()).min(1).required(),
     communicationPreferences: Joi.array().items(Joi.string().trim()).optional(),

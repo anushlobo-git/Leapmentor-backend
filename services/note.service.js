@@ -115,6 +115,8 @@ const createNoteService = ({
         resource_type: CLOUDINARY_RESOURCE_TYPE_RAW,
         use_filename: true,
         unique_filename: true,
+        timeout: 120000,
+        chunk_size: 6000000,
       });
     } catch (cloudinaryError) {
       throw new AppError(

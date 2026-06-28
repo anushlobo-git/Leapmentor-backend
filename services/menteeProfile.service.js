@@ -24,6 +24,7 @@ const createMenteeProfileService = ({ menteeProfileRepository }) => {
       yearsOfExperience: data.yearsOfExperience || DEFAULT_YEARS_OF_EXPERIENCE,
       bio: data.bio,
       profilePicture: data.profilePicture || "",
+      profilePictureFileName: data.profilePictureFileName || "",
       linkedInUrl: data.linkedInUrl || "",
       portfolioUrl: data.portfolioUrl || "",
       skills: data.skills || [],

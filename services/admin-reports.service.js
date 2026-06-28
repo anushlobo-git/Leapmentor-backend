@@ -5,7 +5,6 @@
  */
 
 const AppError = require("../utils/AppError");
-const { toReportDTO } = require("../mappers/report.mapper");
 
 const createAdminReportsService = ({
   reportRepository,
@@ -16,6 +15,7 @@ const createAdminReportsService = ({
   createNotification,
   fireAndForgetEmail,
   sendReportResolvedEmail,
+  toReportDTO,
 }) => {
   const getReportStatsService = async () => {
     const today = new Date();
@@ -36,8 +36,8 @@ const createAdminReportsService = ({
   };
 
   const getReportsService = async ({ page, limit, search, status }) => {
-    const safePage = Math.max(1, parseInt(page, 10) || 1);
-    const safeLimit = Math.min(20, parseInt(limit, 10) || 10);
+    const safePage = Math.max(1, Number.parseInt(page, 10) || 1);
+    const safeLimit = Math.min(20, Number.parseInt(limit, 10) || 10);
     const skip = (safePage - 1) * safeLimit;
 
     const filter = {};
@@ -89,17 +89,23 @@ const createAdminReportsService = ({
     const recipientId = report.reportedBy?._id;
     if (recipientId) {
       const otherPerson = report.reportedUser?.name || "the other user";
+      let notificationTitle = "Your report has been reviewed";
+      let notificationMessage = `Your complaint against ${otherPerson} was reviewed and dismissed.`;
+
+      if (status === "resolved") {
+        notificationTitle = "Your report has been resolved ✅";
+        notificationMessage = `Your complaint against ${otherPerson} has been resolved by our admin team.`;
+      }
+
+      if (adminNote?.trim()) {
+        notificationMessage += ` Note: ${adminNote.trim()}`;
+      }
+
       await createNotification({
         recipient: recipientId,
         type: "new_review",
-        title:
-          status === "resolved"
-            ? "Your report has been resolved ✅"
-            : "Your report has been reviewed",
-        message:
-          status === "resolved"
-            ? `Your complaint against ${otherPerson} has been resolved by our admin team.${adminNote ? ` Note: ${adminNote}` : ""}`
-            : `Your complaint against ${otherPerson} was reviewed and dismissed.${adminNote ? ` Note: ${adminNote}` : ""}`,
+        title: notificationTitle,
+        message: notificationMessage,
         metadata: { requestId: report.connectRequest },
       });
     }

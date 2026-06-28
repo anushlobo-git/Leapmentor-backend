@@ -18,7 +18,6 @@ const BRAND_FROM = `"Leapmentor" <${process.env.SMTP_USER}>`;
 const sendInvoiceEmail = async (params) => {
   const {
     connectRequestId,
-    menteeName,
     menteeEmail,
     mentorName,
     sessionRate,
