@@ -26,7 +26,7 @@ describe("Mentor Profile Router Unit Tests", () => {
       mentorIdParamValidation: "v_param",
     };
 
-    createMentorProfileRoutes(mockController, mockMiddlewares, mockValidations);
+    createMentorProfileRoutes({ mentorProfileController: mockController, middlewares: mockMiddlewares, validations: mockValidations });
 
     expect(mockRouter.get).toHaveBeenCalledWith(
       "/me",

@@ -6,6 +6,7 @@
 const { generateICS } = require("./generateICS");
 const sendWithRetry = require("./sendWithRetry");
 const logger = require("../config/logger");
+const env = require("../config/env");
 const {
   BLUE_GRADIENT,
   wrapEmail,
@@ -16,7 +17,7 @@ const {
   buildSlotRows,
 } = require("./emailHelpers");
 
-const BRAND_FROM = `"Leapmentor" <${process.env.SMTP_USER}>`;
+const BRAND_FROM = `"Leapmentor" <${env.smtp.user}>`;
 
 const buildMessageBlock = (message, senderLabel) =>
   message

@@ -7,15 +7,20 @@
 const createAuthService = require("../../../services/auth.service");
 const AppError = require("../../../utils/AppError");
 
+// toUserDTO is imported directly inside the service, so jest.mock works here
 jest.mock("../../../mappers/user.mapper", () => ({
   toUserDTO: jest.fn((user) => ({ DTO: true, ...user })),
 }));
 
 describe("User Authentication Service Unit Tests", () => {
-  let mockUserRepo, mockWalletService, mockAuthUtils, mockBcrypt, service;
+  let mockUserRepository;
+  let mockWalletService;
+  let mockAuthUtils;
+  let mockBcrypt;
+  let service;
 
   beforeEach(() => {
-    mockUserRepo = {
+    mockUserRepository = {
       findUserByEmail: jest.fn(),
       createUser: jest.fn(),
       findUserByEmailWithPassword: jest.fn(),
@@ -33,25 +38,27 @@ describe("User Authentication Service Unit Tests", () => {
       compare: jest.fn(),
     };
 
-    service = createAuthService(
-      mockUserRepo,
-      mockWalletService,
-      mockAuthUtils,
-      mockBcrypt,
-    );
+    // ✅ Correct instantiation — matches the destructured signature
+    service = createAuthService({
+      userRepository: mockUserRepository,
+      walletService: mockWalletService,
+      authUtils: mockAuthUtils,
+      bcrypt: mockBcrypt,
+    });
   });
 
   afterEach(() => {
     jest.clearAllMocks();
   });
 
+  // ── registerUser ────────────────────────────────────────────────────────
   describe("registerUser Processing Pipeline", () => {
     test("should execute successfully and issue session tokens for unique registration parameters", async () => {
       mockAuthUtils.validateRoles.mockReturnValue({
         valid: true,
         uniqueRoles: ["mentee"],
       });
-      mockUserRepo.findUserByEmail.mockResolvedValue(null);
+      mockUserRepository.findUserByEmail.mockResolvedValue(null);
       mockBcrypt.hash.mockResolvedValue("cryptographic_hashed_password_string");
 
       const mockCreatedDoc = {
@@ -59,7 +66,7 @@ describe("User Authentication Service Unit Tests", () => {
         name: "John Doe",
         email: "john@test.com",
       };
-      mockUserRepo.createUser.mockResolvedValue(mockCreatedDoc);
+      mockUserRepository.createUser.mockResolvedValue(mockCreatedDoc);
 
       const result = await service.registerUser({
         name: "John Doe",
@@ -70,9 +77,12 @@ describe("User Authentication Service Unit Tests", () => {
 
       expect(mockAuthUtils.validateRoles).toHaveBeenCalledWith(["mentee"]);
       expect(mockBcrypt.hash).toHaveBeenCalledWith("securepassword", 10);
-      expect(mockUserRepo.createUser).toHaveBeenCalledWith(
+      expect(mockUserRepository.createUser).toHaveBeenCalledWith(
         expect.objectContaining({
           password: "cryptographic_hashed_password_string",
+          email: "john@test.com",
+          isEmailVerified: false,
+          termsAccepted: true,
         }),
       );
       expect(mockWalletService.createWalletsForRoles).toHaveBeenCalledWith(
@@ -80,10 +90,12 @@ describe("User Authentication Service Unit Tests", () => {
         ["mentee"],
       );
       expect(result.accessToken).toBe("mock_access_token");
+      expect(result.refreshToken).toBe("mock_refresh_token");
       expect(result.isNewUser).toBe(true);
     });
 
-    test("should throw a 400 bad request error if role verification arrays return as invalid", async () => {
+    test("should throw 400 if role verification returns invalid", async () => {
+      // Branch: if (!valid)
       mockAuthUtils.validateRoles.mockReturnValue({
         valid: false,
         message: "Invalid role. Use mentor and/or mentee.",
@@ -91,36 +103,42 @@ describe("User Authentication Service Unit Tests", () => {
 
       await expect(
         service.registerUser({ roles: ["invalid_role"] }),
-      ).rejects.toThrow(
-        new AppError("Invalid role. Use mentor and/or mentee.", 400),
-      );
+      ).rejects.toMatchObject({
+        statusCode: 400,
+        message: "Invalid role. Use mentor and/or mentee.",
+      });
+
+      expect(mockUserRepository.findUserByEmail).not.toHaveBeenCalled();
     });
 
-    test("should throw a 409 identity conflict error if an email address already exists in the system", async () => {
+    test("should throw 409 if email already exists in the system", async () => {
+      // Branch: if (existing)
       mockAuthUtils.validateRoles.mockReturnValue({
         valid: true,
         uniqueRoles: ["mentee"],
       });
-      mockUserRepo.findUserByEmail.mockResolvedValue({
-        _id: "existing_user_id",
-      });
+      mockUserRepository.findUserByEmail.mockResolvedValue({ _id: "existing" });
 
       await expect(
         service.registerUser({ email: "clash@test.com", roles: ["mentee"] }),
-      ).rejects.toThrow(
-        new AppError("An account with this email already exists.", 409),
-      );
+      ).rejects.toMatchObject({
+        statusCode: 409,
+        message: "An account with this email already exists.",
+      });
+
+      expect(mockBcrypt.hash).not.toHaveBeenCalled();
     });
   });
 
+  // ── loginUser ───────────────────────────────────────────────────────────
   describe("loginUser Verification Pipeline", () => {
-    test("should approve session creations when credentials balance against the data store", async () => {
+    test("should approve session when credentials match", async () => {
       const mockUserWithPass = {
         _id: "uid_44",
         password: "stored_hashed_value",
         isEmailVerified: true,
       };
-      mockUserRepo.findUserByEmailWithPassword.mockResolvedValue(
+      mockUserRepository.findUserByEmailWithPassword.mockResolvedValue(
         mockUserWithPass,
       );
       mockBcrypt.compare.mockResolvedValue(true);
@@ -130,53 +148,75 @@ describe("User Authentication Service Unit Tests", () => {
         password: "mypassword",
       });
 
-      expect(mockUserRepo.findUserByEmailWithPassword).toHaveBeenCalledWith(
-        "login@test.com",
-      );
+      expect(
+        mockUserRepository.findUserByEmailWithPassword,
+      ).toHaveBeenCalledWith("login@test.com");
       expect(mockBcrypt.compare).toHaveBeenCalledWith(
         "mypassword",
         "stored_hashed_value",
       );
       expect(result.accessToken).toBe("mock_access_token");
+      expect(result.refreshToken).toBe("mock_refresh_token");
+      expect(result.isNewUser).toBe(true);
     });
 
-    test("should throw a 401 Unauthorized status if the target email lookup matches an empty registry pointer", async () => {
-      mockUserRepo.findUserByEmailWithPassword.mockResolvedValue(null);
+    test("should throw 401 if user is not found (null returned)", async () => {
+      // Branch: if (!user?.password) — user is null
+      mockUserRepository.findUserByEmailWithPassword.mockResolvedValue(null);
 
       await expect(
         service.loginUser({ email: "ghost@test.com", password: "any" }),
-      ).rejects.toThrow(new AppError("Invalid email or password.", 401));
+      ).rejects.toMatchObject({
+        statusCode: 401,
+        message: "Invalid email or password.",
+      });
+
+      expect(mockBcrypt.compare).not.toHaveBeenCalled();
     });
 
-    test("should throw a 401 Unauthorized status if the password payload comparisons fail", async () => {
-      mockUserRepo.findUserByEmailWithPassword.mockResolvedValue({
+    test("should throw 401 if user exists but has no password field", async () => {
+      // Branch: if (!user?.password) — user exists but password is undefined
+      mockUserRepository.findUserByEmailWithPassword.mockResolvedValue({
+        _id: "uid_no_pass",
+      });
+
+      await expect(
+        service.loginUser({ email: "nopass@test.com", password: "any" }),
+      ).rejects.toMatchObject({
+        statusCode: 401,
+        message: "Invalid email or password.",
+      });
+    });
+
+    test("should throw 401 if password comparison fails", async () => {
+      // Branch: if (!isMatch)
+      mockUserRepository.findUserByEmailWithPassword.mockResolvedValue({
         password: "hash",
       });
       mockBcrypt.compare.mockResolvedValue(false);
 
       await expect(
-        service.loginUser({
-          email: "test@test.com",
-          password: "wrong_password",
-        }),
-      ).rejects.toThrow(new AppError("Invalid email or password.", 401));
+        service.loginUser({ email: "test@test.com", password: "wrong" }),
+      ).rejects.toMatchObject({
+        statusCode: 401,
+        message: "Invalid email or password.",
+      });
     });
 
-    test("should throw a 403 Forbidden status if an account hasn't fulfilled email verification gates", async () => {
-      mockUserRepo.findUserByEmailWithPassword.mockResolvedValue({
+    test("should throw 403 if email is not verified", async () => {
+      // Branch: if (!user.isEmailVerified)
+      mockUserRepository.findUserByEmailWithPassword.mockResolvedValue({
         password: "hash",
         isEmailVerified: false,
       });
       mockBcrypt.compare.mockResolvedValue(true);
 
       await expect(
-        service.loginUser({
-          email: "unverified@test.com",
-          password: "password",
-        }),
-      ).rejects.toThrow(
-        new AppError("Please verify your email address to log in.", 403),
-      );
+        service.loginUser({ email: "unverified@test.com", password: "pass" }),
+      ).rejects.toMatchObject({
+        statusCode: 403,
+        message: "Please verify your email address to log in.",
+      });
     });
   });
 });

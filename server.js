@@ -13,8 +13,10 @@ const { Server } = require("socket.io");
 const mongoose = require("mongoose");
 
 // Dynamic Dependency Infrastructure
+const env = require("./config/env"); 
 const container = require("./container");
 const createApp = require("./app");
+
 
 const connectDatabase = require("./config/db");
 const socketAuth = require("./socket/socketAuth");
@@ -25,7 +27,7 @@ const { startCleanupCron } = require("./cron/cleanupAvailability");
 const { startSessionReminderCron } = require("./cron/sessionReminders");
 
 /** @const {number|string} PORT - Operational port for the incoming HTTP traffic */
-const PORT = process.env.PORT || 5000;
+const PORT = env.port;
 
 /* ========================================================
    🔹 HTTP SERVER & WEBSOCKET ROUTING CONFIGURATION
@@ -41,11 +43,11 @@ const httpServer = http.createServer(app);
 const io = new Server(httpServer, {
   cors: {
     origin: [
-      "http://localhost:5173",
+      env.appBaseUrl || "http://localhost:5173",
       "http://localhost:5174",
       "http://localhost:3000",
       "http://localhost:4173",
-      process.env.APP_BASE_URL,
+       env.appBaseUrl,
     ],
     credentials: true,
   },
@@ -80,7 +82,7 @@ const startServer = async () => {
       logger.info(`🚀 Server listening on port ${PORT}`);
       logger.info(`🔌 WebSocket transport lanes active`);
       logger.info(
-        `🔑 Google Authentication: ${process.env.GOOGLE_CLIENT_ID ? "CONFIGURED" : "MISSING"}`,
+        `🔑 Google Authentication: ${env.google.clientId ? "CONFIGURED" : "MISSING"}`,
       );
     });
   } catch (error) {

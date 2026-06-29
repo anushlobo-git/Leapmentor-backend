@@ -5,13 +5,13 @@
  */
 
 const catchAsync = require("../utils/catchAsync");
-
+const env=require("../config/env");
 // Configured tracking constants
 const MAX_COOKIE_AGE_HOURS = 8;
 const CACHE_TTL_SECONDS = 300; // 5-Minute corporate caching standard window
 const ADMIN_COOKIE_OPTIONS = {
   httpOnly: true,
-  secure: process.env.NODE_ENV === "production",
+  secure: env.nodeEnv === "production",
   sameSite: "lax",
   maxAge: MAX_COOKIE_AGE_HOURS * 60 * 60 * 1000,
 };
@@ -34,7 +34,7 @@ const createAdminController = ({
   const adminLogout = (req, res) => {
     res.clearCookie("adminToken", {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
+      secure: env.nodeEnv === "production",
       sameSite: "lax",
     });
     res.status(200).json({ success: true, message: "Logged out." });

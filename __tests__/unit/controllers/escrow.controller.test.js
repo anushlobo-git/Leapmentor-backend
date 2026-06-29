@@ -1,17 +1,37 @@
 /**
- * @fileoverview Escrow Controller Unit Tests
- * @description Validates structural HTTP status allocations, payload spreading integrity,
- * parameters extraction routing loops, and catchAsync exception cascades.
+ * @fileoverview Escrow Domain Controller Unit Tests
+ * @description Verifies token commitments, customized additional slot payments,
+ * asset release hooks, error propagation, and response serialization.
  */
+
+// CRITICAL FIX: Mock catchAsync to return the promise chain so tests can reliably await its completion.
+jest.mock("../../../utils/catchAsync", () => {
+  return (fn) => (req, res, next) =>
+    Promise.resolve(fn(req, res, next)).catch(next);
+});
 
 const createEscrowController = require("../../../controllers/escrow.controller");
 
-describe("Escrow Controller Unit Tests", () => {
-  let mockEscrowService, controller, mockReq, mockRes, mockNext;
+describe("EscrowController", () => {
+  let mockEscrowService;
+  let controller;
+  let req;
+  let res;
+  let next;
 
-  const flushPromises = () => new Promise(setImmediate);
+  const mockTransactionResult = {
+    transactionId: "tx_esc_123",
+    currentHold: 500,
+  };
+  const mockStatusResult = {
+    requestId: "req_xyz789",
+    state: "held",
+    balance: 60,
+  };
+  const mockWalletResult = { balance: 1500, escrowBalance: 300 };
 
   beforeEach(() => {
+    // ── MOCK DEPENDENCIES
     mockEscrowService = {
       pay: jest.fn(),
       payAdditional: jest.fn(),
@@ -22,125 +42,255 @@ describe("Escrow Controller Unit Tests", () => {
       getCommissionRate: jest.fn(),
     };
 
-    controller = createEscrowController(mockEscrowService);
+    controller = createEscrowController({
+      escrowService: mockEscrowService,
+    });
 
-    mockReq = { user: { _id: "user_uuid_101" }, body: {}, params: {} };
-    mockRes = {
+    // ── EXPRESS HTTP MOCKS
+    req = {
+      user: { _id: "user_mentee_888" },
+      body: {},
+      params: {},
+      query: {},
+    };
+
+    res = {
       status: jest.fn().mockReturnThis(),
       json: jest.fn().mockReturnThis(),
     };
-    mockNext = jest.fn();
+
+    next = jest.fn();
   });
 
   afterEach(() => {
     jest.clearAllMocks();
   });
 
-  test("pay should execute balance locks and verify payload format serialization strings", async () => {
-    mockReq.body = {
-      connectRequestId: "req_99",
-      sessionRate: 50,
-      sessionCount: 2,
-    };
-    const mockOutput = { totalAmount: 110, paymentStatus: "paid" };
-    mockEscrowService.pay.mockResolvedValue(mockOutput);
+  // ── pay ─────────────────────────────────────────────────────────────────
+  describe("pay", () => {
+    test("should return 200 and commit token balances into hold logs on success", async () => {
+      req.user._id = "mentee_variant_111";
+      req.body = {
+        connectRequestId: "req_001",
+        sessionRate: 50,
+        sessionCount: 4,
+      };
+      mockEscrowService.pay.mockResolvedValue(mockTransactionResult);
 
-    await controller.pay(mockReq, mockRes, mockNext);
-    await flushPromises();
+      await controller.pay(req, res, next);
 
-    expect(mockEscrowService.pay).toHaveBeenCalledWith({
-      connectRequestId: "req_99",
-      sessionRate: 50,
-      sessionCount: 2,
-      menteeId: "user_uuid_101",
+      expect(mockEscrowService.pay).toHaveBeenCalledWith({
+        connectRequestId: "req_001",
+        sessionRate: 50,
+        sessionCount: 4,
+        menteeId: "mentee_variant_111",
+      });
+      expect(res.status).toHaveBeenCalledWith(200);
+      expect(res.json).toHaveBeenCalledWith({
+        message: "Payment successful. Tokens locked in escrow.",
+        transactionId: "tx_esc_123",
+        currentHold: 500,
+      });
+      expect(next).not.toHaveBeenCalled();
     });
-    expect(mockRes.status).toHaveBeenCalledWith(200);
-    expect(mockRes.json).toHaveBeenCalledWith({
-      message: "Payment successful. Tokens locked in escrow.",
-      ...mockOutput,
+
+    test("should call next(err) and withhold status updates when service throws", async () => {
+      const error = new Error("Insufficient wallet asset balance tokens");
+      mockEscrowService.pay.mockRejectedValue(error);
+
+      await controller.pay(req, res, next);
+
+      expect(next).toHaveBeenCalledWith(error);
+      expect(res.status).not.toHaveBeenCalled();
     });
   });
 
-  test("payAdditional should pass tracking params down onto slot increment tasks", async () => {
-    mockReq.body = {
-      connectRequestId: "req_99",
-      sessionRate: 50,
-      slotId: "slot_01",
-    };
-    mockEscrowService.payAdditional.mockResolvedValue({ slotId: "slot_01" });
+  // ── payAdditional ───────────────────────────────────────────────────────
+  describe("payAdditional", () => {
+    test("should return 200 and flatten customized sub-slot transaction parameters on success", async () => {
+      req.user._id = "mentee_variant_222";
+      req.body = {
+        connectRequestId: "req_002",
+        sessionRate: 60,
+        slotId: "slot_999",
+      };
+      mockEscrowService.payAdditional.mockResolvedValue(mockTransactionResult);
 
-    await controller.payAdditional(mockReq, mockRes, mockNext);
-    await flushPromises();
+      await controller.payAdditional(req, res, next);
 
-    expect(mockRes.status).toHaveBeenCalledWith(200);
-
-    // Ensure additional string confirmation responses match frontend contracts
-    expect(mockRes.json).toHaveBeenCalledWith(
-      expect.objectContaining({
+      expect(mockEscrowService.payAdditional).toHaveBeenCalledWith({
+        connectRequestId: "req_002",
+        sessionRate: 60,
+        slotId: "slot_999",
+        menteeId: "mentee_variant_222",
+      });
+      expect(res.status).toHaveBeenCalledWith(200);
+      expect(res.json).toHaveBeenCalledWith({
         message:
           "Additional session payment successful. Tokens locked in escrow.",
-      }),
-    );
-  });
-
-  test("release should mark transaction timelines complete and update ledger profiles", async () => {
-    mockReq.params.requestId = "req_payout_abc";
-    mockEscrowService.release.mockResolvedValue({ status: "completed" });
-
-    await controller.release(mockReq, mockRes, mockNext);
-    await flushPromises();
-
-    expect(mockEscrowService.release).toHaveBeenCalledWith({
-      requestId: "req_payout_abc",
-      menteeId: "user_uuid_101",
-    });
-    expect(mockRes.status).toHaveBeenCalledWith(200);
-  });
-
-  test("getStatus should output clean status definitions omitting wrap parameters metadata logs", async () => {
-    mockReq.params.requestId = "req_state_xyz";
-    const servicePayload = { status: "ongoing", paymentStatus: "paid" };
-    mockEscrowService.getStatus.mockResolvedValue(servicePayload);
-
-    await controller.getStatus(mockReq, mockRes, mockNext);
-    await flushPromises();
-
-    expect(mockRes.status).toHaveBeenCalledWith(200);
-    expect(mockRes.json).toHaveBeenCalledWith(servicePayload);
-  });
-
-  test("getMyWallet should match clear structural outputs", async () => {
-    mockEscrowService.getMyWallet.mockResolvedValue({
-      balance: 300,
-      escrow: 50,
+        transactionId: "tx_esc_123",
+        currentHold: 500,
+      });
+      expect(next).not.toHaveBeenCalled();
     });
 
-    await controller.getMyWallet(mockReq, mockRes, mockNext);
-    await flushPromises();
+    test("should call next(err) and withhold status updates when service throws", async () => {
+      const error = new Error("Slot lock state lookup validation failure");
+      mockEscrowService.payAdditional.mockRejectedValue(error);
 
-    expect(mockEscrowService.getMyWallet).toHaveBeenCalledWith("user_uuid_101");
-    expect(mockRes.json).toHaveBeenCalledWith({ balance: 300, escrow: 50 });
+      await controller.payAdditional(req, res, next);
+
+      expect(next).toHaveBeenCalledWith(error);
+      expect(res.status).not.toHaveBeenCalled();
+    });
   });
 
-  test("getCommissionRate should wrap target numerical numbers within an explicit commissionRate object shell", async () => {
-    mockEscrowService.getCommissionRate.mockResolvedValue(20);
+  // ── release ─────────────────────────────────────────────────────────────
+  describe("release", () => {
+    test("should return 200 and shift tokens down onto clear mentor balances on success", async () => {
+      req.user._id = "mentee_variant_333";
+      req.params.requestId = "req_release_456";
+      mockEscrowService.release.mockResolvedValue({ releasedAmount: 200 });
 
-    await controller.getCommissionRate(mockReq, mockRes, mockNext);
-    await flushPromises();
+      await controller.release(req, res, next);
 
-    expect(mockRes.json).toHaveBeenCalledWith({ commissionRate: 20 });
+      expect(mockEscrowService.release).toHaveBeenCalledWith({
+        requestId: "req_release_456",
+        menteeId: "mentee_variant_333",
+      });
+      expect(res.status).toHaveBeenCalledWith(200);
+      expect(res.json).toHaveBeenCalledWith({
+        message: "Session marked complete. Tokens released to mentor.",
+        releasedAmount: 200,
+      });
+      expect(next).not.toHaveBeenCalled();
+    });
+
+    test("should call next(err) and withhold status updates when service throws", async () => {
+      req.params.requestId = "req_fail";
+      const error = new Error("Escrow milestone release permissions denied");
+      mockEscrowService.release.mockRejectedValue(error);
+
+      await controller.release(req, res, next);
+
+      expect(next).toHaveBeenCalledWith(error);
+      expect(res.status).not.toHaveBeenCalled();
+    });
   });
 
-  test("should trap thrown runtime operational exceptions routing them directly downstream to next()", async () => {
-    const errorInstance = new Error(
-      "Platform admin not found. Contact support.",
-    );
-    mockEscrowService.pay.mockRejectedValue(errorInstance);
+  // ── refund ──────────────────────────────────────────────────────────────
+  describe("refund", () => {
+    test("should return 200 and revert whole connection balance mappings on success", async () => {
+      req.user._id = "user_participant_444";
+      req.params.requestId = "req_refund_789";
+      mockEscrowService.refund.mockResolvedValue({ refundedAmount: 300 });
 
-    await controller.pay(mockReq, mockRes, mockNext);
-    await flushPromises();
+      await controller.refund(req, res, next);
 
-    expect(mockNext).toHaveBeenCalledWith(errorInstance);
-    expect(mockRes.status).not.toHaveBeenCalled();
+      expect(mockEscrowService.refund).toHaveBeenCalledWith({
+        requestId: "req_refund_789",
+        userId: "user_participant_444",
+      });
+      expect(res.status).toHaveBeenCalledWith(200);
+      expect(res.json).toHaveBeenCalledWith({
+        message: "Escrow refunded successfully. Tokens returned to mentee.",
+        refundedAmount: 300,
+      });
+      expect(next).not.toHaveBeenCalled();
+    });
+
+    test("should call next(err) and withhold status updates when service throws", async () => {
+      req.params.requestId = "req_fail";
+      const error = new Error(
+        "Cannot process a refund for a non-disputed active escrow",
+      );
+      mockEscrowService.refund.mockRejectedValue(error);
+
+      await controller.refund(req, res, next);
+
+      expect(next).toHaveBeenCalledWith(error);
+      expect(res.status).not.toHaveBeenCalled();
+    });
+  });
+
+  // ── getStatus ───────────────────────────────────────────────────────────
+  describe("getStatus", () => {
+    test("should return 200 and output un-nested structural metrics directly on success", async () => {
+      req.user._id = "user_participant_555";
+      req.params.requestId = "req_status_abc";
+      mockEscrowService.getStatus.mockResolvedValue(mockStatusResult);
+
+      await controller.getStatus(req, res, next);
+
+      expect(mockEscrowService.getStatus).toHaveBeenCalledWith({
+        requestId: "req_status_abc",
+        userId: "user_participant_555",
+      });
+      expect(res.status).toHaveBeenCalledWith(200);
+      expect(res.json).toHaveBeenCalledWith(mockStatusResult);
+      expect(next).not.toHaveBeenCalled();
+    });
+
+    test("should call next(err) and withhold status updates when service throws", async () => {
+      req.params.requestId = "req_missing";
+      const error = new Error("Target connection index entry missing");
+      mockEscrowService.getStatus.mockRejectedValue(error);
+
+      await controller.getStatus(req, res, next);
+
+      expect(next).toHaveBeenCalledWith(error);
+      expect(res.status).not.toHaveBeenCalled();
+    });
+  });
+
+  // ── getMyWallet ─────────────────────────────────────────────────────────
+  describe("getMyWallet", () => {
+    test("should return 200 and output specific performance data metrics maps on success", async () => {
+      req.user._id = "user_wallet_999";
+      mockEscrowService.getMyWallet.mockResolvedValue(mockWalletResult);
+
+      await controller.getMyWallet(req, res, next);
+
+      expect(mockEscrowService.getMyWallet).toHaveBeenCalledWith(
+        "user_wallet_999",
+      );
+      expect(res.status).toHaveBeenCalledWith(200);
+      expect(res.json).toHaveBeenCalledWith(mockWalletResult);
+      expect(next).not.toHaveBeenCalled();
+    });
+
+    test("should call next(err) and withhold status updates when service throws", async () => {
+      const error = new Error("Financial ledger service offline sync error");
+      mockEscrowService.getMyWallet.mockRejectedValue(error);
+
+      await controller.getMyWallet(req, res, next);
+
+      expect(next).toHaveBeenCalledWith(error);
+      expect(res.status).not.toHaveBeenCalled();
+    });
+  });
+
+  // ── getCommissionRate ───────────────────────────────────────────────────
+  describe("getCommissionRate", () => {
+    test("should return 200 and wrap operational commission fee rate values precisely on success", async () => {
+      mockEscrowService.getCommissionRate.mockResolvedValue(18);
+
+      await controller.getCommissionRate(req, res, next);
+
+      expect(mockEscrowService.getCommissionRate).toHaveBeenCalled();
+      expect(res.status).toHaveBeenCalledWith(200);
+      expect(res.json).toHaveBeenCalledWith({ commissionRate: 18 });
+      expect(next).not.toHaveBeenCalled();
+    });
+
+    test("should call next(err) and withhold status updates when service throws", async () => {
+      const error = new Error("Global settings schema metadata corruption");
+      mockEscrowService.getCommissionRate.mockRejectedValue(error);
+
+      await controller.getCommissionRate(req, res, next);
+
+      expect(next).toHaveBeenCalledWith(error);
+      expect(res.status).not.toHaveBeenCalled();
+    });
   });
 });

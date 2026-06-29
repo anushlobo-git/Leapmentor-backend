@@ -10,6 +10,7 @@ const AppError = require("../utils/AppError");
 
 const BCRYPT_SALT_ROUNDS = 10;
 const TOKEN_LIFETIME_MS = 10 * 60 * 1000; // 10 Minutes window
+const env = require("../config/env");
 
 const createVerificationService = ({
   userRepository,
@@ -60,12 +61,12 @@ const createVerificationService = ({
       expiresAt,
     });
 
-    const appUrlBase = process.env.APP_BASE_URL || "http://localhost:5173";
+    const appUrlBase = env.appBaseUrl;
     const magicLink = `${appUrlBase}/verify-email?token=${plainToken}&email=${encodeURIComponent(user.email)}`;
 
     await sendWithRetry(
       {
-        from: process.env.FROM_EMAIL,
+        from: env.smtp.fromEmail,
         to: user.email,
         subject: `LeapMentor Email Verification${subjectSuffix}`,
         text: `Verify your LeapMentor account\n\nOption 1 – Click the magic link (expires in 10 minutes):\n${magicLink}\n\nOption 2 – Enter this OTP manually (expires in 10 minutes):\n${plainOtp}`.trim(),

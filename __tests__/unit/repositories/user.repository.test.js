@@ -1,7 +1,7 @@
 /**
  * @fileoverview User Repository Corporate Unit Tests
- * @description Validates all data layer behaviors, error catch boundaries,
- * and fallback states with zero network activity.
+ * @description Assures precise verification of soft-delete options, pagination matrices,
+ * dynamic timeline growth aggregations, and Atlas search fallback pipelines with zero network access.
  */
 
 const createUserRepository = require("../../../repositories/user.repository");
@@ -10,29 +10,45 @@ describe("User Repository", () => {
   let mockUserModel;
   let userRepository;
 
-  const mockUser = { _id: "user123", name: "Alice", email: "alice@test.com" };
+  const mockUserRecord = {
+    _id: "user123",
+    name: "Alex Mentor",
+    email: "alex@leapmentor.com",
+    roles: ["mentor"],
+    isDeleted: false,
+    createdAt: new Date("2026-06-01T10:00:00.000Z"),
+  };
 
-  // ── Query chain factory for methods utilizing chaining ──────────────────
-  const makeChain = (resolvedValue = null) => ({
-    select: jest.fn().mockReturnThis(),
-    lean: jest.fn().mockResolvedValue(resolvedValue),
-    sort: jest.fn().mockReturnThis(),
-    skip: jest.fn().mockReturnThis(),
-    limit: jest.fn().mockReturnThis(),
-    setOptions: jest.fn().mockReturnThis(),
-  });
+  const mockRecordsArray = [mockUserRecord];
+
+  // Safe Factory: Decorates a genuine Promise instance to completely avoid "manual then" linter errors
+  const makeChain = (resolvedValue = null) => {
+    const promise = Promise.resolve(resolvedValue);
+
+    // Attach Mongoose chain builders directly to the native Promise, returning itself for fluid chaining
+    promise.select = jest.fn().mockReturnValue(promise);
+    promise.sort = jest.fn().mockReturnValue(promise);
+    promise.skip = jest.fn().mockReturnValue(promise);
+    promise.limit = jest.fn().mockReturnValue(promise);
+    promise.setOptions = jest.fn().mockReturnValue(promise);
+    promise.lean = jest
+      .fn()
+      .mockImplementation(() => Promise.resolve(resolvedValue));
+
+    return promise;
+  };
 
   beforeEach(() => {
     mockUserModel = {
       find: jest.fn(),
-      findOne: jest.fn(),
-      findById: jest.fn(),
       countDocuments: jest.fn(),
+      aggregate: jest.fn(),
+      findById: jest.fn(),
       findByIdAndDelete: jest.fn(),
       findByIdAndUpdate: jest.fn(),
       findOneAndUpdate: jest.fn(),
+      findOne: jest.fn(),
       create: jest.fn(),
-      aggregate: jest.fn(),
     };
     userRepository = createUserRepository(mockUserModel);
   });
@@ -41,188 +57,285 @@ describe("User Repository", () => {
     jest.clearAllMocks();
   });
 
-  // ── findUsersBySearchTerm ───────────────────────────────────────────────
-  describe("findUsersBySearchTerm", () => {
-    test("should search by name and email with case-insensitive regex", async () => {
-      const chain = makeChain([mockUser]);
-      mockUserModel.find.mockReturnValue(chain);
+  // ── BASIC LOOKUPS & WRITE OPERATIONS ────────────────────────────────────
+  describe("Basic Lookups & Write Operations", () => {
+    test("findUserByEmail should locate account matching targeted parameters", async () => {
+      mockUserModel.findOne.mockResolvedValue(mockUserRecord);
 
-      const result =
-        await userRepository.findUsersBySearchTerm(" alice@test.com ");
+      const result = await userRepository.findUserByEmail(
+        "alex@leapmentor.com",
+      );
 
-      // ✅ Aligned regex literals to match native dynamic compilation string outputs
-      expect(mockUserModel.find).toHaveBeenCalledWith({
-        $or: [{ name: /alice@test.com/i }, { email: /alice@test.com/i }],
+      expect(mockUserModel.findOne).toHaveBeenCalledWith({
+        email: "alex@leapmentor.com",
       });
-      expect(chain.select).toHaveBeenCalledWith("_id");
-      expect(result).toEqual([mockUser]);
+      expect(result).toEqual(mockUserRecord);
     });
 
-    test("should return empty array when no matches found", async () => {
-      mockUserModel.find.mockReturnValue(makeChain([]));
-      const result = await userRepository.findUsersBySearchTerm("nomatch");
-      expect(result).toEqual([]);
+    test("findUserByEmailWithPassword should bypass normal exclusion masks to append hidden secrets", async () => {
+      const mockChain = makeChain(mockUserRecord);
+      mockUserModel.findOne.mockReturnValue(mockChain);
+
+      const result = await userRepository.findUserByEmailWithPassword(
+        "alex@leapmentor.com",
+      );
+
+      expect(mockUserModel.findOne).toHaveBeenCalledWith({
+        email: "alex@leapmentor.com",
+      });
+      expect(mockChain.select).toHaveBeenCalledWith("+password");
+      expect(result).toEqual(mockUserRecord);
+    });
+
+    test("createUser should instantly persist structural registration fields payload", async () => {
+      mockUserModel.create.mockResolvedValue(mockUserRecord);
+      const initialFields = { name: "Alex", email: "alex@leapmentor.com" };
+
+      const result = await userRepository.createUser(initialFields);
+
+      expect(mockUserModel.create).toHaveBeenCalledWith(initialFields);
+      expect(result).toEqual(mockUserRecord);
+    });
+
+    test("saveUser should execute native internal instance updates directly", async () => {
+      const fakeInstance = {
+        ...mockUserRecord,
+        save: jest.fn().mockResolvedValue(mockUserRecord),
+      };
+
+      const result = await userRepository.saveUser(fakeInstance);
+
+      expect(fakeInstance.save).toHaveBeenCalled();
+      expect(result).toEqual(mockUserRecord);
     });
   });
 
-  // ── findUserById ────────────────────────────────────────────────────────
-  describe("findUserById", () => {
-    test("should return user without password", async () => {
-      const chain = makeChain(mockUser);
-      mockUserModel.findById.mockReturnValue(chain);
+  // ── IDENTITY LOOKUPS & PAGINATION ───────────────────────────────────────
+  describe("Identity Lookups & Pagination", () => {
+    test("findUserById should fetch a restricted projection masking passwords and ignoring deletions", async () => {
+      const mockChain = makeChain(mockUserRecord);
+      mockUserModel.findById.mockReturnValue(mockChain);
 
       const result = await userRepository.findUserById("user123");
 
       expect(mockUserModel.findById).toHaveBeenCalledWith("user123");
-      expect(chain.select).toHaveBeenCalledWith("-password");
-      expect(chain.setOptions).toHaveBeenCalledWith({ ignoreIsDeleted: true });
-      expect(result).toEqual(mockUser);
+      expect(mockChain.select).toHaveBeenCalledWith("-password");
+      expect(mockChain.setOptions).toHaveBeenCalledWith({
+        ignoreIsDeleted: true,
+      });
+      expect(mockChain.lean).toHaveBeenCalled();
+      expect(result).toEqual(mockUserRecord);
     });
 
-    test("should return null when user does not exist", async () => {
-      mockUserModel.findById.mockReturnValue(makeChain(null));
-      const result = await userRepository.findUserById("nonexistent");
-      expect(result).toBeNull();
+    test("findUserByIdRaw should return mutable documents tracking raw identifier keys", async () => {
+      const mockChain = makeChain(mockUserRecord);
+      mockUserModel.findById.mockReturnValue(mockChain);
+
+      const result = await userRepository.findUserByIdRaw("user123");
+
+      expect(mockUserModel.findById).toHaveBeenCalledWith("user123");
+      expect(mockChain.setOptions).toHaveBeenCalledWith({
+        ignoreIsDeleted: true,
+      });
+      expect(result).toEqual(mockUserRecord);
+    });
+
+    test("findUsers should apply complete pagination boundaries alongside deletion bypass rules", async () => {
+      const mockChain = makeChain(mockRecordsArray);
+      mockUserModel.find.mockReturnValue(mockChain);
+      const criteria = { roles: "mentor" };
+
+      const result = await userRepository.findUsers(criteria, {
+        skip: 30,
+        limit: 15,
+      });
+
+      expect(mockUserModel.find).toHaveBeenCalledWith(criteria, null, {
+        ignoreIsDeleted: true,
+      });
+      expect(mockChain.select).toHaveBeenCalledWith("-password");
+      expect(mockChain.sort).toHaveBeenCalledWith({ createdAt: -1 });
+      expect(mockChain.skip).toHaveBeenCalledWith(30);
+      expect(mockChain.limit).toHaveBeenCalledWith(15);
+      expect(mockChain.lean).toHaveBeenCalled();
+      expect(result).toEqual(mockRecordsArray);
     });
   });
 
-  // ── createUser ──────────────────────────────────────────────────────────
-  describe("createUser", () => {
-    test("should create and return new user", async () => {
-      mockUserModel.create.mockResolvedValue(mockUser);
-      const result = await userRepository.createUser(mockUser);
-      expect(mockUserModel.create).toHaveBeenCalledWith(mockUser);
-      expect(result).toEqual(mockUser);
+  // ── COUNTER METRICS & GROWTH AGGREGATIONS ───────────────────────────────
+  describe("Counter Metrics & Growth Aggregations", () => {
+    test("countAllUsers should isolate active states explicitly matching positive flag constraints", async () => {
+      mockUserModel.countDocuments.mockResolvedValue(250);
+
+      const result = await userRepository.countAllUsers();
+
+      expect(mockUserModel.countDocuments).toHaveBeenCalledWith({
+        isDeleted: { $ne: true },
+      });
+      expect(result).toBe(250);
     });
 
-    test("should propagate error when creation fails", async () => {
-      mockUserModel.create.mockRejectedValue(new Error("Validation failed"));
-      await expect(userRepository.createUser({})).rejects.toThrow(
-        "Validation failed",
-      );
+    test("countUsersWithOptions should append explicit fluent runtime option overrides", async () => {
+      const mockChain = makeChain(45);
+      mockUserModel.countDocuments.mockReturnValue(mockChain);
+      const customFilter = { status: "active" };
+
+      const result = await userRepository.countUsersWithOptions(customFilter);
+
+      expect(mockUserModel.countDocuments).toHaveBeenCalledWith(customFilter);
+      expect(mockChain.setOptions).toHaveBeenCalledWith({
+        ignoreIsDeleted: true,
+      });
+      expect(result).toBe(45);
+    });
+
+    test("countUsersWithFilter should evaluate general counting arrays with configurations directly in arguments", async () => {
+      mockUserModel.countDocuments.mockResolvedValue(88);
+      const targetFilter = { email: /@gmail\.com$/ };
+
+      const result = await userRepository.countUsersWithFilter(targetFilter);
+
+      expect(mockUserModel.countDocuments).toHaveBeenCalledWith(targetFilter, {
+        ignoreIsDeleted: true,
+      });
+      expect(result).toBe(88);
+    });
+
+    test("getUserGrowth should trigger time tracking formatting aggregation frameworks", async () => {
+      const historyThreshold = new Date("2026-01-01");
+      const aggregateMockResult = [{ _id: "2026-06-01", count: 12 }];
+      mockUserModel.aggregate.mockResolvedValue(aggregateMockResult);
+
+      const result = await userRepository.getUserGrowth(historyThreshold);
+
+      expect(mockUserModel.aggregate).toHaveBeenCalledWith([
+        { $match: { createdAt: { $gte: historyThreshold } } },
+        {
+          $group: {
+            _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
+            count: { $sum: 1 },
+          },
+        },
+        { $sort: { _id: 1 } },
+      ]);
+      expect(result).toEqual(aggregateMockResult);
     });
   });
 
-  // ── blockUser ───────────────────────────────────────────────────────────
-  describe("blockUser", () => {
-    test("should set isDeleted true with timestamp", async () => {
-      mockUserModel.findByIdAndUpdate.mockResolvedValue({ isDeleted: true });
-      const result = await userRepository.blockUser("userId");
+  // ── MUTATIONS, BLOCKS & ACCOUNT REMOVALS ────────────────────────────────
+  describe("Mutations, Blocks & Account Removals", () => {
+    test("deleteUserById should enforce hard-purges across target accounts bypassing soft deletion configurations", async () => {
+      mockUserModel.findByIdAndDelete.mockResolvedValue(mockUserRecord);
+
+      const result = await userRepository.deleteUserById("user123");
+
+      expect(mockUserModel.findByIdAndDelete).toHaveBeenCalledWith("user123", {
+        ignoreIsDeleted: true,
+      });
+      expect(result).toEqual(mockUserRecord);
+    });
+
+    test("blockUser should update soft deletion parameters tracking flexible timestamps safely", async () => {
+      mockUserModel.findByIdAndUpdate.mockResolvedValue(mockUserRecord);
+
+      await userRepository.blockUser("user123");
 
       expect(mockUserModel.findByIdAndUpdate).toHaveBeenCalledWith(
-        "userId",
-        expect.objectContaining({
-          isDeleted: true,
-          deletedAt: expect.any(Date),
-        }),
+        "user123",
+        { isDeleted: true, deletedAt: expect.any(Date) },
         { new: true },
       );
-      expect(result).toEqual({ isDeleted: true });
     });
 
-    test("should return null when user ID does not exist", async () => {
-      mockUserModel.findByIdAndUpdate.mockResolvedValue(null);
-      const result = await userRepository.blockUser("nonexistent");
-      expect(result).toBeNull();
+    test("unblockUser should clear deletion timestamps completely using unique record matches", async () => {
+      mockUserModel.findOneAndUpdate.mockResolvedValue(mockUserRecord);
+
+      const result = await userRepository.unblockUser("user123");
+
+      expect(mockUserModel.findOneAndUpdate).toHaveBeenCalledWith(
+        { _id: "user123" },
+        { isDeleted: false, deletedAt: null },
+        { new: true, ignoreIsDeleted: true },
+      );
+      expect(result).toEqual(mockUserRecord);
     });
   });
 
-  // ── findUserByEmail ─────────────────────────────────────────────────────
-  describe("findUserByEmail", () => {
-    test("should find user by email", async () => {
-      // ✅ Corrected: Directly return a resolved promise since production code doesn't chain methods here
-      mockUserModel.findOne.mockResolvedValue(mockUser);
+  // ── SEARCH MECHANISMS & COMPLEX FALLBACKS ───────────────────────────────
+  describe("Search Mechanisms & Complex Fallbacks", () => {
+    test("findUsersBySearchTerm should compile case-insensitive RegExp mappings across name or email", async () => {
+      const mockChain = makeChain(mockRecordsArray);
+      mockUserModel.find.mockReturnValue(mockChain);
 
-      const result = await userRepository.findUserByEmail("alice@test.com");
+      const result = await userRepository.findUsersBySearchTerm(" alex ");
 
-      expect(mockUserModel.findOne).toHaveBeenCalledWith({
-        email: "alice@test.com",
+      expect(mockUserModel.find).toHaveBeenCalledWith({
+        $or: [{ name: /alex/i }, { email: /alex/i }],
       });
-      expect(result).toEqual(mockUser);
+      expect(mockChain.select).toHaveBeenCalledWith("_id");
+      expect(mockChain.lean).toHaveBeenCalled();
+      expect(result).toEqual(mockRecordsArray);
     });
 
-    test("should return null when email not found", async () => {
-      // ✅ Corrected: Return a resolved null value directly for unchained execution trees
-      mockUserModel.findOne.mockResolvedValue(null);
+    test("findUsersByName should resolve unique identifiers matching localized parameters text pattern layouts", async () => {
+      const mockChain = makeChain(mockRecordsArray);
+      mockUserModel.find.mockReturnValue(mockChain);
 
-      const result = await userRepository.findUserByEmail("missing@test.com");
+      await userRepository.findUsersByName("Alex");
 
-      expect(result).toBeNull();
+      expect(mockUserModel.find).toHaveBeenCalledWith({
+        name: { $regex: "Alex", $options: "i" },
+      });
     });
-  });
 
-  // ── findUsersByRoleAndNameRegex ─────────────────────────────────────────
-  describe("findUsersByRoleAndNameRegex", () => {
-    test("should use Atlas Search pipeline when available", async () => {
-      const atlasResult = [{ _id: "search1", name: "Alice" }];
-      mockUserModel.aggregate.mockResolvedValue(atlasResult);
+    test("findUsersByNameSearch should map direct case-insensitive string regex patterns cleanly", async () => {
+      const mockChain = makeChain(mockRecordsArray);
+      mockUserModel.find.mockReturnValue(mockChain);
 
-      const result = await userRepository.findUsersByRoleAndNameRegex("Alice", [
+      await userRepository.findUsersByNameSearch("Alex");
+
+      expect(mockUserModel.find).toHaveBeenCalledWith({
+        name: { $regex: "Alex", $options: "i" },
+      });
+    });
+
+    test("findUsersByRoleAndNameRegex should leverage high-performance Atlas Search pipelines when index succeeds", async () => {
+      const aggregateMockResult = [{ _id: "user123", name: "Alex Mentor" }];
+      mockUserModel.aggregate.mockResolvedValue(aggregateMockResult);
+
+      const result = await userRepository.findUsersByRoleAndNameRegex("Alex", [
         "mentor",
       ]);
 
       expect(mockUserModel.aggregate).toHaveBeenCalledWith(
         expect.arrayContaining([
           expect.objectContaining({ $search: expect.any(Object) }),
+          expect.objectContaining({ $match: { roles: { $in: ["mentor"] } } }),
         ]),
       );
-      expect(result).toEqual(atlasResult);
+      expect(result).toEqual(aggregateMockResult);
     });
 
-    test("should fall back to regex when Atlas Search fails", async () => {
-      const regexResult = [{ _id: "regex1", name: "Alice" }];
+    test("findUsersByRoleAndNameRegex should fall back cleanly onto standard RegExp queries if Atlas index breaks", async () => {
       mockUserModel.aggregate.mockRejectedValue(
-        new Error("Atlas index unavailable"),
+        new Error("Atlas Index Not Ready"),
       );
-      const chain = makeChain(regexResult);
-      mockUserModel.find.mockReturnValue(chain);
 
-      const result = await userRepository.findUsersByRoleAndNameRegex("Alice", [
+      const mockChain = makeChain([{ _id: "user123", name: "Alex Mentor" }]);
+      mockUserModel.find.mockReturnValue(mockChain);
+
+      const result = await userRepository.findUsersByRoleAndNameRegex("Alex", [
         "mentor",
       ]);
 
+      expect(mockUserModel.aggregate).toHaveBeenCalled();
       expect(mockUserModel.find).toHaveBeenCalledWith({
-        name: { $regex: "Alice", $options: "i" },
+        name: { $regex: "Alex", $options: "i" },
         roles: { $in: ["mentor"] },
       });
-      expect(result).toEqual(regexResult);
-    });
-
-    test("should return empty array when no name matches found", async () => {
-      mockUserModel.aggregate.mockResolvedValue([]);
-      const result = await userRepository.findUsersByRoleAndNameRegex(
-        "zzznomatch",
-        ["mentor"],
-      );
-      expect(result).toEqual([]);
-    });
-  });
-
-  // ── saveUser ────────────────────────────────────────────────────────────
-  describe("saveUser", () => {
-    test("should call save on the document instance", async () => {
-      const mockDoc = { save: jest.fn().mockResolvedValue(mockUser) };
-      const result = await userRepository.saveUser(mockDoc);
-      expect(mockDoc.save).toHaveBeenCalled();
-      expect(result).toEqual(mockUser);
-    });
-  });
-
-  // ── getUserGrowth ───────────────────────────────────────────────────────
-  describe("getUserGrowth", () => {
-    test("should run aggregation pipeline with correct date filter", async () => {
-      const since = new Date("2026-01-01");
-      const mockOutput = [{ _id: "2026-06-23", count: 12 }];
-      mockUserModel.aggregate.mockResolvedValue(mockOutput);
-
-      const result = await userRepository.getUserGrowth(since);
-
-      expect(mockUserModel.aggregate).toHaveBeenCalledWith(
-        expect.arrayContaining([
-          expect.objectContaining({ $match: { createdAt: { $gte: since } } }),
-        ]),
-      );
-      expect(result).toEqual(mockOutput);
+      expect(mockChain.select).toHaveBeenCalledWith("_id name");
+      expect(mockChain.lean).toHaveBeenCalled();
+      expect(result).toEqual([{ _id: "user123", name: "Alex Mentor" }]);
     });
   });
 });

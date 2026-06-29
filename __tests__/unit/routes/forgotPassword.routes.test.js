@@ -16,7 +16,7 @@ describe("Forgot Password Router Unit Tests", () => {
       resetPasswordValidation: "v3",
     };
 
-    createForgotPasswordRoutes(mockController, mockValidations);
+    createForgotPasswordRoutes({ forgotPasswordController: mockController, validations: mockValidations });
     expect(mockRouter.post).toHaveBeenCalledWith(
       "/forgot-password",
       "v1",

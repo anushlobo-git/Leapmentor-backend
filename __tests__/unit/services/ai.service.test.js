@@ -1,40 +1,80 @@
 /**
- * @fileoverview AI Service Functional Mapping Unit Tests
+ * @fileoverview AI Service Unit Tests
+ * @description Full branch coverage for generateChatResponse.
  */
 
 const createAiService = require("../../../services/ai.service");
 
 describe("AI Assistance Core Service Mechanics", () => {
-  let mockGateway, service;
+  let mockAiGateway;
+  let service;
 
   beforeEach(() => {
-    mockGateway = { executeChatCompletion: jest.fn() };
-    service = createAiService(mockGateway);
+    mockAiGateway = { executeChatCompletion: jest.fn() };
+
+    // ✅ Correct instantiation — matches the destructured signature
+    service = createAiService({ aiGateway: mockAiGateway });
   });
 
-  test("generateChatResponse should append default system prompts and format payload structures properly", async () => {
-    const mockGatewayResponse = {
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  test("should use DEFAULT_SYSTEM_PROMPT and return content when systemPrompt is null", async () => {
+    // Branch: systemPrompt || DEFAULT_SYSTEM_PROMPT  →  uses default
+    // Branch: data.choices?.[0]?.message?.content || ""  →  returns content string
+    mockAiGateway.executeChatCompletion.mockResolvedValue({
       choices: [{ message: { content: "Response generated." } }],
-    };
-    mockGateway.executeChatCompletion.mockResolvedValue(mockGatewayResponse);
+    });
 
     const result = await service.generateChatResponse(
       [{ role: "user", content: "Help me" }],
       null,
     );
 
-    expect(mockGateway.executeChatCompletion).toHaveBeenCalledWith(
+    expect(mockAiGateway.executeChatCompletion).toHaveBeenCalledWith({
+      model: "llama-3.1-8b-instant",
+      max_tokens: 1000,
+      messages: [
+        {
+          role: "system",
+          content: "You are a helpful platform support assistant.",
+        },
+        { role: "user", content: "Help me" },
+      ],
+    });
+    expect(result).toBe("Response generated.");
+  });
+
+  test("should use the provided systemPrompt when one is supplied", async () => {
+    // Branch: systemPrompt || DEFAULT_SYSTEM_PROMPT  →  uses provided prompt
+    mockAiGateway.executeChatCompletion.mockResolvedValue({
+      choices: [{ message: { content: "Custom response." } }],
+    });
+
+    await service.generateChatResponse(
+      [{ role: "user", content: "Hello" }],
+      "You are a career coach.",
+    );
+
+    expect(mockAiGateway.executeChatCompletion).toHaveBeenCalledWith(
       expect.objectContaining({
-        model: "llama-3.1-8b-instant",
-        messages: [
-          {
-            role: "system",
-            content: "You are a helpful platform support assistant.",
-          },
-          { role: "user", content: "Help me" },
-        ],
+        messages: expect.arrayContaining([
+          { role: "system", content: "You are a career coach." },
+        ]),
       }),
     );
-    expect(result).toBe("Response generated.");
+  });
+
+  test("should return empty string when response has no content", async () => {
+    // Branch: data.choices?.[0]?.message?.content || ""  →  falls back to ""
+    mockAiGateway.executeChatCompletion.mockResolvedValue({ choices: [] });
+
+    const result = await service.generateChatResponse(
+      [{ role: "user", content: "Hello" }],
+      null,
+    );
+
+    expect(result).toBe("");
   });
 });

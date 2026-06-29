@@ -20,7 +20,7 @@ const createForgotPasswordService = ({
   sendWithRetry,
   environmentConfig = {},
 }) => {
-  const fromEmail = environmentConfig.fromEmail || process.env.FROM_EMAIL;
+  const fromEmail = environmentConfig.fromEmail || env.smtp.fromEmail;
 
   /**
    * Helper: Generates a cryptographically secure 6-digit OTP string.

@@ -13,6 +13,7 @@ const compression = require("compression");
 const cookieParser = require("cookie-parser");
 const Sentry = require("@sentry/node");
 const { errors } = require("celebrate");
+const env = require("./config/env");
 
 // ── ADD THESE TWO LINE ENTRANCES AT THE INITIALIZATION BLOCK ──
 const swaggerUi = require("swagger-ui-express");
@@ -21,6 +22,7 @@ const swaggerSpec = require("./config/swagger/index");
 const errorHandler = require("./middleware/errorHandler");
 const requestId = require("./middleware/requestId");
 const requestLogger = require("./middleware/requestLogger");
+const sanitizeRequest = require("./middleware/sanitizeRequest");
 const {
   apiLimiter,
   authLimiter,
@@ -33,7 +35,7 @@ const createApp = (container = {}) => {
   // ── helmet configurations tuning lines loops etc ──
   app.use(
     cors({
-      origin: process.env.APP_BASE_URL || "http://localhost:5173",
+      origin: env.appBaseUrl || "http://localhost:5173",
       credentials: true,
     }),
   );
@@ -57,6 +59,7 @@ const createApp = (container = {}) => {
   app.use(requestLogger);
   app.use(express.json({ limit: "10mb" }));
   app.use(express.urlencoded({ extended: true, limit: "10mb" }));
+  app.use(sanitizeRequest);
 
   app.use((req, res, next) => {
     if (req.path.startsWith("/api/v1/google-calendar/callback")) {
@@ -77,41 +80,49 @@ const createApp = (container = {}) => {
 
   // ── 3. MONITORED SUBSYSTEMS ROUTER MATRICES ──────────────────────────
   const v1 = express.Router();
+  const mountRouter = (path, router) => {
+    if (
+      router &&
+      (typeof router === "function" || typeof router.handle === "function")
+    ) {
+      v1.use(path, router);
+    }
+  };
 
   // Fully Inverted Core Feature Domain Routers
-  v1.use("/ai", container.aiRouter);
-  v1.use("/auth", container.authRouter);
-  v1.use("/auth", container.forgotPasswordRouter);
-  v1.use("/verification", container.verificationRouter);
-  v1.use("/users", container.userRouter);
-  v1.use("/upload", container.uploadRouter);
-  v1.use("/mentor-profile", container.mentorProfileRouter);
-  v1.use("/mentee-profile", container.menteeProfileRouter);
-  v1.use("/mentors", container.mentorSearchRouter);
-  v1.use("/availability", container.availabilityRouter);
-  v1.use("/connect-requests", container.connectRequestRouter);
-  v1.use("/slot-locks", container.slotLockRouter);
-  v1.use("/escrow", container.escrowRouter);
-  v1.use("/invoices", container.invoiceRouter);
-  v1.use("/goals", container.goalRouter);
-  v1.use("/messages", container.messageRouter);
-  v1.use("/notes", container.noteRouter);
-  v1.use("/notifications", container.notificationRouter);
-  v1.use("/feedback", container.feedbackRouter);
-  v1.use("/reports", container.reportRouter);
-  v1.use("/sessions", container.sessionRouter);
-  v1.use("/private-notes", container.privateNoteRouter);
-  v1.use("/mentor/earnings", container.earningsRouter);
-  v1.use("/google-calendar", container.googleCalendarRouter);
-  v1.use("/support", container.supportRouter);
+  mountRouter("/ai", container.aiRouter);
+  mountRouter("/auth", container.authRouter);
+  mountRouter("/auth", container.forgotPasswordRouter);
+  mountRouter("/verification", container.verificationRouter);
+  mountRouter("/users", container.userRouter);
+  mountRouter("/upload", container.uploadRouter);
+  mountRouter("/mentor-profile", container.mentorProfileRouter);
+  mountRouter("/mentee-profile", container.menteeProfileRouter);
+  mountRouter("/mentors", container.mentorSearchRouter);
+  mountRouter("/availability", container.availabilityRouter);
+  mountRouter("/connect-requests", container.connectRequestRouter);
+  mountRouter("/slot-locks", container.slotLockRouter);
+  mountRouter("/escrow", container.escrowRouter);
+  mountRouter("/invoices", container.invoiceRouter);
+  mountRouter("/goals", container.goalRouter);
+  mountRouter("/messages", container.messageRouter);
+  mountRouter("/notes", container.noteRouter);
+  mountRouter("/notifications", container.notificationRouter);
+  mountRouter("/feedback", container.feedbackRouter);
+  mountRouter("/reports", container.reportRouter);
+  mountRouter("/sessions", container.sessionRouter);
+  mountRouter("/private-notes", container.privateNoteRouter);
+  mountRouter("/mentor/earnings", container.earningsRouter);
+  mountRouter("/google-calendar", container.googleCalendarRouter);
+  mountRouter("/support", container.supportRouter);
 
   // Inverted Administrative Management Routers
-  v1.use("/admin/settings", container.adminSettingsRouter);
-  v1.use("/admin/payments", container.adminPaymentsRouter);
-  v1.use("/admin/reports", container.adminReportsRouter);
-  v1.use("/admin/mentor-verifications", container.adminVerificationRouter);
-  v1.use("/admin", container.adminRouter);
-  v1.use("/leap-requests", container.leapRequestRouter);
+  mountRouter("/admin/settings", container.adminSettingsRouter);
+  mountRouter("/admin/payments", container.adminPaymentsRouter);
+  mountRouter("/admin/reports", container.adminReportsRouter);
+  mountRouter("/admin/mentor-verifications", container.adminVerificationRouter);
+  mountRouter("/admin", container.adminRouter);
+  mountRouter("/leap-requests", container.leapRequestRouter);
 
   app.use("/api/v1", v1);
 

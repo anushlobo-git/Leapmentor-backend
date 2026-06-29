@@ -1,5 +1,5 @@
 /**
- * @fileoverview Admin User Management Service Corporate Unit Tests
+ * @fileoverview Admin User Management Service Unit Tests
  * @description Validates transactional data cascades, list filters, cross-repository
  * relational aggregates, and boundary error codes with zero real database access.
  */
@@ -7,7 +7,7 @@
 const createAdminUserManagementService = require("../../../services/admin-users.service");
 const AppError = require("../../../utils/AppError");
 
-// Stub layout mappers to eliminate secondary integration complexity
+// Mappers are imported directly inside the service, so jest.mock works here
 jest.mock("../../../mappers/user.mapper", () => ({
   toUserDTO: jest.fn((u) => ({
     userDTO: true,
@@ -30,11 +30,8 @@ describe("AdminUserManagement Service", () => {
   let mockConnectRequestRepository;
   let userManagementService;
 
-  const mockUserRecord = {
-    _id: "user123",
-    name: "Bob Martin",
-    roles: ["mentor"],
-  };
+  const mockMentorUser = { _id: "u1", name: "Bob Martin", roles: ["mentor"] };
+  const mockMenteeUser = { _id: "u2", name: "Alice Smith", roles: ["mentee"] };
 
   beforeEach(() => {
     mockUserRepository = {
@@ -46,30 +43,28 @@ describe("AdminUserManagement Service", () => {
       blockUser: jest.fn(),
       unblockUser: jest.fn(),
     };
-
     mockMentorProfileRepository = {
       findMentorProfilesByUserIds: jest.fn(),
       findMentorProfileByUserId: jest.fn(),
       deleteMentorProfileByUserId: jest.fn(),
     };
-
     mockMenteeProfileRepository = {
       findMenteeProfilesByUserIds: jest.fn(),
       findMenteeProfileByUserId: jest.fn(),
       deleteMenteeProfileByUserId: jest.fn(),
     };
-
     mockConnectRequestRepository = {
       countCompletedSessionsByUser: jest.fn(),
       deleteManyByUser: jest.fn(),
     };
 
-    userManagementService = createAdminUserManagementService(
-      mockUserRepository,
-      mockMentorProfileRepository,
-      mockMenteeProfileRepository,
-      mockConnectRequestRepository,
-    );
+    // ✅ Correct instantiation — matches the destructured signature
+    userManagementService = createAdminUserManagementService({
+      userRepository: mockUserRepository,
+      mentorProfileRepository: mockMentorProfileRepository,
+      menteeProfileRepository: mockMenteeProfileRepository,
+      connectRequestRepository: mockConnectRequestRepository,
+    });
   });
 
   afterEach(() => {
@@ -85,7 +80,6 @@ describe("AdminUserManagement Service", () => {
       ];
       mockUserRepository.countUsersWithFilter.mockResolvedValue(2);
       mockUserRepository.findUsers.mockResolvedValue(mockUsers);
-
       mockMentorProfileRepository.findMentorProfilesByUserIds.mockResolvedValue(
         [{ user: "u1" }],
       );
@@ -121,9 +115,70 @@ describe("AdminUserManagement Service", () => {
           profile: { menteeDTO: true, user: "u2" },
         },
       ]);
+      expect(result.pagination).toEqual({
+        total: 2,
+        page: 1,
+        limit: 10,
+        totalPages: 1,
+      });
+    });
+
+    test("should set isDeleted: true when deleted param is 'true'", async () => {
+      // Branch: deleted === "true" ? true : { $ne: true }
+      mockUserRepository.countUsersWithFilter.mockResolvedValue(0);
+      mockUserRepository.findUsers.mockResolvedValue([]);
+      mockMentorProfileRepository.findMentorProfilesByUserIds.mockResolvedValue(
+        [],
+      );
+      mockMenteeProfileRepository.findMenteeProfilesByUserIds.mockResolvedValue(
+        [],
+      );
+
+      await userManagementService.getUsersService({ deleted: "true" });
+
+      expect(mockUserRepository.countUsersWithFilter).toHaveBeenCalledWith(
+        expect.objectContaining({ isDeleted: true }),
+      );
+    });
+
+    test("should apply role filter when a valid role is provided", async () => {
+      // Branch: if (role && ["mentor", "mentee"].includes(role))
+      mockUserRepository.countUsersWithFilter.mockResolvedValue(0);
+      mockUserRepository.findUsers.mockResolvedValue([]);
+      mockMentorProfileRepository.findMentorProfilesByUserIds.mockResolvedValue(
+        [],
+      );
+      mockMenteeProfileRepository.findMenteeProfilesByUserIds.mockResolvedValue(
+        [],
+      );
+
+      await userManagementService.getUsersService({ role: "mentor" });
+
+      expect(mockUserRepository.countUsersWithFilter).toHaveBeenCalledWith(
+        expect.objectContaining({ roles: "mentor" }),
+      );
+    });
+
+    test("should not apply role filter when an invalid role is provided", async () => {
+      // Branch: role provided but not in ["mentor", "mentee"]
+      mockUserRepository.countUsersWithFilter.mockResolvedValue(0);
+      mockUserRepository.findUsers.mockResolvedValue([]);
+      mockMentorProfileRepository.findMentorProfilesByUserIds.mockResolvedValue(
+        [],
+      );
+      mockMenteeProfileRepository.findMenteeProfilesByUserIds.mockResolvedValue(
+        [],
+      );
+
+      await userManagementService.getUsersService({ role: "admin" });
+
+      const calledFilter =
+        mockUserRepository.countUsersWithFilter.mock.calls[0][0];
+      expect(calledFilter.roles).toBeUndefined();
     });
 
     test("should append regex rules for non-empty search criteria inputs", async () => {
+      // Branch: if (search?.trim())
       mockUserRepository.countUsersWithFilter.mockResolvedValue(0);
       mockUserRepository.findUsers.mockResolvedValue([]);
       mockMentorProfileRepository.findMentorProfilesByUserIds.mockResolvedValue(
@@ -141,36 +196,92 @@ describe("AdminUserManagement Service", () => {
         }),
       );
     });
+
+    test("should skip search filter when search is blank", async () => {
+      mockUserRepository.countUsersWithFilter.mockResolvedValue(0);
+      mockUserRepository.findUsers.mockResolvedValue([]);
+      mockMentorProfileRepository.findMentorProfilesByUserIds.mockResolvedValue(
+        [],
+      );
+      mockMenteeProfileRepository.findMenteeProfilesByUserIds.mockResolvedValue(
+        [],
+      );
+
+      await userManagementService.getUsersService({ search: "   " });
+
+      const calledFilter =
+        mockUserRepository.countUsersWithFilter.mock.calls[0][0];
+      expect(calledFilter.$or).toBeUndefined();
+    });
+
+    test("should set profile to null when user has no matching mentor or mentee profile", async () => {
+      // Branch: mentorMap[id] || menteeMap[id] || null
+      const mockUsers = [{ _id: "u3", name: "No Profile User", roles: [] }];
+      mockUserRepository.countUsersWithFilter.mockResolvedValue(1);
+      mockUserRepository.findUsers.mockResolvedValue(mockUsers);
+      mockMentorProfileRepository.findMentorProfilesByUserIds.mockResolvedValue(
+        [],
+      );
+      mockMenteeProfileRepository.findMenteeProfilesByUserIds.mockResolvedValue(
+        [],
+      );
+
+      const result = await userManagementService.getUsersService({});
+
+      expect(result.users[0].profile).toBeNull();
+    });
   });
 
   // ── getUserDetailService ────────────────────────────────────────────────
   describe("getUserDetailService", () => {
     test("should compile mentor detail structures if the target role matches", async () => {
-      mockUserRepository.findUserById.mockResolvedValue(mockUserRecord);
+      mockUserRepository.findUserById.mockResolvedValue(mockMentorUser);
       mockMentorProfileRepository.findMentorProfileByUserId.mockResolvedValue({
-        user: "user123",
+        user: "u1",
       });
       mockConnectRequestRepository.countCompletedSessionsByUser.mockResolvedValue(
         15,
       );
 
-      const result =
-        await userManagementService.getUserDetailService("user123");
+      const result = await userManagementService.getUserDetailService("u1");
 
-      expect(mockUserRepository.findUserById).toHaveBeenCalledWith("user123");
       expect(
         mockMentorProfileRepository.findMentorProfileByUserId,
-      ).toHaveBeenCalledWith("user123");
+      ).toHaveBeenCalledWith("u1");
+      expect(
+        mockMenteeProfileRepository.findMenteeProfileByUserId,
+      ).not.toHaveBeenCalled();
       expect(result).toEqual({
         user: {
           userDTO: true,
-          _id: "user123",
+          _id: "u1",
           name: "Bob Martin",
           roles: ["mentor"],
         },
-        profile: { mentorDTO: true, user: "user123" },
+        profile: { mentorDTO: true, user: "u1" },
         sessionCount: 15,
       });
+    });
+
+    test("should compile mentee detail structures if the target role is mentee", async () => {
+      // Branch: isMentor === false → use menteeProfileRepository
+      mockUserRepository.findUserById.mockResolvedValue(mockMenteeUser);
+      mockMenteeProfileRepository.findMenteeProfileByUserId.mockResolvedValue({
+        user: "u2",
+      });
+      mockConnectRequestRepository.countCompletedSessionsByUser.mockResolvedValue(
+        3,
+      );
+
+      const result = await userManagementService.getUserDetailService("u2");
+
+      expect(
+        mockMenteeProfileRepository.findMenteeProfileByUserId,
+      ).toHaveBeenCalledWith("u2");
+      expect(
+        mockMentorProfileRepository.findMentorProfileByUserId,
+      ).not.toHaveBeenCalled();
+      expect(result.profile).toEqual({ menteeDTO: true, user: "u2" });
     });
 
     test("should throw a 404 AppError if the individual record is absent", async () => {
@@ -178,7 +289,7 @@ describe("AdminUserManagement Service", () => {
 
       await expect(
         userManagementService.getUserDetailService("missing"),
-      ).rejects.toThrow(AppError);
+      ).rejects.toMatchObject({ statusCode: 404, message: "User not found." });
     });
   });
 
@@ -190,47 +301,70 @@ describe("AdminUserManagement Service", () => {
         email: "bob@test.com",
       });
 
-      const result = await userManagementService.deleteUserService("user123");
+      const result = await userManagementService.deleteUserService("u1");
 
-      expect(mockUserRepository.findUserByIdRaw).toHaveBeenCalledWith(
-        "user123",
-      );
-      expect(mockUserRepository.deleteUserById).toHaveBeenCalledWith("user123");
+      expect(mockUserRepository.deleteUserById).toHaveBeenCalledWith("u1");
       expect(
         mockMentorProfileRepository.deleteMentorProfileByUserId,
-      ).toHaveBeenCalledWith("user123");
+      ).toHaveBeenCalledWith("u1");
       expect(
         mockMenteeProfileRepository.deleteMenteeProfileByUserId,
-      ).toHaveBeenCalledWith("user123");
+      ).toHaveBeenCalledWith("u1");
       expect(
         mockConnectRequestRepository.deleteManyByUser,
-      ).toHaveBeenCalledWith("user123");
+      ).toHaveBeenCalledWith("u1");
       expect(result).toEqual({ name: "Bob", email: "bob@test.com" });
     });
 
-    test("should stop cascading operations and throw a 404 error if user search fails", async () => {
+    test("should stop cascading operations and throw a 404 error if user is not found", async () => {
       mockUserRepository.findUserByIdRaw.mockResolvedValue(null);
 
       await expect(
         userManagementService.deleteUserService("absent"),
-      ).rejects.toThrow(AppError);
+      ).rejects.toMatchObject({ statusCode: 404, message: "User not found." });
       expect(mockUserRepository.deleteUserById).not.toHaveBeenCalled();
     });
   });
 
-  // ── blockUserService & unblockUserService ───────────────────────────────
-  describe("blockUserService and unblockUserService status utilities", () => {
-    test("blockUserService should return the target descriptor upon modifications", async () => {
+  // ── blockUserService ────────────────────────────────────────────────────
+  describe("blockUserService", () => {
+    test("should return user name upon successful block", async () => {
       mockUserRepository.blockUser.mockResolvedValue({ name: "Blocked User" });
+
       const result = await userManagementService.blockUserService("u1");
+
       expect(result).toEqual({ name: "Blocked User" });
     });
 
-    test("unblockUserService should bubble up exceptions if target identifier is missing", async () => {
+    test("should throw 404 if blockUser returns null", async () => {
+      // Branch: if (!user) throw AppError
+      mockUserRepository.blockUser.mockResolvedValue(null);
+
+      await expect(
+        userManagementService.blockUserService("missing"),
+      ).rejects.toMatchObject({ statusCode: 404, message: "User not found." });
+    });
+  });
+
+  // ── unblockUserService ──────────────────────────────────────────────────
+  describe("unblockUserService", () => {
+    test("should return user name upon successful unblock", async () => {
+      mockUserRepository.unblockUser.mockResolvedValue({
+        name: "Unblocked User",
+      });
+
+      const result = await userManagementService.unblockUserService("u1");
+
+      expect(result).toEqual({ name: "Unblocked User" });
+    });
+
+    test("should throw 404 if unblockUser returns null", async () => {
+      // Branch: if (!user) throw AppError
       mockUserRepository.unblockUser.mockResolvedValue(null);
+
       await expect(
         userManagementService.unblockUserService("missing"),
-      ).rejects.toThrow(AppError);
+      ).rejects.toMatchObject({ statusCode: 404, message: "User not found." });
     });
   });
 });

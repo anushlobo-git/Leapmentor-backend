@@ -1,134 +1,154 @@
 /**
- * @fileoverview Slot Lock Repository Unit Tests
- * @description Assures valid filter execution configurations, serialization checks,
- * and atomic modification chains using isolated driver model stubs.
+ * @fileoverview Slot Lock Repository Corporate Unit Tests
+ * @description Assures precise verification of timing lock boundaries, exclusion criteria,
+ * atomic upsert wrappers, and bulk cleanup routines with zero network access.
  */
 
 const createSlotLockRepository = require("../../../repositories/slotLock.repository");
 
-describe("Slot Lock Repository Unit Tests", () => {
-  let mockModel;
-  let repository;
+describe("SlotLock Repository", () => {
+  let mockSlotLockModel;
+  let slotLockRepository;
 
-  // Helper factory to emulate chainable Mongoose .lean() query targets
-  const createQueryChainMock = (resolvedValue) => ({
-    lean: jest.fn().mockResolvedValue(resolvedValue),
-  });
+  const mockLockRecord = {
+    _id: "lock123",
+    mentorId: "mentor777",
+    lockedBy: "user888",
+    date: "2026-07-15",
+    startTime: "10:00",
+    endTime: "11:00",
+    expiresAt: new Date("2026-06-29T14:30:00.000Z"),
+  };
+
+  const mockRecordsArray = [mockLockRecord];
+
+  // Safe Factory: Decorates a genuine Promise instance to completely avoid "manual then" linter errors
+  const makeChain = (resolvedValue = null) => {
+    const promise = Promise.resolve(resolvedValue);
+
+    // Attach Mongoose chain builders directly to the native Promise, returning itself for fluid chaining
+    promise.lean = jest
+      .fn()
+      .mockImplementation(() => Promise.resolve(resolvedValue));
+
+    return promise;
+  };
 
   beforeEach(() => {
-    mockModel = {
+    mockSlotLockModel = {
       find: jest.fn(),
       findOneAndUpdate: jest.fn(),
       findOneAndDelete: jest.fn(),
       deleteMany: jest.fn(),
     };
-    repository = createSlotLockRepository(mockModel);
+    slotLockRepository = createSlotLockRepository(mockSlotLockModel);
   });
 
   afterEach(() => {
     jest.clearAllMocks();
   });
 
-  describe("findActiveLocksByMentor Pipeline Execution", () => {
-    test("should fetch filtered records and invoke lean serialization stripping Mongoose wrappers", async () => {
-      const mockResult = [{ _id: "lock_1" }];
-      const chainMock = createQueryChainMock(mockResult);
-      mockModel.find.mockReturnValue(chainMock);
+  // ── ACTIVE LOCK LOOKUPS ─────────────────────────────────────────────────
+  describe("Active Lock Lookups", () => {
+    test("findActiveLocksByMentor should query short-term locks filtering out the active user exclusions", async () => {
+      const mockChain = makeChain(mockRecordsArray);
+      mockSlotLockModel.find.mockReturnValue(mockChain);
 
-      const result = await repository.findActiveLocksByMentor(
-        "mentor_123",
-        "user_456",
+      const result = await slotLockRepository.findActiveLocksByMentor(
+        "mentor777",
+        "user888",
       );
 
-      expect(mockModel.find).toHaveBeenCalledWith({
-        mentorId: "mentor_123",
-        lockedBy: { $ne: "user_456" },
+      expect(mockSlotLockModel.find).toHaveBeenCalledWith({
+        mentorId: "mentor777",
+        lockedBy: { $ne: "user888" },
       });
-      expect(chainMock.lean).toHaveBeenCalled();
-      expect(result).toEqual(mockResult);
+      expect(mockChain.lean).toHaveBeenCalled();
+      expect(result).toEqual(mockRecordsArray);
+    });
+
+    test("findActiveLocksByMentorAndDate should narrow queries down to specific target calendar dates", async () => {
+      const mockChain = makeChain(mockRecordsArray);
+      mockSlotLockModel.find.mockReturnValue(mockChain);
+
+      const result = await slotLockRepository.findActiveLocksByMentorAndDate(
+        "mentor777",
+        "2026-07-15",
+      );
+
+      expect(mockSlotLockModel.find).toHaveBeenCalledWith({
+        mentorId: "mentor777",
+        date: "2026-07-15",
+      });
+      expect(mockChain.lean).toHaveBeenCalled();
+      expect(result).toEqual(mockRecordsArray);
+    });
+
+    test("findActiveLocksExcludingUser should properly execute user exclusion criteria queries mapping lean formats", async () => {
+      const mockChain = makeChain(mockRecordsArray);
+      mockSlotLockModel.find.mockReturnValue(mockChain);
+
+      const result = await slotLockRepository.findActiveLocksExcludingUser(
+        "mentor777",
+        "user888",
+      );
+
+      expect(mockSlotLockModel.find).toHaveBeenCalledWith({
+        mentorId: "mentor777",
+        lockedBy: { $ne: "user888" },
+      });
+      expect(mockChain.lean).toHaveBeenCalled();
+      expect(result).toEqual(mockRecordsArray);
     });
   });
 
-  describe("findActiveLocksByMentorAndDate Mapping Checks", () => {
-    test("should extract short-term holds targeting a single unique calendar date string", async () => {
-      const mockResult = [{ _id: "lock_2" }];
-      const chainMock = createQueryChainMock(mockResult);
-      mockModel.find.mockReturnValue(chainMock);
-
-      const result = await repository.findActiveLocksByMentorAndDate(
-        "mentor_789",
-        "2026-06-24",
-      );
-
-      expect(mockModel.find).toHaveBeenCalledWith({
-        mentorId: "mentor_789",
-        date: "2026-06-24",
-      });
-      expect(result).toEqual(mockResult);
-    });
-  });
-
-  describe("upsertSlotLock Concurrency Actions", () => {
-    test("should trigger atomic set updates while enforcing creation rules if unallocated", async () => {
-      const mockResult = {
-        _id: "lock_3",
-        expiresAt: "2026-06-24T12:00:00.000Z",
+  // ── ATOMIC DATA MUTATIONS & WRITES ──────────────────────────────────────
+  describe("Atomic Data Mutations & Writes", () => {
+    test("upsertSlotLock should invoke atomic findAndModify overrides enforcing strict setup flags", async () => {
+      const mockChain = makeChain(mockLockRecord);
+      mockSlotLockModel.findOneAndUpdate.mockReturnValue(mockChain);
+      const criteria = {
+        mentorId: "mentor777",
+        date: "2026-07-15",
+        startTime: "10:00",
       };
-      const chainMock = createQueryChainMock(mockResult);
-      mockModel.findOneAndUpdate.mockReturnValue(chainMock);
+      const expirationDate = new Date("2026-06-29T14:30:00.000Z");
 
-      const criteria = { mentorId: "m1", date: "2026-06-24" };
-      const expiry = new Date("2026-06-24T12:00:00.000Z");
-      const result = await repository.upsertSlotLock(criteria, expiry);
-
-      expect(mockModel.findOneAndUpdate).toHaveBeenCalledWith(
+      const result = await slotLockRepository.upsertSlotLock(
         criteria,
-        { $set: { expiresAt: expiry } },
+        expirationDate,
+      );
+
+      expect(mockSlotLockModel.findOneAndUpdate).toHaveBeenCalledWith(
+        criteria,
+        { $set: { expiresAt: expirationDate } },
         { upsert: true, new: true },
       );
-      expect(result).toEqual(mockResult);
+      expect(mockChain.lean).toHaveBeenCalled();
+      expect(result).toEqual(mockLockRecord);
     });
   });
 
-  describe("Single and Bulk Purging Transactions", () => {
-    test("deleteOneLock should target a single query intersection point", async () => {
-      mockModel.findOneAndDelete.mockResolvedValue({ _id: "deleted_lock" });
+  // ── REMOVALS & LOCK PURGES ──────────────────────────────────────────────
+  describe("Removals & Lock Purges", () => {
+    test("deleteOneLock should pinpoint and drop singular transaction holds natively", async () => {
+      mockSlotLockModel.findOneAndDelete.mockResolvedValue(mockLockRecord);
+      const criteria = { _id: "lock123", lockedBy: "user888" };
 
-      const criteria = { _id: "lock_target_99" };
-      const result = await repository.deleteOneLock(criteria);
+      const result = await slotLockRepository.deleteOneLock(criteria);
 
-      expect(mockModel.findOneAndDelete).toHaveBeenCalledWith(criteria);
-      expect(result).toEqual({ _id: "deleted_lock" });
+      expect(mockSlotLockModel.findOneAndDelete).toHaveBeenCalledWith(criteria);
+      expect(result).toEqual(mockLockRecord);
     });
 
-    test("deleteManyLocks should pass criteria structural logs to atomic multi-removal actions", async () => {
-      const mockSummary = { deletedCount: 5 };
-      mockModel.deleteMany.mockResolvedValue(mockSummary);
+    test("deleteManyLocks should execute direct batch scrubs matching global filter criteria block payloads", async () => {
+      mockSlotLockModel.deleteMany.mockResolvedValue({ deletedCount: 5 });
+      const purgeFilter = { mentorId: "mentor777" };
 
-      const filter = { mentorId: "mentor_stale_data" };
-      const result = await repository.deleteManyLocks(filter);
+      const result = await slotLockRepository.deleteManyLocks(purgeFilter);
 
-      expect(mockModel.deleteMany).toHaveBeenCalledWith(filter);
-      expect(result).toEqual(mockSummary);
-    });
-  });
-
-  describe("findActiveLocksExcludingUser Fallback Alias", () => {
-    test("should match standard parameters filtering requesting user identity profiles", async () => {
-      const mockResult = [];
-      const chainMock = createQueryChainMock(mockResult);
-      mockModel.find.mockReturnValue(chainMock);
-
-      const result = await repository.findActiveLocksExcludingUser(
-        "m_id",
-        "u_id",
-      );
-
-      expect(mockModel.find).toHaveBeenCalledWith({
-        mentorId: "m_id",
-        lockedBy: { $ne: "u_id" },
-      });
-      expect(result).toEqual(mockResult);
+      expect(mockSlotLockModel.deleteMany).toHaveBeenCalledWith(purgeFilter);
+      expect(result).toEqual({ deletedCount: 5 });
     });
   });
 });

@@ -37,7 +37,10 @@ describe("Mentor Availability Router Unit Tests", () => {
   });
 
   test("should enforce token authentication guards on private mentor profile schedules", () => {
-    createAvailabilityRoutes(mockController, mockAuthenticate);
+    createAvailabilityRoutes({
+      availabilityController: mockController,
+      authenticate: mockAuthenticate,
+    });
 
     expect(mockRouter.get).toHaveBeenCalledWith(
       "/me",
@@ -62,7 +65,10 @@ describe("Mentor Availability Router Unit Tests", () => {
   });
 
   test("should pass authentication guards into calculation paths and keep public lookup open", () => {
-    createAvailabilityRoutes(mockController, mockAuthenticate);
+    createAvailabilityRoutes({
+      availabilityController: mockController,
+      authenticate: mockAuthenticate,
+    });
 
     // Private slot evaluation pathway requires validation
     expect(mockRouter.get).toHaveBeenCalledWith(

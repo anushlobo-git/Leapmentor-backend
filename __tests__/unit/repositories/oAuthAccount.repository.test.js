@@ -1,81 +1,99 @@
 /**
- * @fileoverview OAuth Account Repository Unit Tests
- * @description Validates structural identity mapping queries and fluent
- * population chain bindings with zero live database overhead.
+ * @fileoverview OAuth Account Repository Corporate Unit Tests
+ * @description Assures precise verification of provider lookup strategies, subdocument populations,
+ * and external account creation mappings with zero network connectivity.
  */
 
 const createOAuthAccountRepository = require("../../../repositories/oAuthAccount.repository");
 
-describe("OAuth Account Repository Unit Tests", () => {
-  let mockModel;
-  let repository;
+describe("OAuthAccount Repository", () => {
+  let mockOAuthAccountModel;
+  let oAuthAccountRepository;
 
   const mockOAuthRecord = {
-    _id: "auth_id_999",
-    user: "user_id_123",
+    _id: "oauth123",
+    user: "user777",
     provider: "google",
-    providerId: "google_identity_string",
+    providerId: "google_123456789",
+    profileUrl: "https://lh3.googleusercontent.com/a/abc",
   };
 
-  // Helper factory to emulate Mongoose chainable query executions (.populate, .lean, etc.)
-  const makeQueryChainMock = (resolvedValue) => ({
-    populate: jest.fn().mockReturnThis(),
-    then: jest.fn((callback) => Promise.resolve(callback(resolvedValue))),
-  });
+  // Safe Factory: Decorates a genuine Promise instance to completely avoid "manual then" linter errors
+  const makeChain = (resolvedValue = null) => {
+    const promise = Promise.resolve(resolvedValue);
+
+    // Attach Mongoose chain builders directly to the native Promise, returning itself for fluid chaining
+    promise.populate = jest.fn().mockReturnValue(promise);
+
+    return promise;
+  };
 
   beforeEach(() => {
-    mockModel = {
+    mockOAuthAccountModel = {
       create: jest.fn(),
       findOne: jest.fn(),
     };
-    repository = createOAuthAccountRepository(mockModel);
+    oAuthAccountRepository = createOAuthAccountRepository(
+      mockOAuthAccountModel,
+    );
   });
 
   afterEach(() => {
     jest.clearAllMocks();
   });
 
-  test("createOAuthAccount should pass structural payloads directly to the underlying driver model", async () => {
-    mockModel.create.mockResolvedValue(mockOAuthRecord);
+  // ── createOAuthAccount ──────────────────────────────────────────────────
+  describe("createOAuthAccount", () => {
+    test("should immediately persist a brand-new external social identity connection payload", async () => {
+      mockOAuthAccountModel.create.mockResolvedValue(mockOAuthRecord);
+      const inputData = {
+        provider: "google",
+        providerId: "google_123456789",
+        user: "user777",
+      };
 
-    const result = await repository.createOAuthAccount({
-      provider: "google",
-      providerId: "123",
-    });
+      const result = await oAuthAccountRepository.createOAuthAccount(inputData);
 
-    expect(mockModel.create).toHaveBeenCalledWith({
-      provider: "google",
-      providerId: "123",
+      expect(mockOAuthAccountModel.create).toHaveBeenCalledWith(inputData);
+      expect(result).toEqual(mockOAuthRecord);
     });
-    expect(result).toEqual(mockOAuthRecord);
   });
 
-  test("findOAuthAccount should pinpoint an unpopulated identity mapping using query filters", async () => {
-    mockModel.findOne.mockReturnValue(makeQueryChainMock(mockOAuthRecord));
+  // ── findOAuthAccountWithUser ────────────────────────────────────────────
+  describe("findOAuthAccountWithUser", () => {
+    test("should look up identity logs by provider criteria keys and eager-load the master user reference", async () => {
+      const mockChain = makeChain(mockOAuthRecord);
+      mockOAuthAccountModel.findOne.mockReturnValue(mockChain);
 
-    const result = await repository.findOAuthAccount("linkedin", "lnk_id_777");
+      const result = await oAuthAccountRepository.findOAuthAccountWithUser(
+        "google",
+        "google_123456789",
+      );
 
-    expect(mockModel.findOne).toHaveBeenCalledWith({
-      provider: "linkedin",
-      providerId: "lnk_id_777",
+      expect(mockOAuthAccountModel.findOne).toHaveBeenCalledWith({
+        provider: "google",
+        providerId: "google_123456789",
+      });
+      expect(mockChain.populate).toHaveBeenCalledWith("user");
+      expect(result).toEqual(mockOAuthRecord);
     });
-    expect(result).toEqual(mockOAuthRecord);
   });
 
-  test("findOAuthAccountWithUser should append a user population step onto the query execution cascade", async () => {
-    const chainMock = makeQueryChainMock(mockOAuthRecord);
-    mockModel.findOne.mockReturnValue(chainMock);
+  // ── findOAuthAccount ────────────────────────────────────────────────────
+  describe("findOAuthAccount", () => {
+    test("should pinpoint provider lookups natively without chaining relationship populations", async () => {
+      mockOAuthAccountModel.findOne.mockResolvedValue(mockOAuthRecord);
 
-    const result = await repository.findOAuthAccountWithUser(
-      "apple",
-      "apple_id_888",
-    );
+      const result = await oAuthAccountRepository.findOAuthAccount(
+        "google",
+        "google_123456789",
+      );
 
-    expect(mockModel.findOne).toHaveBeenCalledWith({
-      provider: "apple",
-      providerId: "apple_id_888",
+      expect(mockOAuthAccountModel.findOne).toHaveBeenCalledWith({
+        provider: "google",
+        providerId: "google_123456789",
+      });
+      expect(result).toEqual(mockOAuthRecord);
     });
-    expect(chainMock.populate).toHaveBeenCalledWith("user");
-    expect(result).toEqual(mockOAuthRecord);
   });
 });

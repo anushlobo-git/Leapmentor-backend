@@ -1,5 +1,5 @@
 require("dotenv").config();
-
+const env=require("../config/env");
 const axios = require("axios");
 const jwt = require("jsonwebtoken");
 const crypto = require("node:crypto");
@@ -99,29 +99,29 @@ const {
 } = require("../validations/mentorSearch.validation");
 
 const envConfig = {
-  linkedinClientId: process.env.LINKEDIN_CLIENT_ID,
-  linkedinCallbackUrl: process.env.LINKEDIN_CALLBACK_URL,
-  linkedinClientSecret: process.env.LINKEDIN_CLIENT_SECRET,
-  clientUrl: process.env.CLIENT_URL,
-  googleClientId: process.env.GOOGLE_CLIENT_ID,
-  fromEmail: process.env.FROM_EMAIL,
-  groqApiKey: process.env.GROQ_API_KEY,
+  linkedinClientId: env.linkedin.clientId,
+  linkedinCallbackUrl: env.linkedin.callbackUrl,
+  linkedinClientSecret: env.linkedin.clientSecret,
+  clientUrl: env.clientUrl,
+  googleClientId: env.google.clientId,
+  fromEmail: env.smtp.fromEmail,
+  groqApiKey: env.groqApiKey,
 };
 
 // ── INSTANTIATE CONFIGS
 const authConfig = {
-  jwtSecret: process.env.JWT_SECRET,
-  jwtExpiresIn: process.env.JWT_EXPIRES_IN || "7d",
-  jwtAccessSecret: process.env.JWT_ACCESS_SECRET,
-  jwtRefreshSecret: process.env.JWT_REFRESH_SECRET,
-  stateSecret: process.env.STATE_SECRET || process.env.JWT_SECRET,
+  jwtSecret: env.jwtSecret,
+  jwtExpiresIn: env.jwtExpiresIn,
+  jwtAccessSecret: env.jwtAccessSecret,
+  jwtRefreshSecret: env.jwtRefreshSecret,
+  stateSecret: env.jwtSecret, 
 };
-const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
-const cookieConfig = { isProd: process.env.NODE_ENV === "production" };
+const googleClient = new OAuth2Client(env.google.clientId);
+const cookieConfig = { isProd: env.nodeEnv === "production" };
 const cookieUtils = createCookieUtils(cookieConfig);
 const cacheUtility = createCacheUtility(redisClient, logger);
 const authUtils = createAuthUtils(authConfig, jwt, crypto, googleClient);
-const aiGateway = createAiGateway(process.env.GROQ_API_KEY);
+const aiGateway = createAiGateway(env.groqApiKey);
 
 // ── UPLOAD CONFIGS
 const uploadImageConfig = multer({

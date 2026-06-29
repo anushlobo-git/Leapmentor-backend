@@ -1,5 +1,5 @@
 /**
- * @fileoverview Admin Statistics Service Corporate Unit Tests
+ * @fileoverview Admin Statistics Service Unit Tests
  * @description Validates aggregation processing loops, timeline map projections,
  * and high-volume parallel count matrices with zero network activity.
  */
@@ -21,10 +21,11 @@ describe("AdminStats Service", () => {
       getMentorIndustryStats: jest.fn(),
     };
 
-    statsService = createAdminStatsService(
-      mockUserRepository,
-      mockMentorProfileRepository,
-    );
+    // ✅ Correct instantiation — matches the destructured signature
+    statsService = createAdminStatsService({
+      userRepository: mockUserRepository,
+      mentorProfileRepository: mockMentorProfileRepository,
+    });
   });
 
   afterEach(() => {
@@ -34,7 +35,6 @@ describe("AdminStats Service", () => {
   // ── getStatsService ─────────────────────────────────────────────────────
   describe("getStatsService", () => {
     test("should execute parallel query groups and unpack metric total counts correctly", async () => {
-      // Setup distinct resolve properties sequentially matching Promise.all indexes
       mockUserRepository.countUsersWithOptions
         .mockResolvedValueOnce(500) // totalUsers
         .mockResolvedValueOnce(200) // totalMentors
@@ -53,7 +53,6 @@ describe("AdminStats Service", () => {
       expect(mockUserRepository.countUsersWithOptions).toHaveBeenCalledWith({
         createdAt: expect.objectContaining({ $gte: expect.any(Date) }),
       });
-
       expect(result).toEqual({
         totalUsers: 500,
         totalMentors: 200,
@@ -88,8 +87,6 @@ describe("AdminStats Service", () => {
       expect(mockUserRepository.getUserGrowth).toHaveBeenCalledWith(
         expect.any(Date),
       );
-
-      // Assures localization configurations output predictable mapping text results (e.g., "Mar 15")
       expect(result).toEqual([
         { label: "Mar 15", count: 5 },
         { label: "Apr 20", count: 12 },
@@ -98,7 +95,9 @@ describe("AdminStats Service", () => {
 
     test("should map empty timeline sequences gracefully if lookback ranges hit zero values", async () => {
       mockUserRepository.getUserGrowth.mockResolvedValue([]);
+
       const result = await statsService.getUserGrowthService();
+
       expect(result).toEqual([]);
     });
   });

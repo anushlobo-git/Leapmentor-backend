@@ -2,10 +2,10 @@
 const mongoose = require("mongoose");
 const MentorProfile = require("../models/MentorProfile");
 require("dotenv").config();
-
+const env = require("../config/env");
 const migrate = async () => {
   try {
-    await mongoose.connect(process.env.MONGO_URI);
+    await mongoose.connect(env.mongoUri);
     console.log("✅ Connected to MongoDB");
 
     const result = await MentorProfile.updateMany(

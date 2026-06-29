@@ -25,7 +25,7 @@ describe("User Login Controller Unit Tests", () => {
       setAuthCookies: jest.fn(),
     };
 
-    controller = createLoginController(mockAuthService, mockCookieUtils);
+    controller = createLoginController({ authService: mockAuthService, cookieUtils: mockCookieUtils });
 
     mockReq = {
       body: {
@@ -74,6 +74,27 @@ describe("User Login Controller Unit Tests", () => {
       user: mockServiceResponse.user,
       accessToken: "mock_access_jwt_token",
     });
+  });
+
+  test("should handle user with no roles array", async () => {
+    const mockServiceResponse = {
+      accessToken: "mock_access_jwt_token",
+      refreshToken: "mock_refresh_jwt_token",
+      user: {
+        _id: "usr_abc_123",
+        email: "testuser@test.com",
+      },
+    };
+    mockAuthService.loginUser.mockResolvedValue(mockServiceResponse);
+
+    await controller.login(mockReq, mockRes, mockNext);
+    await flushPromises();
+
+    expect(mockCookieUtils.setAuthCookies).toHaveBeenCalledWith(
+      mockRes,
+      "mock_refresh_jwt_token",
+      null,
+    );
   });
 
   test("should delegate service processing failures directly to next() for centralized catching", async () => {

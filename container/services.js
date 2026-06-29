@@ -1,3 +1,4 @@
+const env = require("../config/env");
 // ── SERVICE FACTORIES
 const createWalletService = require("../services/wallet.service");
 const createSocialAuthService = require("../services/socialAuth.service");
@@ -164,7 +165,11 @@ const adminStatsService = createAdminStatsService({
   mentorProfileRepository,
 });
 
-const adminAuthService = createAdminAuthService({ adminUserRepository ,jwt ,toAdminDTO });
+const adminAuthService = createAdminAuthService({
+  adminUserRepository,
+  jwt,
+  toAdminDTO,
+});
 
 const adminUserManagementService = createAdminUserManagementService({
   userRepository,
@@ -284,6 +289,11 @@ const googleCalendarService = createGoogleCalendarService({
   google,
   availabilityRepository,
   logger,
+  googleConfig: {
+    clientId: env.google.clientId,
+    clientSecret: env.google.clientSecret,
+    redirectUri: env.google.redirectUri,
+  },
 });
 
 const invoiceService = createInvoiceService({
@@ -385,7 +395,7 @@ const verificationService = createVerificationService({
 
 const mentorSearchService = createMentorSearchService({
   mentorSearchRepository: mentorProfileRepository,
-  userRepository,   
+  userRepository,
   toMentorProfileDTO,
   logger,
 });

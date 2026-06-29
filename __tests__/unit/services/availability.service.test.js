@@ -33,17 +33,19 @@ describe("Availability Management Service Unit Tests", () => {
       findActiveLocksByMentor: jest.fn(),
     };
 
-    service = createAvailabilityService(
-      mockAvailabilityRepo,
-      mockConnectRequestRepo,
-      mockSlotLockRepo,
-    );
+    // ✅ Fix: named destructured object to match factory signature
+    service = createAvailabilityService({
+      availabilityRepository: mockAvailabilityRepo,
+      connectRequestRepository: mockConnectRequestRepo,
+      slotLockRepository: mockSlotLockRepo,
+    });
   });
 
   afterEach(() => {
     jest.clearAllMocks();
   });
 
+  // ─────────────────────────────────────────────
   describe("getMyAvailability Action Window", () => {
     test("should pass properties to the DTO mapper if a record exists inside the data store", async () => {
       mockAvailabilityRepo.findAvailabilityByMentor.mockResolvedValue({
@@ -75,18 +77,18 @@ describe("Availability Management Service Unit Tests", () => {
     });
   });
 
+  // ─────────────────────────────────────────────
   describe("createAvailability Record Seed", () => {
     test("should throw a 409 status clash error if a schedule configuration already exists", async () => {
       mockAvailabilityRepo.findAvailabilityByMentor.mockResolvedValue({
         _id: "exists",
       });
 
-      await expect(service.createAvailability("m3", {})).rejects.toThrow(
-        new AppError(
+      await expect(service.createAvailability("m3", {})).rejects.toMatchObject({
+        statusCode: 409,
+        message:
           "Availability already exists. Use PATCH /api/availability/me to update.",
-          409,
-        ),
-      );
+      });
     });
 
     test("should delegate parameters to repository creation methods if unallocated", async () => {
@@ -112,13 +114,15 @@ describe("Availability Management Service Unit Tests", () => {
     });
   });
 
+  // ─────────────────────────────────────────────
   describe("updateAvailability Modifications", () => {
     test("should reject update cycles with a 400 bad request error if no valid keys are supplied", async () => {
       await expect(
         service.updateAvailability("m4", { invalidKey: "data" }),
-      ).rejects.toThrow(
-        new AppError("No valid fields provided to update", 400),
-      );
+      ).rejects.toMatchObject({
+        statusCode: 400,
+        message: "No valid fields provided to update",
+      });
     });
 
     test("should parse acceptable input fields and forward changes cleanly to the database tier", async () => {
@@ -133,17 +137,81 @@ describe("Availability Management Service Unit Tests", () => {
 
       expect(mockAvailabilityRepo.updateAvailability).toHaveBeenCalledWith(
         "m4",
-        { timezone: "Europe/London" },
+        {
+          timezone: "Europe/London",
+        },
       );
       expect(result).toEqual({ updated: true });
     });
   });
 
+  // ─────────────────────────────────────────────
+  describe("getMentorAvailability Public Query", () => {
+    test("should throw a 404 error if the mentor has not configured any availability", async () => {
+      mockAvailabilityRepo.findAvailabilityByMentor.mockResolvedValue(null);
+
+      await expect(service.getMentorAvailability("m6")).rejects.toMatchObject({
+        statusCode: 404,
+        message: "Availability not set by this mentor",
+      });
+    });
+
+    test("should return a trimmed public projection when availability exists", async () => {
+      mockAvailabilityRepo.findAvailabilityByMentor.mockResolvedValue({
+        timezone: "Asia/Kolkata",
+        sessionDurations: [30, 60],
+        specificDates: [{ date: "2026-07-01" }],
+        weeklyHours: [{ day: "Monday" }],
+      });
+
+      const result = await service.getMentorAvailability("m6");
+
+      expect(
+        mockAvailabilityRepo.findAvailabilityByMentor,
+      ).toHaveBeenCalledWith("m6");
+      // weeklyHours must NOT leak into the public projection
+      expect(result).toEqual({
+        timezone: "Asia/Kolkata",
+        sessionDurations: [30, 60],
+        specificDates: [{ date: "2026-07-01" }],
+      });
+    });
+  });
+
+  // ─────────────────────────────────────────────
+  describe("deleteAvailability Removal", () => {
+    test("should delegate to repository delete and resolve without a return value", async () => {
+      mockAvailabilityRepo.deleteAvailability.mockResolvedValue(undefined);
+
+      const result = await service.deleteAvailability("m7");
+
+      expect(mockAvailabilityRepo.deleteAvailability).toHaveBeenCalledWith(
+        "m7",
+      );
+      expect(result).toBeUndefined();
+    });
+  });
+
+  // ─────────────────────────────────────────────
   describe("getAvailableSlots Matrix Calculation", () => {
     test("should throw a 400 error if duration values violate strict step constraints", async () => {
-      await expect(service.getAvailableSlots("m5", 15, "u1")).rejects.toThrow(
-        new AppError("Duration must be 30, 45, or 60 minutes", 400),
-      );
+      await expect(
+        service.getAvailableSlots("m5", 15, "u1"),
+      ).rejects.toMatchObject({
+        statusCode: 400,
+        message: "Duration must be 30, 45, or 60 minutes",
+      });
+    });
+
+    test("should throw a 404 error if the mentor has no availability document", async () => {
+      mockAvailabilityRepo.findAvailabilityByMentor.mockResolvedValue(null);
+
+      await expect(
+        service.getAvailableSlots("m5", 30, "u1"),
+      ).rejects.toMatchObject({
+        statusCode: 404,
+        message: "Availability not set by this mentor",
+      });
     });
 
     test("should extract active blocks from dependencies, combine calendars, and map slot schemas correctly", async () => {
@@ -156,7 +224,6 @@ describe("Availability Management Service Unit Tests", () => {
       mockAvailabilityRepo.findAvailabilityByMentor.mockResolvedValue(
         mockAvailabilityDoc,
       );
-
       mockConnectRequestRepo.findBookedRequestsByMentor.mockResolvedValue([
         {
           selectedSlots: [
@@ -185,6 +252,30 @@ describe("Availability Management Service Unit Tests", () => {
         sessionDurations: [30, 60],
         slots: [{ date: "2026-06-24", slots: [] }],
       });
+    });
+
+    test("should handle the selectedSlot singular fallback branch when selectedSlots is absent", async () => {
+      mockAvailabilityRepo.findAvailabilityByMentor.mockResolvedValue({
+        timezone: "UTC",
+        sessionDurations: [30],
+        specificDates: [],
+        weeklyHours: [],
+      });
+      // Request has selectedSlot (singular) rather than selectedSlots (array)
+      mockConnectRequestRepo.findBookedRequestsByMentor.mockResolvedValue([
+        {
+          selectedSlot: {
+            date: "2026-06-25",
+            startTime: "09:00",
+            endTime: "09:30",
+          },
+        },
+      ]);
+      mockSlotLockRepo.findActiveLocksByMentor.mockResolvedValue([]);
+
+      const result = await service.getAvailableSlots("m5", 30, "u1");
+
+      expect(result.slots).toEqual([{ date: "2026-06-24", slots: [] }]);
     });
   });
 });

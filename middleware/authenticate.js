@@ -2,6 +2,7 @@
 const jwt = require("jsonwebtoken");
 const User = require("../models/User");
 const logger = require("../config/logger");
+const env = require("../config/env");
 
 // Verifies JWT and attaches fresh user from DB to req.user
 const authenticate = async (req, res, next) => {
@@ -10,7 +11,7 @@ const authenticate = async (req, res, next) => {
 
     if (!token) return res.status(401).json({ message: "No token provided" });
 
-    const decoded = jwt.verify(token, process.env.JWT_ACCESS_SECRET);
+    const decoded = jwt.verify(token, env.jwtAccessSecret);
 
     // Fetch fresh from DB (Bypass the isDeleted filter so we can check it manually!)
     const user = await User.findById(decoded.id)

@@ -55,11 +55,11 @@ describe("Connection Request Router Unit Tests", () => {
   });
 
   test("should attach mentee transaction pathways along with schema validation guards", () => {
-    createConnectRequestRoutes(
-      mockControllers,
-      mockMiddlewares,
-      mockValidations,
-    );
+    createConnectRequestRoutes({
+      controllers:mockControllers,
+      middlewares: mockMiddlewares,
+      validations: mockValidations,
+  });
 
     expect(mockRouter.post).toHaveBeenCalledWith(
       "/",
@@ -75,11 +75,11 @@ describe("Connection Request Router Unit Tests", () => {
   });
 
   test("should mount specialized mentor query and referral routes with role parameters", () => {
-    createConnectRequestRoutes(
-      mockControllers,
-      mockMiddlewares,
-      mockValidations,
-    );
+    createConnectRequestRoutes({
+      controllers: mockControllers,
+      middlewares: mockMiddlewares,
+      validations: mockValidations,
+    });
 
     expect(mockMiddlewares.requireRole).toHaveBeenCalledWith("mentor");
 
@@ -103,11 +103,11 @@ describe("Connection Request Router Unit Tests", () => {
   });
 
   test("should bind generic fallback resource parameters below specific route match hooks", () => {
-    createConnectRequestRoutes(
-      mockControllers,
-      mockMiddlewares,
-      mockValidations,
-    );
+    createConnectRequestRoutes({
+      controllers: mockControllers,
+      middlewares: mockMiddlewares,
+      validations: mockValidations,
+    });
 
     // Verifies that patch /:id does NOT require a separate v_object_id anymore
     expect(mockRouter.patch).toHaveBeenCalledWith(

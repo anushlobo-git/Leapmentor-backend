@@ -1,43 +1,52 @@
 /**
  * @fileoverview Transaction Repository Corporate Unit Tests
- * @description Assures precise verification of counting metrics, ledger sorting chains,
- * and multi-document transaction batch operations with zero network access.
+ * @description Assures precise verification of aggregate counters, paginated ledger entries,
+ * subdocument expansions, and transactional batch write methods with zero network dependencies.
  */
 
 const createTransactionRepository = require("../../../repositories/transaction.repository");
 
 describe("Transaction Repository", () => {
-  let mockModel;
-  let repository;
+  let mockTransactionModel;
+  let transactionRepository;
+  let mockSession;
 
   const mockTransactionRecord = {
-    _id: "tx999",
-    user: "user123",
-    type: "escrow_hold",
-    amount: 500,
-    balanceAfter: 1500,
-    description: "Hold for session booking.",
+    _id: "tx123",
+    user: "user555",
+    wallet: "wallet999",
+    amount: 1500,
+    type: "escrow_lock",
+    status: "completed",
+    createdAt: new Date("2026-06-29T11:15:00.000Z"),
   };
 
-  // Reusable query chain builder supporting fluent parameters and promise completions
-  const makeChain = (resolvedValue = null) => ({
-    populate: jest.fn().mockReturnThis(),
-    sort: jest.fn().mockReturnThis(),
-    skip: jest.fn().mockReturnThis(),
-    limit: jest.fn().mockReturnThis(),
-    lean: jest.fn().mockResolvedValue(resolvedValue),
-    then: jest.fn(function (callback) {
-      return Promise.resolve(callback(resolvedValue));
-    }),
-  });
+  const mockRecordsArray = [mockTransactionRecord];
+
+  // Safe Factory: Decorates a genuine Promise instance to completely avoid "manual then" linter errors
+  const makeChain = (resolvedValue = null) => {
+    const promise = Promise.resolve(resolvedValue);
+
+    // Attach Mongoose chain builders directly to the native Promise, returning itself for fluid chaining
+    promise.populate = jest.fn().mockReturnValue(promise);
+    promise.sort = jest.fn().mockReturnValue(promise);
+    promise.skip = jest.fn().mockReturnValue(promise);
+    promise.limit = jest.fn().mockReturnValue(promise);
+    promise.lean = jest
+      .fn()
+      .mockImplementation(() => Promise.resolve(resolvedValue));
+
+    return promise;
+  };
 
   beforeEach(() => {
-    mockModel = {
+    mockTransactionModel = {
       countDocuments: jest.fn(),
       find: jest.fn(),
       create: jest.fn(),
     };
-    repository = createTransactionRepository(mockModel);
+    mockSession = { id: "tx_session_999" };
+    transactionRepository = createTransactionRepository(mockTransactionModel);
   });
 
   afterEach(() => {
@@ -46,82 +55,77 @@ describe("Transaction Repository", () => {
 
   // ── countTransactions ───────────────────────────────────────────────────
   describe("countTransactions", () => {
-    test("should pass matching filter payloads straight into count mechanics", async () => {
-      mockModel.countDocuments.mockResolvedValue(128);
-      const result = await repository.countTransactions({ type: "credit" });
+    test("should fire countDocuments matching target evaluation criteria parameters cleanly", async () => {
+      mockTransactionModel.countDocuments.mockResolvedValue(120);
+      const filterCriteria = { type: "payout", status: "completed" };
 
-      expect(mockModel.countDocuments).toHaveBeenCalledWith({ type: "credit" });
-      expect(result).toBe(128);
+      const count =
+        await transactionRepository.countTransactions(filterCriteria);
+
+      expect(mockTransactionModel.countDocuments).toHaveBeenCalledWith(
+        filterCriteria,
+      );
+      expect(count).toBe(120);
     });
   });
 
   // ── findTransactions ────────────────────────────────────────────────────
   describe("findTransactions", () => {
-    test("should execute a paginated find sequence using comprehensive pipeline sorting rules", async () => {
-      const chain = makeChain([mockTransactionRecord]);
-      mockModel.find.mockReturnValue(chain);
+    test("should execute a full paginated matrix pipeline with proper user population metrics", async () => {
+      const mockChain = makeChain(mockRecordsArray);
+      mockTransactionModel.find.mockReturnValue(mockChain);
+      const filter = { user: "user555" };
 
-      const result = await repository.findTransactions(
-        { user: "user123" },
-        { skip: 20, limit: 10 },
-      );
+      const result = await transactionRepository.findTransactions(filter, {
+        skip: 40,
+        limit: 20,
+      });
 
-      expect(mockModel.find).toHaveBeenCalledWith({ user: "user123" });
-      expect(chain.populate).toHaveBeenCalledWith("user", "name email");
-      expect(chain.sort).toHaveBeenCalledWith({ createdAt: -1 });
-      expect(chain.skip).toHaveBeenCalledWith(20);
-      expect(chain.limit).toHaveBeenCalledWith(10);
-      expect(chain.lean).toHaveBeenCalled();
-      expect(result).toEqual([mockTransactionRecord]);
+      expect(mockTransactionModel.find).toHaveBeenCalledWith(filter);
+      expect(mockChain.populate).toHaveBeenCalledWith("user", "name email");
+      expect(mockChain.sort).toHaveBeenCalledWith({ createdAt: -1 });
+      expect(mockChain.skip).toHaveBeenCalledWith(40);
+      expect(mockChain.limit).toHaveBeenCalledWith(20);
+      expect(mockChain.lean).toHaveBeenCalled();
+      expect(result).toEqual(mockRecordsArray);
     });
   });
 
   // ── createTransaction ───────────────────────────────────────────────────
   describe("createTransaction", () => {
-    test("should instantiate an individual audit trail row natively", async () => {
-      mockModel.create.mockResolvedValue(mockTransactionRecord);
-      const payload = { user: "user123", amount: 500 };
+    test("should instantly instantiate and write a single ledger record payload down to the database", async () => {
+      mockTransactionModel.create.mockResolvedValue(mockTransactionRecord);
+      const singlePayload = {
+        user: "user555",
+        amount: 1500,
+        type: "escrow_lock",
+      };
 
-      const result = await repository.createTransaction(payload);
+      const result =
+        await transactionRepository.createTransaction(singlePayload);
 
-      expect(mockModel.create).toHaveBeenCalledWith(payload);
+      expect(mockTransactionModel.create).toHaveBeenCalledWith(singlePayload);
       expect(result).toEqual(mockTransactionRecord);
     });
   });
 
   // ── createMany ──────────────────────────────────────────────────────────
   describe("createMany", () => {
-    test("should execute bulk insertions wrapping the execution inside session blocks safely", async () => {
-      const mockBatchList = [
-        mockTransactionRecord,
-        { ...mockTransactionRecord, _id: "tx1000" },
-      ];
-      mockModel.create.mockResolvedValue(mockBatchList);
-
-      const transactionsData = [
-        { user: "user123", amount: 500 },
-        { user: "user123", amount: 500 },
+    test("should batch execute list writes while passing dynamic isolated transaction frame sessions downstream", async () => {
+      mockTransactionModel.create.mockResolvedValue(mockRecordsArray);
+      const batchPayload = [
+        { user: "user555", amount: 1500, type: "escrow_lock" },
       ];
 
-      const result = await repository.createMany(
-        transactionsData,
-        "active_tx_session_token",
+      const result = await transactionRepository.createMany(
+        batchPayload,
+        mockSession,
       );
 
-      expect(mockModel.create).toHaveBeenCalledWith(transactionsData, {
-        session: "active_tx_session_token",
+      expect(mockTransactionModel.create).toHaveBeenCalledWith(batchPayload, {
+        session: mockSession,
       });
-      expect(result).toEqual(mockBatchList);
-    });
-
-    test("should bubble schema layout execution rejections up when operations fail", async () => {
-      mockModel.create.mockRejectedValue(
-        new Error("Mongoose Enum Validation Failure"),
-      );
-
-      await expect(repository.createMany([], null)).rejects.toThrow(
-        "Mongoose Enum Validation Failure",
-      );
+      expect(result).toEqual(mockRecordsArray);
     });
   });
 });

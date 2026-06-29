@@ -1,6 +1,7 @@
 // backend/utils/generateICS.js
+const env=require("../config/env");
 const _extractEmail = (fromEmail) => {
-  if (!fromEmail) return process.env.SMTP_USER;
+  if (!fromEmail) return env.smtp.user;
   const start = fromEmail.indexOf("<");
   const end = fromEmail.indexOf(">");
   if (start !== -1 && end !== -1 && end > start) {
@@ -56,7 +57,7 @@ const generateVEVENT = ({
     `DTEND;TZID=${timezone}:${dtEnd}`,
     `SUMMARY:${summary}`,
     `DESCRIPTION:${description}`,
-    `ORGANIZER;CN=LeapMentor:mailto:${_extractEmail(process.env.FROM_EMAIL)}`,
+    `ORGANIZER;CN=LeapMentor:mailto:${_extractEmail(env.smtp.fromEmail)}`,
     `ATTENDEE;CN=${mentorName};ROLE=REQ-PARTICIPANT;RSVP=TRUE:mailto:${mentorEmail}`,
     `ATTENDEE;CN=${menteeName};ROLE=REQ-PARTICIPANT;RSVP=TRUE:mailto:${menteeEmail}`,
     "STATUS:CONFIRMED",

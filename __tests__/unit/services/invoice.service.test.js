@@ -1,11 +1,8 @@
 /**
  * @fileoverview Invoice Business Service Unit Tests
- * @description Assures valid verification of session ownership limits, settlement boundaries,
- * administrative commission rules, and binary document buffer compilations.
  */
 
 const createInvoiceService = require("../../../services/invoice.service");
-const AppError = require("../../../utils/AppError");
 
 describe("Invoice Service Unit Tests", () => {
   let mockConnectRequestRepo, mockAdminUserRepo, mockGenerateInvoice, service;
@@ -21,32 +18,31 @@ describe("Invoice Service Unit Tests", () => {
       .fn()
       .mockResolvedValue(Buffer.from("%PDF-mock-binary-data"));
 
-    service = createInvoiceService(
-      mockConnectRequestRepo,
-      mockAdminUserRepo,
-      mockGenerateInvoice,
-    );
+    service = createInvoiceService({
+      connectRequestRepository: mockConnectRequestRepo,
+      adminUserRepository: mockAdminUserRepo,
+      generateInvoice: mockGenerateInvoice,
+    });
   });
 
-  afterEach(() => {
-    jest.clearAllMocks();
-  });
+  afterEach(() => jest.clearAllMocks());
 
-  test("should successfully build a PDF binary payload matching completed and valid account properties", async () => {
-    const mockRequest = {
-      _id: "507f1f78c24a82117184851a",
-      mentee: { _id: "user_uuid_111", name: "Alice", email: "alice@test.com" },
-      mentor: { name: "Bob", email: "bob@test.com" },
-      paymentStatus: "paid",
-      selectedSlots: [],
-      confirmedSlot: {},
-      sessionRate: 100,
-      sessionCount: 1,
-      totalAmount: 120,
-      paidAt: new Date(),
-    };
+  const baseRequest = {
+    _id: "507f1f78c24a82117184851a",
+    mentee: { _id: "user_uuid_111", name: "Alice", email: "alice@test.com" },
+    mentor: { name: "Bob", email: "bob@test.com" },
+    paymentStatus: "paid",
+    selectedSlots: [],
+    confirmedSlot: {},
+    sessionRate: 100,
+    sessionCount: 1,
+    totalAmount: 120,
+    paidAt: new Date(),
+  };
+
+  test("should successfully build a PDF binary payload for a paid session", async () => {
     mockConnectRequestRepo.findByIdWithParticipantsLean.mockResolvedValue(
-      mockRequest,
+      baseRequest,
     );
     mockAdminUserRepo.findActiveAdminLean.mockResolvedValue({
       commissionRate: 20,
@@ -65,7 +61,24 @@ describe("Invoice Service Unit Tests", () => {
     expect(result.pdfBuffer.toString()).toContain("%PDF-mock-binary-data");
   });
 
-  test("should throw a 404 exception if the targeted context session records do not exist", async () => {
+  test("should successfully build a PDF binary payload for a released session", async () => {
+    mockConnectRequestRepo.findByIdWithParticipantsLean.mockResolvedValue({
+      ...baseRequest,
+      paymentStatus: "released",
+    });
+    mockAdminUserRepo.findActiveAdminLean.mockResolvedValue({
+      commissionRate: 20,
+    });
+
+    const result = await service.generateInvoicePdfBuffer({
+      connectRequestId: "507f1f78c24a82117184851a",
+      userId: "user_uuid_111",
+    });
+
+    expect(result.invoiceNumber).toBe("INV-84851A");
+  });
+
+  test("should throw 404 if the session record does not exist", async () => {
     mockConnectRequestRepo.findByIdWithParticipantsLean.mockResolvedValue(null);
 
     await expect(
@@ -73,10 +86,10 @@ describe("Invoice Service Unit Tests", () => {
         connectRequestId: "507f1f78c24a82117184851a",
         userId: "user_id",
       }),
-    ).rejects.toThrow(new AppError("Session not found", 404));
+    ).rejects.toMatchObject({ statusCode: 404, message: "Session not found" });
   });
 
-  test("should throw a 403 Forbidden exception if the user parsing does not own the connection request", async () => {
+  test("should throw 403 if the user does not own the connection request", async () => {
     mockConnectRequestRepo.findByIdWithParticipantsLean.mockResolvedValue({
       mentee: { _id: "authorized_mentee_id" },
     });
@@ -86,12 +99,13 @@ describe("Invoice Service Unit Tests", () => {
         connectRequestId: "507f1f78c24a82117184851a",
         userId: "malicious_user",
       }),
-    ).rejects.toThrow(
-      new AppError("Not authorized to download this invoice", 403),
-    );
+    ).rejects.toMatchObject({
+      statusCode: 403,
+      message: "Not authorized to download this invoice",
+    });
   });
 
-  test("should throw a 400 Bad Request exception if the transactional state remains unpaid or unfulfilled", async () => {
+  test("should throw 400 if payment status is not paid or released", async () => {
     mockConnectRequestRepo.findByIdWithParticipantsLean.mockResolvedValue({
       mentee: { _id: "user_111" },
       paymentStatus: "unpaid",
@@ -102,8 +116,45 @@ describe("Invoice Service Unit Tests", () => {
         connectRequestId: "507f1f78c24a82117184851a",
         userId: "user_111",
       }),
-    ).rejects.toThrow(
-      new AppError("No paid invoice found for this session", 400),
+    ).rejects.toMatchObject({
+      statusCode: 400,
+      message: "No paid invoice found for this session",
+    });
+  });
+
+  test("should throw 400 if no admin user is found", async () => {
+    mockConnectRequestRepo.findByIdWithParticipantsLean.mockResolvedValue(
+      baseRequest,
     );
+    mockAdminUserRepo.findActiveAdminLean.mockResolvedValue(null);
+
+    await expect(
+      service.generateInvoicePdfBuffer({
+        connectRequestId: "507f1f78c24a82117184851a",
+        userId: "user_uuid_111",
+      }),
+    ).rejects.toMatchObject({
+      statusCode: 400,
+      message: "Platform commission rate not configured",
+    });
+  });
+
+  test("should throw 400 if admin commissionRate is zero (falsy)", async () => {
+    mockConnectRequestRepo.findByIdWithParticipantsLean.mockResolvedValue(
+      baseRequest,
+    );
+    mockAdminUserRepo.findActiveAdminLean.mockResolvedValue({
+      commissionRate: 0,
+    });
+
+    await expect(
+      service.generateInvoicePdfBuffer({
+        connectRequestId: "507f1f78c24a82117184851a",
+        userId: "user_uuid_111",
+      }),
+    ).rejects.toMatchObject({
+      statusCode: 400,
+      message: "Platform commission rate not configured",
+    });
   });
 });

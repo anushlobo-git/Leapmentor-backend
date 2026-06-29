@@ -6,9 +6,15 @@
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js",
+    "lint": "eslint .",
+    "build": "node -e \"console.log('No build step defined for backend')\"",
     "test": "jest --runInBand",
     "test:coverage": "jest --runInBand --coverage",
     "test:watch": "jest --watch"
+  },
+  "engines": {
+    "node": ">=18 <23",
+    "npm": ">=9"
   },
   "jest": {
     "testEnvironment": "node",
@@ -18,7 +24,17 @@
     "setupFilesAfterEnv": [
       "<rootDir>/__tests__/setup.js"
     ],
-    "testTimeout": 30000
+    "testTimeout": 30000,
+    "collectCoverageFrom": [
+      "services/**/*.js",
+      "utils/**/*.js",
+      "!**/node_modules/**"
+    ],
+    "coverageReporters": [
+      "text",
+      "html"
+    ],
+    "coverageDirectory": "coverage"
   },
   "keywords": [],
   "author": "",

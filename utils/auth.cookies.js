@@ -3,9 +3,10 @@
  * @description Provides decoupled handlers for setting and clearing secure HTTP-only
  * authentication and metadata cookies based on injected environment configuration parameters.
  */
+const env = require("../config/env");
 
 const createCookieUtils = (config) => {
-  const isProd = config.isProd ?? process.env.NODE_ENV === "production";
+  const isProd = config.isProd ?? env.nodeEnv === "production";
 
   const BASE_OPTIONS = {
     httpOnly: true,

@@ -6,11 +6,11 @@
 
 
 const AppError = require("../utils/AppError");
-
+const env = require("../config/env");
 const createAdminAuthService = ({adminUserRepository, jwt, toAdminDTO}) => {
 
   const signAdminToken = (id) =>
-    jwt.sign({ id, role: "admin" }, process.env.JWT_SECRET, {
+    jwt.sign({ id, role: "admin" }, env.jwtSecret, {
       expiresIn: "7d",
     });
   /**

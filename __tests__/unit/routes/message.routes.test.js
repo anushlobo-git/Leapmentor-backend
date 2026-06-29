@@ -11,7 +11,7 @@ describe("Message Router Unit Tests", () => {
       getUnreadCountValidation: "v_unread",
     };
 
-    createMessageRoutes(mockController, "auth_guard", mockValidations);
+    createMessageRoutes({ messageController: mockController, authenticate: "auth_guard", validations: mockValidations });
     expect(mockRouter.use).toHaveBeenCalledWith("auth_guard");
     expect(mockRouter.get).toHaveBeenCalledWith(
       "/:connectRequestId",

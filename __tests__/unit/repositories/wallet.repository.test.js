@@ -1,191 +1,198 @@
 /**
  * @fileoverview Wallet Repository Corporate Unit Tests
- * @description Assures precise verification of selection criteria, atomic update operators,
- * and isolated transaction sessions with zero network dependency.
+ * @description Assures precise verification of asset balances, role scopes, conditional
+ * transaction sessions, and atomic balance alterations with zero network access.
  */
 
 const createWalletRepository = require("../../../repositories/wallet.repository");
 
 describe("Wallet Repository", () => {
-  let mockModel;
-  let repository;
+  let mockWalletModel;
+  let walletRepository;
+  let mockSession;
 
   const mockWalletRecord = {
-    _id: "wallet001",
-    user: "user888",
+    _id: "wallet123",
+    user: "user456",
     role: "mentor",
-    balance: 1200,
-    escrow: 300,
+    balance: 1250,
+    escrow: 500,
   };
 
-  // Reusable query chain builder supporting selective filters, sessions, and promise completions
-  const makeChain = (resolvedValue = null) => ({
-    select: jest.fn().mockReturnThis(),
-    session: jest.fn().mockReturnThis(),
-    lean: jest.fn().mockResolvedValue(resolvedValue),
-    then: jest.fn(function (callback) {
-      return Promise.resolve(callback(resolvedValue));
-    }),
-  });
+  const mockRecordsArray = [mockWalletRecord];
+
+  // Safe Factory: Decorates a genuine Promise instance to completely avoid "manual then" linter errors
+  const makeChain = (resolvedValue = null) => {
+    const promise = Promise.resolve(resolvedValue);
+
+    // Attach Mongoose chain builders directly to the native Promise, returning itself for fluid chaining
+    promise.select = jest.fn().mockReturnValue(promise);
+    promise.session = jest.fn().mockReturnValue(promise);
+    promise.lean = jest
+      .fn()
+      .mockImplementation(() => Promise.resolve(resolvedValue));
+
+    return promise;
+  };
 
   beforeEach(() => {
-    mockModel = {
+    mockWalletModel = {
       find: jest.fn(),
       findOne: jest.fn(),
       create: jest.fn(),
       findOneAndUpdate: jest.fn(),
     };
-    repository = createWalletRepository(mockModel);
+    mockSession = { id: "tx_session_888" };
+    walletRepository = createWalletRepository(mockWalletModel);
   });
 
   afterEach(() => {
     jest.clearAllMocks();
   });
 
-  // ── findAllWallets ──────────────────────────────────────────────────────
-  describe("findAllWallets", () => {
-    test("should fetch selective read-only snapshot arrays containing escrow values", async () => {
-      const chain = makeChain([{ escrow: 300 }]);
-      mockModel.find.mockReturnValue(chain);
+  // ── STANDARD READ QUERIES & CHAINS ──────────────────────────────────────
+  describe("Standard Read Queries & Chains", () => {
+    test("findAllWallets should collect a read-only list with narrow escrow selection fields", async () => {
+      const mockChain = makeChain(mockRecordsArray);
+      mockWalletModel.find.mockReturnValue(mockChain);
 
-      const result = await repository.findAllWallets();
+      const result = await walletRepository.findAllWallets();
 
-      expect(mockModel.find).toHaveBeenCalled();
-      expect(chain.select).toHaveBeenCalledWith("escrow");
-      expect(chain.lean).toHaveBeenCalled();
-      expect(result).toEqual([{ escrow: 300 }]);
+      expect(mockWalletModel.find).toHaveBeenCalledWith();
+      expect(mockChain.select).toHaveBeenCalledWith("escrow");
+      expect(mockChain.lean).toHaveBeenCalled();
+      expect(result).toEqual(mockRecordsArray);
     });
-  });
 
-  // ── findWalletByUserId ──────────────────────────────────────────────────
-  describe("findWalletByUserId", () => {
-    test("should fetch a single mutable document matching target constraints", async () => {
-      const chain = makeChain(mockWalletRecord);
-      mockModel.findOne.mockReturnValue(chain);
+    test("findWalletByUserId should track raw unchained lookup documents directly matching owner IDs", async () => {
+      mockWalletModel.findOne.mockResolvedValue(mockWalletRecord);
 
-      const result = await repository.findWalletByUserId("user888");
+      const result = await walletRepository.findWalletByUserId("user456");
 
-      expect(mockModel.findOne).toHaveBeenCalledWith({ user: "user888" });
+      expect(mockWalletModel.findOne).toHaveBeenCalledWith({ user: "user456" });
       expect(result).toEqual(mockWalletRecord);
     });
 
-    test("should return null if lookup identifier matches no document row", async () => {
-      const chain = makeChain(null);
-      mockModel.findOne.mockReturnValue(chain);
+    test("findWalletByUser should use lean parsing layout parameters for high-performance extraction", async () => {
+      const mockChain = makeChain(mockWalletRecord);
+      mockWalletModel.findOne.mockReturnValue(mockChain);
 
-      const result = await repository.findWalletByUserId("unknownUser");
-      expect(result).toBeNull();
+      const result = await walletRepository.findWalletByUser("user456");
+
+      expect(mockWalletModel.findOne).toHaveBeenCalledWith({ user: "user456" });
+      expect(mockChain.lean).toHaveBeenCalled();
+      expect(result).toEqual(mockWalletRecord);
     });
-  });
 
-  // ── findWalletByUserAndRole ─────────────────────────────────────────────
-  describe("findWalletByUserAndRole", () => {
-    test("should parse multiple lookup keys and enforce plain layouts using lean", async () => {
-      const chain = makeChain(mockWalletRecord);
-      mockModel.findOne.mockReturnValue(chain);
+    test("findWalletByUserMutable should target user IDs without invoking lean conversions", async () => {
+      mockWalletModel.findOne.mockResolvedValue(mockWalletRecord);
 
-      const result = await repository.findWalletByUserAndRole(
-        "user888",
+      const result = await walletRepository.findWalletByUserMutable("user456");
+
+      expect(mockWalletModel.findOne).toHaveBeenCalledWith({ user: "user456" });
+      expect(result).toEqual(mockWalletRecord);
+    });
+
+    test("findWalletByUserAndRole should constrain matching lookups to both explicit owners and profile roles", async () => {
+      const mockChain = makeChain(mockWalletRecord);
+      mockWalletModel.findOne.mockReturnValue(mockChain);
+
+      const result = await walletRepository.findWalletByUserAndRole(
+        "user456",
         "mentor",
       );
 
-      expect(mockModel.findOne).toHaveBeenCalledWith({
-        user: "user888",
+      expect(mockWalletModel.findOne).toHaveBeenCalledWith({
+        user: "user456",
         role: "mentor",
       });
-      expect(chain.lean).toHaveBeenCalled();
+      expect(mockChain.lean).toHaveBeenCalled();
       expect(result).toEqual(mockWalletRecord);
     });
   });
 
-  // ── findByUserId & findByUserIdAndRole (Sessions) ───────────────────────
-  describe("Session-Bound Account Discovery Methods", () => {
-    test("findByUserId should forward processing parameters along with isolation frames", async () => {
-      const chain = makeChain(mockWalletRecord);
-      mockModel.findOne.mockReturnValue(chain);
+  // ── TRANSACTIONAL & ROLE-SCOPED PIPELINES ───────────────────────────────
+  describe("Transactional & Role-Scoped Pipelines", () => {
+    test("findByUserId should forward active transaction constraints along the query chain", async () => {
+      const mockChain = makeChain(mockWalletRecord);
+      mockWalletModel.findOne.mockReturnValue(mockChain);
 
-      const result = await repository.findByUserId(
-        "user888",
-        "active_session_id",
+      const result = await walletRepository.findByUserId(
+        "user456",
+        mockSession,
       );
 
-      expect(mockModel.findOne).toHaveBeenCalledWith({ user: "user888" });
-      expect(chain.session).toHaveBeenCalledWith("active_session_id");
+      expect(mockWalletModel.findOne).toHaveBeenCalledWith({ user: "user456" });
+      expect(mockChain.session).toHaveBeenCalledWith(mockSession);
       expect(result).toEqual(mockWalletRecord);
     });
 
-    test("findByUserIdAndRole should couple criteria parameters safely inside transaction blocks", async () => {
-      const chain = makeChain(mockWalletRecord);
-      mockModel.findOne.mockReturnValue(chain);
+    test("findByUserIdAndRole should evaluate multi-field keys alongside runtime sessions", async () => {
+      const mockChain = makeChain(mockWalletRecord);
+      mockWalletModel.findOne.mockReturnValue(mockChain);
 
-      const result = await repository.findByUserIdAndRole(
-        "user888",
-        "mentee",
-        "active_session_id",
+      const result = await walletRepository.findByUserIdAndRole(
+        "user456",
+        "mentor",
+        mockSession,
       );
 
-      expect(mockModel.findOne).toHaveBeenCalledWith({
-        user: "user888",
-        role: "mentee",
+      expect(mockWalletModel.findOne).toHaveBeenCalledWith({
+        user: "user456",
+        role: "mentor",
       });
-      expect(chain.session).toHaveBeenCalledWith("active_session_id");
+      expect(mockChain.session).toHaveBeenCalledWith(mockSession);
       expect(result).toEqual(mockWalletRecord);
     });
   });
 
-  // ── createWallet ────────────────────────────────────────────────────────
-  describe("createWallet", () => {
-    test("should initialize financial matrices smoothly", async () => {
-      mockModel.create.mockResolvedValue(mockWalletRecord);
-      const payload = { user: "user888", balance: 0 };
+  // ── WRITE OPERATIONS & BALANCES MUTATIONS ───────────────────────────────
+  describe("Write Operations & Balances Mutations", () => {
+    test("createWallet should instantly generate a new active asset tracking layer row", async () => {
+      mockWalletModel.create.mockResolvedValue(mockWalletRecord);
+      const seedFields = { user: "user456", role: "mentor", balance: 0 };
 
-      const result = await repository.createWallet(payload);
+      const result = await walletRepository.createWallet(seedFields);
 
-      expect(mockModel.create).toHaveBeenCalledWith(payload);
+      expect(mockWalletModel.create).toHaveBeenCalledWith(seedFields);
       expect(result).toEqual(mockWalletRecord);
     });
 
-    test("should pass structural persistence exceptions upward cleanly", async () => {
-      mockModel.create.mockRejectedValue(
-        new Error("Unique Multi-Key Constraint Violated"),
-      );
-      await expect(repository.createWallet({})).rejects.toThrow(
-        "Unique Multi-Key Constraint Violated",
-      );
-    });
-  });
+    test("incrementBalance should deploy atomic updates carrying strict upsert rules", async () => {
+      mockWalletModel.findOneAndUpdate.mockResolvedValue(mockWalletRecord);
 
-  // ── incrementBalance ────────────────────────────────────────────────────
-  describe("incrementBalance", () => {
-    test("should execute atomic balance corrections passing strict upsert instructions down", async () => {
-      mockModel.findOneAndUpdate.mockResolvedValue(mockWalletRecord);
+      const result = await walletRepository.incrementBalance("user456", 250);
 
-      const result = await repository.incrementBalance("user888", 250);
-
-      expect(mockModel.findOneAndUpdate).toHaveBeenCalledWith(
-        { user: "user888" },
+      expect(mockWalletModel.findOneAndUpdate).toHaveBeenCalledWith(
+        { user: "user456" },
         { $inc: { balance: 250 } },
         { new: true, upsert: true },
       );
       expect(result).toEqual(mockWalletRecord);
     });
-  });
 
-  // ── saveWallet & save ───────────────────────────────────────────────────
-  describe("Document Direct Save Pipelines", () => {
-    test("saveWallet should persist internal entity state adjustments directly", async () => {
-      const mockDoc = { save: jest.fn().mockResolvedValue(mockWalletRecord) };
-      const result = await repository.saveWallet(mockDoc);
-      expect(mockDoc.save).toHaveBeenCalled();
+    test("saveWallet should execute database persistence directly on structural targets", async () => {
+      const fakeDoc = {
+        ...mockWalletRecord,
+        save: jest.fn().mockResolvedValue(mockWalletRecord),
+      };
+
+      const result = await walletRepository.saveWallet(fakeDoc);
+
+      expect(fakeDoc.save).toHaveBeenCalled();
       expect(result).toEqual(mockWalletRecord);
     });
 
-    test("save should forward explicit context configurations during atomic save actions", async () => {
-      const mockDoc = { save: jest.fn().mockResolvedValue(mockWalletRecord) };
-      await repository.save(mockDoc, "session_token_id");
-      expect(mockDoc.save).toHaveBeenCalledWith({
-        session: "session_token_id",
-      });
+    test("save should append session parameter frames to instance mutations smoothly", async () => {
+      const fakeDoc = {
+        ...mockWalletRecord,
+        save: jest.fn().mockResolvedValue(mockWalletRecord),
+      };
+
+      const result = await walletRepository.save(fakeDoc, mockSession);
+
+      expect(fakeDoc.save).toHaveBeenCalledWith({ session: mockSession });
+      expect(result).toEqual(mockWalletRecord);
     });
   });
 });

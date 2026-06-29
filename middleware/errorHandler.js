@@ -1,5 +1,5 @@
 const logger = require("../config/logger");
-
+const env = require("../config/env");
 const errorHandler = (err, req, res, next) => {
   const statusCode = err.statusCode || 500;
   const message = err.isOperational ? err.message : "Something went wrong";
@@ -14,7 +14,7 @@ const errorHandler = (err, req, res, next) => {
   res.status(statusCode).json({
     success: false,
     message,
-    ...(process.env.NODE_ENV === "development" && { stack: err.stack }),
+    ...(env.nodeEnv === "development" && { stack: err.stack }),
   });
 };
 

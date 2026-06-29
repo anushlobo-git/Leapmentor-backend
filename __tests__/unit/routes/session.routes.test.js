@@ -1,103 +1,124 @@
 /**
- * @fileoverview Session Router Unit Tests
- * @description Confirms application paths mapping structures, validation filters configuration strings,
- * and sequence orchestration barriers completely in memory.
+ * @fileoverview Session Workflow Router Unit Tests
+ * @description Assures valid alignment of HTTP methods, global passport identity walls,
+ * celebrate parameter/body validation checks, and route matching sequences in memory.
  */
 
 const createSessionRoutes = require("../../../routes/session.routes");
 
-// Intercept global express methods to track internal routing registry sequences
+// Isolate the global express router layer to monitor endpoint registration hooks
 const mockRouter = {
   use: jest.fn(),
   get: jest.fn(),
   post: jest.fn(),
   patch: jest.fn(),
 };
+
 jest.mock("express", () => ({
   Router: () => mockRouter,
 }));
 
-describe("Session Router Engine Unit Tests", () => {
-  let mockController, mockAuthenticate, mockValidations;
+describe("Session Workflow Router Configuration Matrix", () => {
+  let mockSessionController;
+  let mockAuthenticate;
+  let mockValidations;
 
   beforeEach(() => {
-    mockController = {
-      getSlots: "c_get_slots",
-      getMentorAvailability: "c_get_avail",
-      setMeetingLink: "c_set_link",
-      markSlotComplete: "c_mark_comp",
-      addSlot: "c_add_slot",
-      cancelSlot: "c_cancel",
-      rescheduleSlot: "c_reschedule",
+    mockSessionController = {
+      getSlots: jest.fn(),
+      getMentorAvailability: jest.fn(),
+      setMeetingLink: jest.fn(),
+      markSlotComplete: jest.fn(),
+      addSlot: jest.fn(),
+      cancelSlot: jest.fn(),
+      rescheduleSlot: jest.fn(),
     };
 
-    mockAuthenticate = "middleware_passport_jwt_shield";
+    mockAuthenticate = jest.fn();
 
     mockValidations = {
-      getSlotsValidation: "v_slots",
-      getMentorAvailabilityValidation: "v_avail",
-      setMeetingLinkValidation: "v_link",
-      slotIndexParamValidation: "v_index",
-      addSlotValidation: "v_add",
-      cancelSlotValidation: "v_cancel",
-      rescheduleSlotValidation: "v_reschedule",
+      getSlotsValidation: "celebrate_get_slots_shield",
+      setMeetingLinkValidation: "celebrate_set_meeting_link_shield",
+      slotIndexParamValidation: "celebrate_slot_index_param_shield",
+      addSlotValidation: "celebrate_add_slot_shield",
+      cancelSlotValidation: "celebrate_cancel_slot_shield",
+      rescheduleSlotValidation: "celebrate_reschedule_slot_shield",
+      getMentorAvailabilityValidation: "celebrate_mentor_availability_shield",
     };
+
+    // Instantiate using destructured configuration arguments
+    createSessionRoutes({
+      sessionController: mockSessionController,
+      authenticate: mockAuthenticate,
+      validations: mockValidations,
+    });
   });
 
   afterEach(() => {
     jest.clearAllMocks();
   });
 
-  test("should assert global session authorization barriers are mounted immediately at the head of the thread", () => {
-    createSessionRoutes(mockController, mockAuthenticate, mockValidations);
-
-    expect(mockRouter.use).toHaveBeenCalledWith(
-      "middleware_passport_jwt_shield",
-    );
+  describe("Security Firewall Gateways", () => {
+    test("should mount mandatory passport identity validation immediately at the root threshold", () => {
+      expect(mockRouter.use).toHaveBeenCalledWith(mockAuthenticate);
+    });
   });
 
-  test("should mount structural query paths mapping correct data shielding configurations", () => {
-    createSessionRoutes(mockController, mockAuthenticate, mockValidations);
+  describe("Session Scheduling Queries & Operational Mappings", () => {
+    test("should bind session slot retrieval to target validation guards using GET", () => {
+      expect(mockRouter.get).toHaveBeenCalledWith(
+        "/:connectRequestId/slots",
+        "celebrate_get_slots_shield",
+        mockSessionController.getSlots,
+      );
+    });
 
-    expect(mockRouter.get).toHaveBeenCalledWith(
-      "/:connectRequestId/slots",
-      "v_slots",
-      "c_get_slots",
-    );
-    expect(mockRouter.get).toHaveBeenCalledWith(
-      "/:connectRequestId/mentor-availability",
-      "v_avail",
-      "c_get_avail",
-    );
-  });
+    test("should bind mentor calendar availability lookups to validation guards using GET", () => {
+      expect(mockRouter.get).toHaveBeenCalledWith(
+        "/:connectRequestId/mentor-availability",
+        "celebrate_mentor_availability_shield",
+        mockSessionController.getMentorAvailability,
+      );
+    });
 
-  test("should bind patch and post mutation modifiers to appropriate validation layers", () => {
-    createSessionRoutes(mockController, mockAuthenticate, mockValidations);
+    test("should bind dynamic meeting URL updates to specific slot index filters using PATCH", () => {
+      expect(mockRouter.patch).toHaveBeenCalledWith(
+        "/:connectRequestId/slots/:slotIndex/meeting-link",
+        "celebrate_set_meeting_link_shield",
+        mockSessionController.setMeetingLink,
+      );
+    });
 
-    expect(mockRouter.patch).toHaveBeenCalledWith(
-      "/:connectRequestId/slots/:slotIndex/meeting-link",
-      "v_link",
-      "c_set_link",
-    );
-    expect(mockRouter.patch).toHaveBeenCalledWith(
-      "/:connectRequestId/slots/:slotIndex/mark-complete",
-      "v_index",
-      "c_mark_comp",
-    );
-    expect(mockRouter.post).toHaveBeenCalledWith(
-      "/:connectRequestId/add-slot",
-      "v_add",
-      "c_add_slot",
-    );
-    expect(mockRouter.patch).toHaveBeenCalledWith(
-      "/:connectRequestId/slots/:slotIndex/cancel",
-      "v_cancel",
-      "c_cancel",
-    );
-    expect(mockRouter.patch).toHaveBeenCalledWith(
-      "/:connectRequestId/slots/:slotIndex/reschedule",
-      "v_reschedule",
-      "c_reschedule",
-    );
+    test("should bind session step closures to specific slot index parameter shields using PATCH", () => {
+      expect(mockRouter.patch).toHaveBeenCalledWith(
+        "/:connectRequestId/slots/:slotIndex/mark-complete",
+        "celebrate_slot_index_param_shield",
+        mockSessionController.markSlotComplete,
+      );
+    });
+
+    test("should bind scheduling add-on proposals to appropriate payload check shields using POST", () => {
+      expect(mockRouter.post).toHaveBeenCalledWith(
+        "/:connectRequestId/add-slot",
+        "celebrate_add_slot_shield",
+        mockSessionController.addSlot,
+      );
+    });
+
+    test("should bind slot cancellation triggers to index path check shields using PATCH", () => {
+      expect(mockRouter.patch).toHaveBeenCalledWith(
+        "/:connectRequestId/slots/:slotIndex/cancel",
+        "celebrate_cancel_slot_shield",
+        mockSessionController.cancelSlot,
+      );
+    });
+
+    test("should bind slot rescheduling vectors to index path check shields using PATCH", () => {
+      expect(mockRouter.patch).toHaveBeenCalledWith(
+        "/:connectRequestId/slots/:slotIndex/reschedule",
+        "celebrate_reschedule_slot_shield",
+        mockSessionController.rescheduleSlot,
+      );
+    });
   });
 });

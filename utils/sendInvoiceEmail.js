@@ -2,7 +2,7 @@
  * @fileoverview Billing and Transactional Invoice Document Dispatcher.
  * @module utils/sendInvoiceEmail
  */
-
+const env = require("../config/env");
 const generateInvoice = require("./generateInvoice");
 const sendWithRetry = require("./sendWithRetry");
 const logger = require("../config/logger");
@@ -13,7 +13,7 @@ const {
   FOOTER,
 } = require("./emailHelpers");
 
-const BRAND_FROM = `"Leapmentor" <${process.env.SMTP_USER}>`;
+const BRAND_FROM = `"Leapmentor" <${env.smtp.user}>`;
 
 const sendInvoiceEmail = async (params) => {
   const {

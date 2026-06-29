@@ -6,6 +6,7 @@
 
 const sendWithRetry = require("./sendWithRetry");
 const logger = require("../config/logger");
+const env = require("../config/env");
 const {
   BLUE_GRADIENT,
   RED_GRADIENT,
@@ -24,7 +25,7 @@ const {
   buildColoredSlotRow,
 } = require("./emailHelpers");
 
-const BRAND_FROM = `"LeapMentor" <${process.env.SMTP_USER}>`;
+const BRAND_FROM = `"LeapMentor" <${env.smtp.user}>`;
 
 // ─── Shared helper: dual-recipient allSettled send ────────────────────────────
 const sendToBoth = async (mentorMail, menteeMail, mentorLabel, menteeLabel) => {
@@ -86,7 +87,7 @@ const sendConnectRequestEmail = async ({
       ${buildSlotSection(`Proposed Slots (${slots.length})`, buildSlotRows(slots))}
       ${buildMessageQuote(message, `Message from ${menteeName}`)}
       ${buildBanner("#f0fdf4", "#bbf7d0", "#15803d", "Log in to your LeapMentor dashboard to accept or decline this request.")}
-      ${buildCTA(`${process.env.APP_BASE_URL}/dashboard/mentor?tab=requests`, "View Request", `Opens your <strong>Requests</strong> tab directly`)}
+      ${buildCTA(`${env.appBaseUrl}/dashboard/mentor?tab=requests`, "View Request", `Opens your <strong>Requests</strong> tab directly`)}
     </div>
     ${FOOTER}
   `);
@@ -126,7 +127,7 @@ const sendRequestAcceptedEmail = async ({
       ${buildInfoCard("Your Mentor", mentorName)}
       ${buildSlotSection("Confirmed Session", buildSlotRows(displaySlots))}
       ${buildBanner("#fffbeb", "#fde68a", "#92400e", "Complete your payment on LeapMentor to lock in your session. Tokens are held securely in escrow until the session is complete.")}
-      ${buildCTA(`${process.env.APP_BASE_URL}/dashboard/mentee?tab=history`, "Complete Payment", `Opens your <strong>Session History</strong> tab directly`)}
+      ${buildCTA(`${env.appBaseUrl}/dashboard/mentee?tab=history`, "Complete Payment", `Opens your <strong>Session History</strong> tab directly`)}
     </div>
     ${FOOTER}
   `);
@@ -251,7 +252,7 @@ const sendSlotCancelledEmail = async ({
   }
 
   const cancelledByName = cancelledBy === "mentor" ? mentorName : menteeName;
-  const dashboardLink = `${process.env.APP_BASE_URL}/shared-dashboard/${connectRequestId}`;
+  const dashboardLink = `${env.appBaseUrl}/shared-dashboard/${connectRequestId}`;
 
   const buildHtml = (recipientName) =>
     wrapEmail(`
@@ -302,7 +303,7 @@ const sendSlotRescheduledEmail = async ({
     return;
   }
 
-  const dashboardLink = `${process.env.APP_BASE_URL}/shared-dashboard/${connectRequestId}`;
+  const dashboardLink = `${env.appBaseUrl}/shared-dashboard/${connectRequestId}`;
 
   const buildHtml = (recipientName) =>
     wrapEmail(`
@@ -371,7 +372,7 @@ const sendAdditionalSlotEmail = async ({
     return;
   }
 
-  const dashboardLink = `${process.env.APP_BASE_URL}/shared-dashboard/${connectRequestId}`;
+  const dashboardLink = `${env.appBaseUrl}/shared-dashboard/${connectRequestId}`;
 
   const buildHtml = (recipientName) =>
     wrapEmail(`
@@ -425,7 +426,7 @@ const sendDocumentsSubmittedEmail = async ({ mentorName, mentorEmail }) => {
         <div style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;margin-bottom:12px;">What happens next?</div>
         ${buildStepList(["Admin reviews your resume and work documents", "Your profile is verified and activated", "You're ready to start mentoring on LeapMentor"])}
       </div>
-      ${buildCTA(`${process.env.APP_BASE_URL}/dashboard/mentor`, "View Dashboard", "Check your application status anytime")}
+      ${buildCTA(`${env.appBaseUrl}/dashboard/mentor`, "View Dashboard", "Check your application status anytime")}
     </div>
     ${FOOTER}
   `);
@@ -464,7 +465,7 @@ const sendMentorVerifiedEmail = async ({ mentorName, mentorEmail }) => {
         <div style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;margin-bottom:12px;">Get started</div>
         ${buildStepList(["Complete your mentor profile with bio, skills and expertise", "Set your availability so mentees can book sessions", "Start accepting connect requests from mentees"], "#16a34a")}
       </div>
-      ${buildCTA(`${process.env.APP_BASE_URL}/dashboard/mentor`, "Complete Your Profile", "You're one step away from your first session")}
+      ${buildCTA(`${env.appBaseUrl}/dashboard/mentor`, "Complete Your Profile", "You're one step away from your first session")}
     </div>
     ${FOOTER}
   `);
@@ -498,7 +499,7 @@ const sendReportSubmittedEmail = async ({
     return;
   }
 
-  const dashboardLink = `${process.env.APP_BASE_URL}/dashboard/${reporterRole === "mentor" ? "mentor" : "mentee"}`;
+  const dashboardLink = `${env.appBaseUrl}/dashboard/${reporterRole === "mentor" ? "mentor" : "mentee"}`;
   const formattedType = complaintType
     .replace(/_/g, " ")
     .replace(/\b\w/g, (c) => c.toUpperCase());
@@ -554,7 +555,7 @@ const sendReportResolvedEmail = async ({
     return;
   }
 
-  const dashboardLink = `${process.env.APP_BASE_URL}/dashboard/${reporterRole === "mentor" ? "mentor" : "mentee"}`;
+  const dashboardLink = `${env.appBaseUrl}/dashboard/${reporterRole === "mentor" ? "mentor" : "mentee"}`;
   const formattedType = complaintType
     .replace(/_/g, " ")
     .replace(/\b\w/g, (c) => c.toUpperCase());

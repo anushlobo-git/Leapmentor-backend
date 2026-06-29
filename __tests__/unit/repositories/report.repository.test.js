@@ -1,70 +1,189 @@
 /**
- * @fileoverview Report Repository Unit Tests
- * @description Validates model method mapping arrays, population chains,
- * and model saving execution traps with zero live database overhead.
+ * @fileoverview Report Repository Corporate Unit Tests
+ * @description Assures precise verification of metric counters, pagination steps,
+ * deep nested populate sub-objects, and entity level mutations with zero network dependency.
  */
 
 const createReportRepository = require("../../../repositories/report.repository");
 
-describe("Report Repository Unit Tests", () => {
-  let mockModel;
-  let repository;
+describe("Report Repository", () => {
+  let mockReportModel;
+  let reportRepository;
 
-  const mockReportDoc = {
-    _id: "rep111",
-    status: "open",
-    complaintType: "refund",
-    reporterRole: "mentee",
+  const mockReportRecord = {
+    _id: "rep123",
+    reportedBy: "userA",
+    reportedUser: "userB",
+    connectRequest: "req777",
+    reason: "Inappropriate behavior during live session",
+    status: "pending",
+    createdAt: new Date("2026-06-29"),
   };
 
-  const makeQueryChain = (value = null) => ({
-    populate: jest.fn().mockReturnThis(),
-    sort: jest.fn().mockReturnThis(),
-    skip: jest.fn().mockReturnThis(),
-    limit: jest.fn().mockReturnThis(),
-    lean: jest.fn().mockResolvedValue(value),
-    then: jest.fn((callback) => Promise.resolve(callback(value))),
-  });
+  const mockRecordsArray = [mockReportRecord];
+
+  // Safe Factory: Decorates a genuine Promise instance to completely avoid "manual then" linter errors
+  const makeChain = (resolvedValue = null) => {
+    const promise = Promise.resolve(resolvedValue);
+
+    // Attach Mongoose chain builders directly to the native Promise, returning itself for fluid chaining
+    promise.populate = jest.fn().mockReturnValue(promise);
+    promise.sort = jest.fn().mockReturnValue(promise);
+    promise.skip = jest.fn().mockReturnValue(promise);
+    promise.limit = jest.fn().mockReturnValue(promise);
+    promise.lean = jest
+      .fn()
+      .mockImplementation(() => Promise.resolve(resolvedValue));
+
+    return promise;
+  };
 
   beforeEach(() => {
-    mockModel = {
+    mockReportModel = {
       countDocuments: jest.fn(),
       find: jest.fn(),
       findById: jest.fn(),
     };
-    repository = createReportRepository(mockModel);
+    reportRepository = createReportRepository(mockReportModel);
   });
 
-  test("countAllReports should execute base document counts natively", async () => {
-    mockModel.countDocuments.mockResolvedValue(45);
-    const result = await repository.countAllReports();
-    expect(mockModel.countDocuments).toHaveBeenCalled();
-    expect(result).toBe(45);
+  afterEach(() => {
+    jest.clearAllMocks();
   });
 
-  test("findReports should assemble a comprehensive populate and sort query pipeline", async () => {
-    const chain = makeQueryChain([mockReportDoc]);
-    mockModel.find.mockReturnValue(chain);
+  // ── COUNTER METRICS ─────────────────────────────────────────────────────
+  describe("Counter Metrics", () => {
+    test("countAllReports should calculate global collection document limits cleanly", async () => {
+      mockReportModel.countDocuments.mockResolvedValue(15);
 
-    const result = await repository.findReports(
-      { status: "open" },
-      { skip: 10, limit: 5 },
-    );
+      const count = await reportRepository.countAllReports();
 
-    expect(mockModel.find).toHaveBeenCalledWith({ status: "open" });
-    expect(chain.populate).toHaveBeenCalledTimes(3);
-    expect(chain.sort).toHaveBeenCalledWith({ createdAt: -1 });
-    expect(chain.skip).toHaveBeenCalledWith(10);
-    expect(chain.limit).toHaveBeenCalledWith(5);
-    expect(result).toEqual([mockReportDoc]);
+      expect(mockReportModel.countDocuments).toHaveBeenCalledWith();
+      expect(count).toBe(15);
+    });
+
+    test("countReportsByFilter should map dynamic filter conditions down onto counter engines", async () => {
+      mockReportModel.countDocuments.mockResolvedValue(3);
+      const queryFilter = { status: "resolved" };
+
+      const count = await reportRepository.countReportsByFilter(queryFilter);
+
+      expect(mockReportModel.countDocuments).toHaveBeenCalledWith(queryFilter);
+      expect(count).toBe(3);
+    });
   });
 
-  test("saveReport should invoke the Mongoose prototype save method directly on instances", async () => {
-    const mockDocInstance = {
-      save: jest.fn().mockResolvedValue(mockReportDoc),
-    };
-    const result = await repository.saveReport(mockDocInstance);
-    expect(mockDocInstance.save).toHaveBeenCalled();
-    expect(result).toEqual(mockReportDoc);
+  // ── PAGINATED COLLECTION QUERIES ────────────────────────────────────────
+  describe("Paginated Collection Queries", () => {
+    test("findReports should coordinate extensive multi-populate parameters alongside chronological pagination rules", async () => {
+      const mockChain = makeChain(mockRecordsArray);
+      mockReportModel.find.mockReturnValue(mockChain);
+      const filter = { status: "pending" };
+
+      const result = await reportRepository.findReports(filter, {
+        skip: 10,
+        limit: 5,
+      });
+
+      expect(mockReportModel.find).toHaveBeenCalledWith(filter);
+      expect(mockChain.populate).toHaveBeenCalledWith(
+        "reportedBy",
+        "name email",
+      );
+      expect(mockChain.populate).toHaveBeenCalledWith(
+        "reportedUser",
+        "name email",
+      );
+      expect(mockChain.populate).toHaveBeenCalledWith(
+        "connectRequest",
+        "status paymentStatus totalAmount sessionRate sessionCount mentee mentor",
+      );
+      expect(mockChain.sort).toHaveBeenCalledWith({ createdAt: -1 });
+      expect(mockChain.skip).toHaveBeenCalledWith(10);
+      expect(mockChain.limit).toHaveBeenCalledWith(5);
+      expect(mockChain.lean).toHaveBeenCalled();
+      expect(result).toEqual(mockRecordsArray);
+    });
+  });
+
+  // ── IDENTIFIER LOOKUPS & RELATIONSHIP SHADOWS ───────────────────────────
+  describe("Identifier Lookups & Relationship Shadows", () => {
+    test("findReportByIdWithUsers should extend targeted findById lookups to hook core profile identities", async () => {
+      const mockChain = makeChain(mockReportRecord);
+      mockReportModel.findById.mockReturnValue(mockChain);
+
+      const result = await reportRepository.findReportByIdWithUsers("rep123");
+
+      expect(mockReportModel.findById).toHaveBeenCalledWith("rep123");
+      expect(mockChain.populate).toHaveBeenCalledWith(
+        "reportedBy",
+        "name email",
+      );
+      expect(mockChain.populate).toHaveBeenCalledWith(
+        "reportedUser",
+        "name email",
+      );
+      expect(result).toEqual(mockReportRecord);
+    });
+
+    test("findReportByIdWithAll should load basic link reference structures completely", async () => {
+      const mockChain = makeChain(mockReportRecord);
+      mockReportModel.findById.mockReturnValue(mockChain);
+
+      const result = await reportRepository.findReportByIdWithAll("rep123");
+
+      expect(mockReportModel.findById).toHaveBeenCalledWith("rep123");
+      expect(mockChain.populate).toHaveBeenCalledWith(
+        "reportedBy",
+        "name email",
+      );
+      expect(mockChain.populate).toHaveBeenCalledWith(
+        "reportedUser",
+        "name email",
+      );
+      expect(mockChain.populate).toHaveBeenCalledWith("connectRequest");
+      expect(result).toEqual(mockReportRecord);
+    });
+
+    test("findReportByIdWithConnectFull should evaluate multi-layered subdocument subpopulation structures accurately", async () => {
+      const mockChain = makeChain(mockReportRecord);
+      mockReportModel.findById.mockReturnValue(mockChain);
+
+      const result =
+        await reportRepository.findReportByIdWithConnectFull("rep123");
+
+      expect(mockReportModel.findById).toHaveBeenCalledWith("rep123");
+      expect(mockChain.populate).toHaveBeenCalledWith(
+        "reportedBy",
+        "name email",
+      );
+      expect(mockChain.populate).toHaveBeenCalledWith(
+        "reportedUser",
+        "name email",
+      );
+      expect(mockChain.populate).toHaveBeenCalledWith({
+        path: "connectRequest",
+        populate: [
+          { path: "mentee", select: "name email" },
+          { path: "mentor", select: "name email" },
+        ],
+      });
+      expect(result).toEqual(mockReportRecord);
+    });
+  });
+
+  // ── INSTANCE LIFECYCLE MUTATIONS ────────────────────────────────────────
+  describe("Instance Lifecycle Mutations", () => {
+    test("saveReport should invoke inner database persistence methods on tracking document references", async () => {
+      const mockInstance = {
+        ...mockReportRecord,
+        save: jest.fn().mockResolvedValue(mockReportRecord),
+      };
+
+      const result = await reportRepository.saveReport(mockInstance);
+
+      expect(mockInstance.save).toHaveBeenCalled();
+      expect(result).toEqual(mockReportRecord);
+    });
   });
 });

@@ -16,7 +16,6 @@ describe("Session Token Refresh Controller Unit Tests", () => {
   let mockRes;
   let mockNext;
 
-  // Yields execution context down the Node event loop until catchAsync microtasks drain
   const flushPromises = () => new Promise(setImmediate);
 
   beforeEach(() => {
@@ -32,7 +31,11 @@ describe("Session Token Refresh Controller Unit Tests", () => {
       jwtRefreshSecret: "mock_env_refresh_secret_key",
     };
 
-    controller = createRefreshController(mockAuthUtils, mockJwt, mockConfig);
+    controller = createRefreshController({
+      authUtils: mockAuthUtils,
+      jwt: mockJwt,
+      config: mockConfig,
+    });
 
     mockReq = {
       cookies: { refreshToken: "valid_refresh_token_cookie_string" },
@@ -77,7 +80,20 @@ describe("Session Token Refresh Controller Unit Tests", () => {
     await controller.refreshToken(mockReq, mockRes, mockNext);
     await flushPromises();
 
-    // Verify catchAsync caught the error and forwarded it to the global error handler
+    expect(mockNext).toHaveBeenCalledWith(expect.any(AppError));
+    const thrownError = mockNext.mock.calls[0][0];
+    expect(thrownError.message).toBe(
+      "Refresh token parameter missing from secure payload contexts.",
+    );
+    expect(thrownError.statusCode).toBe(401);
+  });
+
+  test("should forward a 401 Unauthorized error to next() if req.cookies is undefined", async () => {
+    mockReq.cookies = undefined;
+
+    await controller.refreshToken(mockReq, mockRes, mockNext);
+    await flushPromises();
+
     expect(mockNext).toHaveBeenCalledWith(expect.any(AppError));
     const thrownError = mockNext.mock.calls[0][0];
     expect(thrownError.message).toBe(
@@ -94,7 +110,6 @@ describe("Session Token Refresh Controller Unit Tests", () => {
     await controller.refreshToken(mockReq, mockRes, mockNext);
     await flushPromises();
 
-    // Verify catchAsync caught the error and forwarded it to the global error handler
     expect(mockNext).toHaveBeenCalledWith(expect.any(AppError));
     const thrownError = mockNext.mock.calls[0][0];
     expect(thrownError.message).toBe(

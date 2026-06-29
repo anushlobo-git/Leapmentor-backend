@@ -32,13 +32,13 @@ describe("LinkedIn OAuth Controller Unit Tests", () => {
       clientUrl: "http://frontend.com",
     };
 
-    controller = createLinkedinAuthController(
-      mockLinkedinAuthService,
-      mockAuthUtils,
-      mockCookieUtils,
-      mockConfig,
-      mockLogger,
-    );
+    controller = createLinkedinAuthController({
+      linkedinAuthService: mockLinkedinAuthService,
+      authUtils: mockAuthUtils,
+      cookieUtils: mockCookieUtils,
+      config: mockConfig,
+      logger: mockLogger,
+    });
 
     mockReq = { query: {}, body: {} };
     mockRes = {
@@ -101,6 +101,16 @@ describe("LinkedIn OAuth Controller Unit Tests", () => {
       expect(mockAuthUtils.verifyState).not.toHaveBeenCalled();
     });
 
+    test("should route users to standard failure structures if code is missing", () => {
+      mockReq.query = { state: "valid_state_hash" };
+
+      controller.linkedinCallback(mockReq, mockRes);
+
+      expect(mockRes.redirect).toHaveBeenCalledWith(
+        "http://frontend.com/?linkedin=failure",
+      );
+    });
+
     test("should forward to specialized state error endpoints if state verification throws an exception", () => {
       mockReq.query = { code: "code", state: "tampered_hash" };
       mockAuthUtils.verifyState.mockImplementation(() => {
@@ -146,6 +156,28 @@ describe("LinkedIn OAuth Controller Unit Tests", () => {
         accessToken: "acc_jwt",
         isNewUser: false,
       });
+    });
+
+    test("should support user response with no roles array or empty roles array", async () => {
+      mockReq.body = { code: "code", roles: [], termsAccepted: true };
+      const mockResult = {
+        accessToken: "acc_jwt",
+        refreshToken: "ref_jwt",
+        user: { _id: "usr_lnk_11" },
+        isNewUser: false,
+      };
+      mockLinkedinAuthService.exchangeLinkedinCode.mockResolvedValue(
+        mockResult,
+      );
+
+      await controller.linkedinAuth(mockReq, mockRes, mockNext);
+      await flushPromises();
+
+      expect(mockCookieUtils.setAuthCookies).toHaveBeenCalledWith(
+        mockRes,
+        "ref_jwt",
+        null,
+      );
     });
 
     test("should cascade service runtime exception rejections straight down into next() middleware", async () => {

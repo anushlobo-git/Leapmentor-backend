@@ -20,7 +20,7 @@ describe("Admin Verification Routing Infrastructure Mappings", () => {
     };
     const mockAuth = jest.fn();
 
-    createAdminVerificationRoutes(mockCtrl, mockAuth);
+    createAdminVerificationRoutes({ adminVerificationController: mockCtrl, adminAuthenticate: mockAuth });
     expect(mockRouter.use).toHaveBeenCalledWith(mockAuth);
     expect(mockRouter.get).toHaveBeenCalledWith(
       "/:mentorProfileId",

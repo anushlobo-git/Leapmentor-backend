@@ -3,12 +3,13 @@ const AdminUser = require("../models/AdminUser");
 const AppError = require("../utils/AppError");
 const catchAsync = require("../utils/catchAsync");
 const { toAdminDTO } = require("../mappers/admin.mapper");
+const env = require("../config/env");
 
 const adminAuthenticate = catchAsync(async (req, res, next) => {
   const token = req.cookies?.adminToken;
   if (!token) return next(new AppError("No token provided.", 401));
 
-  const decoded = jwt.verify(token, process.env.JWT_SECRET);
+  const decoded = jwt.verify(token, env.jwtSecret);
   if (decoded.role !== "admin")
     return next(new AppError("Access denied: not an admin token.", 403));
 

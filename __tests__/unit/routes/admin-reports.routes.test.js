@@ -36,7 +36,7 @@ describe("Admin Reports Routes Unit Tests", () => {
 
     mockAuthenticate = jest.fn();
 
-    createAdminReportsRoutes(mockController, mockAuthenticate);
+    createAdminReportsRoutes({ adminReportsController: mockController, adminAuthenticate: mockAuthenticate });
   });
 
   afterEach(() => {

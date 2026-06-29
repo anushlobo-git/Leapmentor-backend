@@ -1,17 +1,35 @@
 /**
  * @fileoverview Mentor Availability Controller Unit Tests
- * @description Validates structural HTTP status code returns, fallback parsing loops,
- * query string parameters extraction, and boundary catch-all exception routing.
+ * @description Verifies availability configurations, time window slotting queries,
+ * duration fallback parsing, error propagation, and response status criteria.
  */
+
+// CRITICAL FIX: Mock catchAsync to return the promise chain so tests can reliably await its completion.
+jest.mock("../../../utils/catchAsync", () => {
+  return (fn) => (req, res, next) =>
+    Promise.resolve(fn(req, res, next)).catch(next);
+});
 
 const createAvailabilityController = require("../../../controllers/availability.controller");
 
-describe("Mentor Availability Controller Unit Tests", () => {
-  let mockAvailabilityService, controller, mockReq, mockRes, mockNext;
+describe("AvailabilityController", () => {
+  let mockAvailabilityService;
+  let controller;
+  let req;
+  let res;
+  let next;
 
-  const flushPromises = () => new Promise(setImmediate);
+  const mockAvailabilityConfig = {
+    _id: "avail_001",
+    mentor: "mentor_abc123",
+    timeSlots: [{ dayOfWeek: 1, startTime: "09:00", endTime: "17:00" }],
+  };
+  const mockSlotsResult = [
+    { date: "2026-07-01", startTime: "10:00", endTime: "11:00" },
+  ];
 
   beforeEach(() => {
+    // ── MOCK DEPENDENCIES
     mockAvailabilityService = {
       getMyAvailability: jest.fn(),
       createAvailability: jest.fn(),
@@ -21,130 +39,257 @@ describe("Mentor Availability Controller Unit Tests", () => {
       getAvailableSlots: jest.fn(),
     };
 
-    controller = createAvailabilityController(mockAvailabilityService);
+    controller = createAvailabilityController({
+      availabilityService: mockAvailabilityService,
+    });
 
-    mockReq = {
-      user: { _id: "mentor_uuid_101" },
+    // ── EXPRESS HTTP MOCKS
+    req = {
+      user: { _id: "mentor_default_id" },
       body: {},
-      params: {},
       query: {},
+      params: {},
     };
-    mockRes = {
+
+    res = {
       status: jest.fn().mockReturnThis(),
       json: jest.fn().mockReturnThis(),
     };
-    mockNext = jest.fn();
+
+    next = jest.fn();
   });
 
   afterEach(() => {
     jest.clearAllMocks();
   });
 
-  test("getMyAvailability should return a 200 status code and serialize the target settings", async () => {
-    const mockData = { timezone: "Asia/Kolkata", sessionDurations: [30] };
-    mockAvailabilityService.getMyAvailability.mockResolvedValue(mockData);
+  // ── getMyAvailability ───────────────────────────────────────────────────
+  describe("getMyAvailability", () => {
+    test("should return 200 and raw schedule configurations on success", async () => {
+      req.user._id = "mentor_variant_x";
+      mockAvailabilityService.getMyAvailability.mockResolvedValue(
+        mockAvailabilityConfig,
+      );
 
-    await controller.getMyAvailability(mockReq, mockRes, mockNext);
-    await flushPromises();
+      await controller.getMyAvailability(req, res, next);
 
-    expect(mockAvailabilityService.getMyAvailability).toHaveBeenCalledWith(
-      "mentor_uuid_101",
-    );
-    expect(mockRes.status).toHaveBeenCalledWith(200);
-    expect(mockRes.json).toHaveBeenCalledWith(mockData);
-  });
-
-  test("createAvailability should return a 201 status code and confirm record initialization", async () => {
-    mockReq.body = { timezone: "UTC" };
-    mockAvailabilityService.createAvailability.mockResolvedValue({
-      _id: "new_record",
+      expect(mockAvailabilityService.getMyAvailability).toHaveBeenCalledWith(
+        "mentor_variant_x",
+      );
+      expect(res.status).toHaveBeenCalledWith(200);
+      expect(res.json).toHaveBeenCalledWith(mockAvailabilityConfig);
+      expect(next).not.toHaveBeenCalled();
     });
 
-    await controller.createAvailability(mockReq, mockRes, mockNext);
-    await flushPromises();
+    test("should call next(err) and withhold status updates when service throws", async () => {
+      const error = new Error("Database find operation timed out");
+      mockAvailabilityService.getMyAvailability.mockRejectedValue(error);
 
-    expect(mockRes.status).toHaveBeenCalledWith(201);
-    expect(mockRes.json).toHaveBeenCalledWith({
-      success: true,
-      message: "Availability created successfully",
-      availability: { _id: "new_record" },
+      await controller.getMyAvailability(req, res, next);
+
+      expect(next).toHaveBeenCalledWith(error);
+      expect(res.status).not.toHaveBeenCalled();
     });
   });
 
-  test("updateAvailability should return a 200 status code on successful patches", async () => {
-    mockReq.body = { sessionDurations: [45] };
-    mockAvailabilityService.updateAvailability.mockResolvedValue({
-      _id: "updated_record",
+  // ── createAvailability ──────────────────────────────────────────────────
+  describe("createAvailability", () => {
+    test("should return 201 and confirm structural setup with a wrapper response on success", async () => {
+      req.user._id = "mentor_variant_y";
+      req.body = { timeSlots: [] };
+      mockAvailabilityService.createAvailability.mockResolvedValue(
+        mockAvailabilityConfig,
+      );
+
+      await controller.createAvailability(req, res, next);
+
+      expect(mockAvailabilityService.createAvailability).toHaveBeenCalledWith(
+        "mentor_variant_y",
+        req.body,
+      );
+      expect(res.status).toHaveBeenCalledWith(201);
+      expect(res.json).toHaveBeenCalledWith({
+        success: true,
+        message: "Availability created successfully",
+        availability: mockAvailabilityConfig,
+      });
+      expect(next).not.toHaveBeenCalled();
     });
 
-    await controller.updateAvailability(mockReq, mockRes, mockNext);
-    await flushPromises();
+    test("should call next(err) and withhold status updates when service throws", async () => {
+      const error = new Error("Mongoose compilation validation failure");
+      mockAvailabilityService.createAvailability.mockRejectedValue(error);
 
-    expect(mockRes.status).toHaveBeenCalledWith(200);
-    expect(mockRes.json).toHaveBeenCalledWith({
-      success: true,
-      message: "Availability updated successfully",
-      availability: { _id: "updated_record" },
-    });
-  });
+      await controller.createAvailability(req, res, next);
 
-  test("getMentorAvailability should return public metadata arrays matching specific param criteria", async () => {
-    mockReq.params.mentorId = "target_id";
-    mockAvailabilityService.getMentorAvailability.mockResolvedValue({
-      timezone: "UTC",
-    });
-
-    await controller.getMentorAvailability(mockReq, mockRes, mockNext);
-    await flushPromises();
-
-    expect(mockAvailabilityService.getMentorAvailability).toHaveBeenCalledWith(
-      "target_id",
-    );
-    expect(mockRes.status).toHaveBeenCalledWith(200);
-    expect(mockRes.json).toHaveBeenCalledWith({ timezone: "UTC" });
-  });
-
-  test("deleteAvailability should execute cleanup tasks and broadcast completion logs", async () => {
-    await controller.deleteAvailability(mockReq, mockRes, mockNext);
-    await flushPromises();
-
-    expect(mockAvailabilityService.deleteAvailability).toHaveBeenCalledWith(
-      "mentor_uuid_101",
-    );
-    expect(mockRes.status).toHaveBeenCalledWith(200);
-    expect(mockRes.json).toHaveBeenCalledWith({
-      success: true,
-      message: "Availability cleared successfully",
+      expect(next).toHaveBeenCalledWith(error);
+      expect(res.status).not.toHaveBeenCalled();
     });
   });
 
-  test("getAvailableSlots should substitute default durations if the client's query string is unallocated", async () => {
-    mockReq.params.mentorId = "mentor_id_55";
-    mockReq.query.duration = undefined; // Trigger fallback
-    mockAvailabilityService.getAvailableSlots.mockResolvedValue({ slots: [] });
+  // ── updateAvailability ──────────────────────────────────────────────────
+  describe("updateAvailability", () => {
+    test("should return 200 and the modified model configuration on success", async () => {
+      req.user._id = "mentor_variant_z";
+      req.body = {
+        timeSlots: [{ dayOfWeek: 2, startTime: "10:00", endTime: "12:00" }],
+      };
+      mockAvailabilityService.updateAvailability.mockResolvedValue(
+        mockAvailabilityConfig,
+      );
 
-    await controller.getAvailableSlots(mockReq, mockRes, mockNext);
-    await flushPromises();
+      await controller.updateAvailability(req, res, next);
 
-    expect(mockAvailabilityService.getAvailableSlots).toHaveBeenCalledWith(
-      "mentor_id_55",
-      60,
-      "mentor_uuid_101",
-    );
-    expect(mockRes.status).toHaveBeenCalledWith(200);
+      expect(mockAvailabilityService.updateAvailability).toHaveBeenCalledWith(
+        "mentor_variant_z",
+        req.body,
+      );
+      expect(res.status).toHaveBeenCalledWith(200);
+      expect(res.json).toHaveBeenCalledWith({
+        success: true,
+        message: "Availability updated successfully",
+        availability: mockAvailabilityConfig,
+      });
+      expect(next).not.toHaveBeenCalled();
+    });
+
+    test("should call next(err) and withhold status updates when service throws", async () => {
+      const error = new Error("Target availability row not found");
+      mockAvailabilityService.updateAvailability.mockRejectedValue(error);
+
+      await controller.updateAvailability(req, res, next);
+
+      expect(next).toHaveBeenCalledWith(error);
+      expect(res.status).not.toHaveBeenCalled();
+    });
   });
 
-  test("should catch thrown runtime validation failures and route them downstream to next()", async () => {
-    const mockException = new Error("Availability not set by this mentor");
-    mockAvailabilityService.getMentorAvailability.mockRejectedValue(
-      mockException,
-    );
-    mockReq.params.mentorId = "missing_mentor";
+  // ── getMentorAvailability ───────────────────────────────────────────────
+  describe("getMentorAvailability", () => {
+    test("should return 200 and public profile items based on dynamic route parameters", async () => {
+      req.params.mentorId = "mentor_public_456";
+      mockAvailabilityService.getMentorAvailability.mockResolvedValue(
+        mockAvailabilityConfig,
+      );
 
-    await controller.getMentorAvailability(mockReq, mockRes, mockNext);
-    await flushPromises();
+      await controller.getMentorAvailability(req, res, next);
 
-    expect(mockNext).toHaveBeenCalledWith(mockException);
-    expect(mockRes.status).not.toHaveBeenCalled();
+      expect(
+        mockAvailabilityService.getMentorAvailability,
+      ).toHaveBeenCalledWith("mentor_public_456");
+      expect(res.status).toHaveBeenCalledWith(200);
+      expect(res.json).toHaveBeenCalledWith(mockAvailabilityConfig);
+      expect(next).not.toHaveBeenCalled();
+    });
+
+    test("should call next(err) and withhold status updates when service throws", async () => {
+      req.params.mentorId = "mentor_invalid";
+      const error = new Error("Account deactivated or missing");
+      mockAvailabilityService.getMentorAvailability.mockRejectedValue(error);
+
+      await controller.getMentorAvailability(req, res, next);
+
+      expect(next).toHaveBeenCalledWith(error);
+      expect(res.status).not.toHaveBeenCalled();
+    });
+  });
+
+  // ── deleteAvailability ──────────────────────────────────────────────────
+  describe("deleteAvailability", () => {
+    test("should return 200 and emit confirmation indicators on clear success", async () => {
+      req.user._id = "mentor_purge_777";
+      mockAvailabilityService.deleteAvailability.mockResolvedValue(true);
+
+      await controller.deleteAvailability(req, res, next);
+
+      expect(mockAvailabilityService.deleteAvailability).toHaveBeenCalledWith(
+        "mentor_purge_777",
+      );
+      expect(res.status).toHaveBeenCalledWith(200);
+      expect(res.json).toHaveBeenCalledWith({
+        success: true,
+        message: "Availability cleared successfully",
+      });
+      expect(next).not.toHaveBeenCalled();
+    });
+
+    test("should call next(err) and withhold status updates when service throws", async () => {
+      const error = new Error("Write constraint permission conflict");
+      mockAvailabilityService.deleteAvailability.mockRejectedValue(error);
+
+      await controller.deleteAvailability(req, res, next);
+
+      expect(next).toHaveBeenCalledWith(error);
+      expect(res.status).not.toHaveBeenCalled();
+    });
+  });
+
+  // ── getAvailableSlots ───────────────────────────────────────────────────
+  describe("getAvailableSlots", () => {
+    test("should return 200 and parse custom duration query metrics properly on success", async () => {
+      req.params.mentorId = "mentor_slots_111";
+      req.user._id = "mentee_visitor_888";
+      req.query.duration = "45";
+      mockAvailabilityService.getAvailableSlots.mockResolvedValue(
+        mockSlotsResult,
+      );
+
+      await controller.getAvailableSlots(req, res, next);
+
+      expect(mockAvailabilityService.getAvailableSlots).toHaveBeenCalledWith(
+        "mentor_slots_111",
+        45,
+        "mentee_visitor_888",
+      );
+      expect(res.status).toHaveBeenCalledWith(200);
+      expect(res.json).toHaveBeenCalledWith(mockSlotsResult);
+      expect(next).not.toHaveBeenCalled();
+    });
+
+    test("should fall back onto corporate 60-minute windows if duration is absent or empty", async () => {
+      req.params.mentorId = "mentor_slots_222";
+      req.user._id = "mentee_visitor_999";
+      req.query.duration = undefined;
+      mockAvailabilityService.getAvailableSlots.mockResolvedValue(
+        mockSlotsResult,
+      );
+
+      await controller.getAvailableSlots(req, res, next);
+
+      expect(mockAvailabilityService.getAvailableSlots).toHaveBeenCalledWith(
+        "mentor_slots_222",
+        60,
+        "mentee_visitor_999",
+      );
+      expect(next).not.toHaveBeenCalled();
+    });
+
+    test("should fall back onto default limits if query input strings cannot be parsed numerically", async () => {
+      req.params.mentorId = "mentor_slots_222";
+      req.user._id = "mentee_visitor_999";
+      req.query.duration = "invalid_string_token";
+      mockAvailabilityService.getAvailableSlots.mockResolvedValue(
+        mockSlotsResult,
+      );
+
+      await controller.getAvailableSlots(req, res, next);
+
+      expect(mockAvailabilityService.getAvailableSlots).toHaveBeenCalledWith(
+        "mentor_slots_222",
+        60,
+        "mentee_visitor_999",
+      );
+      expect(next).not.toHaveBeenCalled();
+    });
+
+    test("should call next(err) and withhold status updates when service throws", async () => {
+      const error = new Error("Slot division calculation matrix exception");
+      mockAvailabilityService.getAvailableSlots.mockRejectedValue(error);
+
+      await controller.getAvailableSlots(req, res, next);
+
+      expect(next).toHaveBeenCalledWith(error);
+      expect(res.status).not.toHaveBeenCalled();
+    });
   });
 });
