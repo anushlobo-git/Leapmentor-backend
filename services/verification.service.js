@@ -5,7 +5,6 @@
  */
 
 const crypto = require("node:crypto");
-const bcrypt = require("bcryptjs");
 const AppError = require("../utils/AppError");
 
 const BCRYPT_SALT_ROUNDS = 10;
@@ -16,6 +15,7 @@ const createVerificationService = ({
   userRepository,
   verificationTokenRepository,
   sendWithRetry,
+  bcrypt,
 }) => {
   /**
    * Internal Helper: Generates a cryptographically secure 6-digit numeric verification OTP code.

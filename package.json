@@ -27,12 +27,15 @@
     "testTimeout": 30000,
     "collectCoverageFrom": [
       "services/**/*.js",
-      "utils/**/*.js",
+      "controllers/**/*.js",
+      "repositories/**/*.js",
+      "routes/**/*.js",
       "!**/node_modules/**"
     ],
     "coverageReporters": [
       "text",
-      "html"
+      "html",
+      "lcov"
     ],
     "coverageDirectory": "coverage"
   },

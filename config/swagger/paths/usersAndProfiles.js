@@ -1,205 +1,161 @@
+// --- Helper Utilities to Eliminate OpenAPI Structural Duplication ---
+const jsonContent = (schema) => ({ "application/json": { schema } });
+const schemaRef = (name) => ({ $ref: `#/components/schemas/${name}` });
+const responseRef = (name) => ({ $ref: `#/components/responses/${name}` });
+
+const successResponse = (description, schemaTarget) => ({
+  description,
+  ...(schemaTarget
+    ? {
+        content: jsonContent(
+          typeof schemaTarget === "string"
+            ? schemaRef(schemaTarget)
+            : schemaTarget,
+        ),
+      }
+    : {}),
+});
+
+const requestBody = (schemaTarget) => ({
+  required: true,
+  content: jsonContent(
+    typeof schemaTarget === "string" ? schemaRef(schemaTarget) : schemaTarget,
+  ),
+});
+
+const queryParam = (name, type, defaultValue, description) => ({
+  in: "query",
+  name,
+  schema: {
+    type,
+    // Flipped from !== to === to resolve the "Unexpected negated condition" linter rule
+    ...(defaultValue === undefined ? {} : { default: defaultValue }),
+  },
+  ...(description ? { description } : {}),
+});
+
+// --- Exported Routes Configuration ---
 module.exports = {
   "/users/me": {
     get: {
-      tags: ["Identity Lookups Terminal Nodes"],
-      summary:
-        "Retrieve full configuration profile details mapping logged-in user context signature",
+      tags: ["Users"],
+      summary: "Get the logged-in user's profile",
       responses: {
-        200: {
-          description: "Identity profile mapping dataset extracted",
-          content: {
-            "application/json": {
-              schema: { $ref: "#/components/schemas/User" },
-            },
-          },
-        },
-        401: { $ref: "#/components/responses/UnauthorizedError" },
+        200: successResponse("User profile returned successfully", "User"),
+        401: responseRef("UnauthorizedError"),
       },
     },
   },
+
   "/mentor-profile": {
     post: {
-      tags: ["Mentor Management Lifecycle Operations Layer"],
-      summary: "Create and initialize onboarding parameter records blocks",
-      requestBody: {
-        required: true,
-        content: {
-          "application/json": {
-            schema: { $ref: "#/components/schemas/MentorProfileCreateRequest" },
-          },
-        },
-      },
+      tags: ["Mentor Profile"],
+      summary: "Create a new mentor profile",
+      requestBody: requestBody("MentorProfileCreateRequest"),
       responses: {
-        201: {
-          description:
-            "Mentor onboarding structural dataset created successfully",
-          content: {
-            "application/json": {
-              schema: { $ref: "#/components/schemas/MentorProfile" },
-            },
-          },
-        },
+        201: successResponse(
+          "Mentor profile created successfully",
+          "MentorProfile",
+        ),
       },
     },
   },
+
   "/mentor-profile/me": {
     get: {
-      tags: ["Mentor Management Lifecycle Operations Layer"],
-      summary:
-        "Fetch matching operational setup profile details unique to authenticated mentor",
+      tags: ["Mentor Profile"],
+      summary: "Get the authenticated mentor's profile",
       responses: {
-        200: {
-          description: "Mentor configuration structure returned",
-          content: {
-            "application/json": {
-              schema: { $ref: "#/components/schemas/MentorProfile" },
-            },
-          },
-        },
+        200: successResponse(
+          "Mentor profile returned successfully",
+          "MentorProfile",
+        ),
       },
     },
     put: {
-      tags: ["Mentor Management Lifecycle Operations Layer"],
-      summary:
-        "Rewrite internal property objects structures tracking mentor configuration properties",
-      requestBody: {
-        required: true,
-        content: {
-          "application/json": {
-            schema: { $ref: "#/components/schemas/MentorProfileCreateRequest" },
-          },
-        },
-      },
+      tags: ["Mentor Profile"],
+      summary: "Update the authenticated mentor's profile",
+      requestBody: requestBody("MentorProfileCreateRequest"),
       responses: {
-        200: {
-          description: "Internal parameters rewritten cleanly",
-          content: {
-            "application/json": {
-              schema: { $ref: "#/components/schemas/MentorProfile" },
-            },
-          },
-        },
+        200: successResponse(
+          "Mentor profile updated successfully",
+          "MentorProfile",
+        ),
       },
     },
   },
+
   "/mentee-profile/me": {
     get: {
-      tags: ["Mentee Management Lifecycle Operations Layer"],
-      summary:
-        "Extract tracking details datasets allocated to active mentee context identity",
+      tags: ["Mentee Profile"],
+      summary: "Get the authenticated mentee's profile",
       responses: {
-        200: {
-          description: "Mentee profile metadata returned successfully",
-          content: {
-            "application/json": {
-              schema: { $ref: "#/components/schemas/MenteeProfile" },
-            },
-          },
-        },
+        200: successResponse(
+          "Mentee profile returned successfully",
+          "MenteeProfile",
+        ),
       },
     },
     put: {
-      tags: ["Mentee Management Lifecycle Operations Layer"],
-      summary:
-        "Modify core variables segments defining current mentee operational setup",
-      requestBody: {
-        required: true,
-        content: {
-          "application/json": {
-            schema: { $ref: "#/components/schemas/MenteeProfileCreateRequest" },
-          },
-        },
-      },
+      tags: ["Mentee Profile"],
+      summary: "Update the authenticated mentee's profile",
+      requestBody: requestBody("MenteeProfileCreateRequest"),
       responses: {
-        200: {
-          description: "Mentee operational property data adjusted successfully",
-        },
+        200: successResponse("Mentee profile updated successfully"),
       },
     },
   },
+
   "/mentors/search": {
     get: {
-      tags: ["Stateless Search & Discovery Engines Layer"],
-      summary:
-        "Query, sort, and slice across platform global mentor profile logs files",
+      tags: ["Search"],
+      summary: "Search and filter mentors with pagination",
       parameters: [
-        { in: "query", name: "skill", schema: { type: "string" } },
-        { in: "query", name: "industry", schema: { type: "string" } },
-        { in: "query", name: "page", schema: { type: "integer", default: 1 } },
-        {
-          in: "query",
-          name: "limit",
-          schema: { type: "integer", default: 10 },
-        },
-        {
-          in: "query",
-          name: "search",
-          schema: { type: "string" },
-          description: "Full-text index scanning string keywords parameters",
-        },
+        queryParam("skill", "string"),
+        queryParam("industry", "string"),
+        queryParam("page", "integer", 1),
+        queryParam("limit", "integer", 10),
+        queryParam("search", "string", undefined, "Full-text search keyword"),
       ],
       responses: {
-        200: {
-          description:
-            "Paginated filter query array blocks returned from caching matrix layers",
-          content: {
-            "application/json": {
-              schema: {
-                type: "object",
-                properties: {
-                  success: { type: "boolean", example: true },
-                  mentors: {
-                    type: "array",
-                    items: { $ref: "#/components/schemas/MentorProfile" },
-                  },
-                  pagination: { $ref: "#/components/schemas/PaginationMeta" },
-                },
-              },
+        200: successResponse("Paginated mentor list returned successfully", {
+          type: "object",
+          properties: {
+            success: { type: "boolean", example: true },
+            mentors: {
+              type: "array",
+              items: schemaRef("MentorProfile"),
             },
+            pagination: schemaRef("PaginationMeta"),
           },
-        },
+        }),
       },
     },
   },
+
   "/availability/me": {
     get: {
-      tags: ["Schedules Configuration & Timeline Operations Channels"],
-      summary:
-        "Pull system availability tracking matrices allocated to current active mentor profile",
+      tags: ["Availability"],
+      summary: "Get the authenticated mentor's availability",
       responses: {
-        200: {
-          description:
-            "Active structural calendar availability grid mappings return code",
-          content: {
-            "application/json": {
-              schema: { $ref: "#/components/schemas/Availability" },
-            },
-          },
-        },
+        200: successResponse(
+          "Availability returned successfully",
+          "Availability",
+        ),
       },
     },
     patch: {
-      tags: ["Schedules Configuration & Timeline Operations Channels"],
-      summary:
-        "Apply block modifications segments rewriting structural availability logs variables",
-      requestBody: {
-        required: true,
-        content: {
-          "application/json": {
-            schema: {
-              type: "object",
-              properties: {
-                timezone: { type: "string" },
-                weeklyHours: { type: "array", items: { type: "object" } },
-              },
-            },
-          },
+      tags: ["Availability"],
+      summary: "Update the authenticated mentor's availability",
+      requestBody: requestBody({
+        type: "object",
+        properties: {
+          timezone: { type: "string" },
+          weeklyHours: { type: "array", items: { type: "object" } },
         },
-      },
+      }),
       responses: {
-        200: {
-          description: "Availability model matrices modified successfully",
-        },
+        200: successResponse("Availability updated successfully"),
       },
     },
   },

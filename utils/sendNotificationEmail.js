@@ -501,7 +501,7 @@ const sendReportSubmittedEmail = async ({
 
   const dashboardLink = `${env.appBaseUrl}/dashboard/${reporterRole === "mentor" ? "mentor" : "mentee"}`;
   const formattedType = complaintType
-    .replace(/_/g, " ")
+    .replaceAll("_", " ")
     .replace(/\b\w/g, (c) => c.toUpperCase());
 
   const html = wrapEmail(`
@@ -557,7 +557,7 @@ const sendReportResolvedEmail = async ({
 
   const dashboardLink = `${env.appBaseUrl}/dashboard/${reporterRole === "mentor" ? "mentor" : "mentee"}`;
   const formattedType = complaintType
-    .replace(/_/g, " ")
+    .replaceAll("_", " ")
     .replace(/\b\w/g, (c) => c.toUpperCase());
   const isResolved = status === "resolved";
   const statusLabel = isResolved ? "Resolved" : "Dismissed";

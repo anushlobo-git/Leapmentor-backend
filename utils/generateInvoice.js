@@ -2,6 +2,7 @@
 const PDFDocument = require("pdfkit");
 const path = require("node:path");
 const fs = require("node:fs");
+const logger = require("../config/logger");
 
 /**
  * Generates a LeapMentor invoice PDF buffer.
@@ -51,10 +52,12 @@ const generateInvoice = (data) => {
       const escrowTotal = baseAmount + feeTokens;                    // 10 + 2 = 12
 
       // ── Slots ─────────────────────────────────────────────────
+      const fallbackSlots = confirmedSlot ? [confirmedSlot] : [];
+
       const slots =
         Array.isArray(selectedSlots) && selectedSlots.length > 0
           ? selectedSlots
-          : confirmedSlot ? [confirmedSlot] : [];
+          : fallbackSlots;
 
       // ── PDF setup ─────────────────────────────────────────────
       const doc = new PDFDocument({ margin: 50, size: "A4" });
@@ -123,9 +126,18 @@ const generateInvoice = (data) => {
 
       if (fs.existsSync(logoPath)) {
         try {
-          doc.image(logoPath, LOGO_X, LOGO_Y, { width: LOGO_SIZE, height: LOGO_SIZE });
+          doc.image(logoPath, LOGO_X, LOGO_Y, {
+            width: LOGO_SIZE,
+            height: LOGO_SIZE,
+          });
           logoLoaded = true;
-        } catch (_) { /* .webp skip */ }
+        } catch (err) {
+          // .webp format is not natively supported by pdfkit; skip logo silently
+          logger?.warn?.(
+            "Logo could not be embedded in PDF (unsupported format):",
+            err.message,
+          );
+        }
       }
 
       const textX = logoLoaded ? LOGO_X + LOGO_SIZE + 10 : L;
@@ -188,7 +200,7 @@ const generateInvoice = (data) => {
       y += 16;
       doc.fillColor(C.slate400).fontSize(8).font("Helvetica-Bold")
         .text(
-          `SESSION DETAILS (${slots.length} session${slots.length !== 1 ? "s" : ""})`,
+          `SESSION DETAILS (${slots.length} session${slots.length === 1 ? "" : "s"})`,
           L, y
         );
 
@@ -250,7 +262,7 @@ const generateInvoice = (data) => {
 
       // Row 1 — base
       doc.fillColor(C.slate500).fontSize(10).font("Helvetica")
-        .text(`${rate} × ${count} session${count !== 1 ? "s" : ""}`, L, y);
+        .text(`${rate} × ${count} session${count === 1 ? "" : "s"}`, L, y);
       doc.fillColor(C.slate700).font("Helvetica-Bold")
         .text(`${baseAmount} tokens`, R - COL_W, y, { width: COL_W, align: "right" });
       y += LINE_MD;

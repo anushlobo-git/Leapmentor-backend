@@ -391,6 +391,7 @@ const verificationService = createVerificationService({
   userRepository,
   verificationTokenRepository,
   sendWithRetry,
+  bcrypt,
 });
 
 const mentorSearchService = createMentorSearchService({

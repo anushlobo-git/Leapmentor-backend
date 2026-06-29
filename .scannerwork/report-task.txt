@@ -1,0 +1,6 @@
+projectKey=LeapMentor_Backend
+serverUrl=http://localhost:9000
+serverVersion=26.5.0.122743
+dashboardUrl=http://localhost:9000/dashboard?id=LeapMentor_Backend
+ceTaskId=7de83d07-2348-4fda-8a8c-b4e803aaeec1
+ceTaskUrl=http://localhost:9000/api/ce/task?id=7de83d07-2348-4fda-8a8c-b4e803aaeec1

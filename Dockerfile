@@ -10,8 +10,9 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm ci --omit=dev
 
-# Copy application files and set ownership to the 'node' user
+# Safe: .dockerignore excludes .env, secrets, .git, node_modules, etc.
 COPY --chown=node:node . .
+RUN chmod -R a-w /app
 
 # Expose backend port
 EXPOSE 5000
@@ -20,4 +21,3 @@ EXPOSE 5000
 USER node
 
 CMD ["npm", "start"]
-

@@ -1,66 +1,67 @@
 /**
- * @fileoverview Private Note Request Validation Schemas
- * @description Utilizes celebrate and Joi to intercept and filter personal workspace payloads,
- * string lengths, and MongoDB 24-character hexadecimal ObjectId paths.
+ * @fileoverview Private Note Validation Schemas
+ * @description Validates private note creation, listing, update, and deletion requests.
  */
 
 const { celebrate, Joi, Segments } = require("celebrate");
 
 const objectIdRegex = /^[0-9a-fA-F]{24}$/;
 
+// --- Reusable Shared Validation Components ---
+
+const validateMongoId = (fieldName, customRequiredMessage) =>
+  Joi.string()
+    .regex(objectIdRegex)
+    .required()
+    .messages({
+      "string.pattern.base": `${fieldName} must be a valid 24-character hex ObjectId.`,
+      "any.required": customRequiredMessage || `${fieldName} is required.`,
+    });
+
+const titleSchema = Joi.string().trim().max(200).allow("").optional().messages({
+  "string.max": "Title cannot exceed 200 characters.",
+});
+
+const contentSchema = Joi.string().max(20000).allow("").optional().messages({
+  "string.max": "Content cannot exceed 20000 characters.",
+});
+
+// --- Exported Validation Middleware ---
+
 /**
- * Validates initialization parameters when spinning up a new private note.
+ * Validates request body when creating a new private note.
  * @route POST /api/v1/private-notes
  */
 const createNoteValidation = celebrate({
   [Segments.BODY]: Joi.object({
-    connectRequestId: Joi.string().regex(objectIdRegex).required().messages({
-      "string.pattern.base":
-        "connectRequestId must match a structurally valid 24-character hex identifier.",
-      "any.required":
-        "An active connectRequestId workspace reference layer is required.",
-    }),
-    title: Joi.string().trim().max(200).allow("").optional().messages({
-      "string.max": "Note title descriptions cannot exceed 200 characters.",
-    }),
-    content: Joi.string().max(20000).allow("").optional().messages({
-      "string.max":
-        "Note body content payload volume cannot exceed 20000 characters.",
-    }),
+    connectRequestId: validateMongoId("connectRequestId"),
+    title: titleSchema,
+    content: contentSchema,
   }),
 });
 
 /**
- * Validates connection channel markers across text document arrays listings.
+ * Validates the connectRequestId route parameter for listing private notes.
  * @route GET /api/v1/private-notes/:connectRequestId
  */
 const connectRequestIdParamValidation = celebrate({
   [Segments.PARAMS]: Joi.object({
-    connectRequestId: Joi.string().regex(objectIdRegex).required().messages({
-      "string.pattern.base":
-        "The parsed context identifier parameters must match valid ObjectId keys.",
-      "any.required":
-        "The targeting connection tracker ID parameter is required.",
-    }),
+    connectRequestId: validateMongoId("connectRequestId"),
   }),
 });
 
 /**
- * Validates note tracking criteria parameters for mutations and asset destruction routes.
+ * Validates the note id route parameter and body for update and deletion.
  * @route PATCH /api/v1/private-notes/:id
  * @route DELETE /api/v1/private-notes/:id
  */
 const noteIdParamValidation = celebrate({
   [Segments.PARAMS]: Joi.object({
-    id: Joi.string().regex(objectIdRegex).required().messages({
-      "string.pattern.base":
-        "Target document index identification reference must follow valid ObjectId patterns.",
-      "any.required": "The source document identifier parameter is required.",
-    }),
+    id: validateMongoId("id", "Note id is required."),
   }),
   [Segments.BODY]: Joi.object({
-    title: Joi.string().trim().max(200).optional(),
-    content: Joi.string().max(20000).optional(),
+    title: titleSchema,
+    content: contentSchema,
   }),
 });
 

@@ -43,6 +43,7 @@ describe("Verification Service Unit Tests", () => {
       userRepository: mockUserRepo,
       verificationTokenRepository: mockTokenRepo,
       sendWithRetry: mockSendWithRetry,
+      bcrypt,
     });
 
     // ✅ FIXED: Use Jest's native fake timers to freeze BOTH Date.now() and new Date() constructors

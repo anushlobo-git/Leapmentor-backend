@@ -69,6 +69,28 @@ const createReportRepository = (Report) => {
       });
 
   /**
+   * Persists a new incident report document entry.
+   * @param {Object} reportData - Structural data fields matching the Report schema.
+   * @returns {Promise<Object>} The created Mongoose document instance.
+   */
+  const create = (reportData) => {
+    return Report.create(reportData);
+  };
+
+  /**
+   * Finds a unique report entry submitted by a specific user for a given connection session.
+   * @param {string} connectRequestId
+   * @param {string} reportedById
+   * @returns {Promise<Object|null>} Lean plain old JavaScript report object or null.
+   */
+  const findReportByConnectAndReporter = (connectRequestId, reportedById) => {
+    return Report.findOne({
+      connectRequest: connectRequestId,
+      reportedBy: reportedById,
+    }).lean();
+  };
+
+  /**
    * Persists modifications made onto an active Mongoose report document context block.
    * @param {Object} docInstance - Active report document instance.
    * @returns {Promise<Object>}
@@ -82,8 +104,10 @@ const createReportRepository = (Report) => {
     findReportByIdWithUsers,
     findReportByIdWithAll,
     findReportByIdWithConnectFull,
+    create,
     saveReport,
+    findReportByConnectAndReporter,
   };
-};
+};;;
 
 module.exports = createReportRepository;

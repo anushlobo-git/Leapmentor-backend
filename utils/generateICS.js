@@ -12,7 +12,7 @@ const _extractEmail = (fromEmail) => {
 
 const toICSDate = (date, time) => {
   const datePart = date.replaceAll("-", "");
-  const timePart = time.replace(":", "") + "00";
+  const timePart = time.replaceAll(":", "") + "00";
   return `${datePart}T${timePart}`;
 };
 
@@ -21,7 +21,7 @@ const generateUID = (requestId, index = 0) => {
 };
 
 const nowICSDate = () => {
-  return new Date().toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
+  return new Date().toISOString().replaceAll(/[-:]/g, "").split(".")[0] + "Z";
 };
 
 /**
