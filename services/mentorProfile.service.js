@@ -11,10 +11,10 @@ const DEFAULT_YEARS_OF_EXPERIENCE = 0;
 const DEFAULT_HOURLY_RATE = 0;
 const DEFAULT_LANGUAGES = ["English"];
 
-const createMentorProfileService = (
+const createMentorProfileService = ({
   mentorProfileRepository,
   toMentorProfileDTO,
-) => {
+}) => {
   /**
    * Provisions a new mentor profile record during user onboarding form submission.
    */
@@ -32,6 +32,7 @@ const createMentorProfileService = (
       company: data.company,
       bio: data.bio,
       profilePicture: data.profilePicture || "",
+      profilePictureFileName: data.profilePictureFileName || "",
       yearsOfExperience: data.yearsOfExperience || DEFAULT_YEARS_OF_EXPERIENCE,
       hourlyRate: data.hourlyRate || DEFAULT_HOURLY_RATE,
       skills: data.skills || [],

@@ -10,11 +10,11 @@ const { toMentorProfileDTO } = require("../mappers/mentorProfile.mapper");
 const STATUS_VERIFIED = "verified";
 const STATUS_UNVERIFIED = "unverified";
 
-const createAdminVerificationService = (
+const createAdminVerificationService = ({
   mentorProfileRepository,
   fireAndForgetEmail,
   sendMentorVerifiedEmail,
-) => {
+}) => {
   /**
    * Retrieves all available mentor application profiles for review.
    */

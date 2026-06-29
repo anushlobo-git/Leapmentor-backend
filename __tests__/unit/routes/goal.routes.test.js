@@ -18,7 +18,7 @@ describe("Goal Router Unit Tests", () => {
       patchGoalValidation: "v_patch",
     };
 
-    createGoalRoutes(mockController, "passport_auth", mockValidations);
+    createGoalRoutes({ goalController: mockController, authenticate: "passport_auth", validations: mockValidations });
     expect(mockRouter.use).toHaveBeenCalledWith("passport_auth");
     expect(mockRouter.post).toHaveBeenCalledWith("/", "v_create", "c_create");
   });

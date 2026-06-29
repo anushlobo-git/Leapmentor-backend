@@ -9,11 +9,11 @@ const AppError = require("../utils/AppError");
 const ALLOWED_SESSION_STATUSES = new Set(["ongoing", "completed"]);
 const DEFAULT_NOTE_TITLE = "Untitled Note";
 
-const createPrivateNoteService = (
+const createPrivateNoteService = ({
   privateNoteRepository,
   connectRequestRepository,
   toPrivateNoteDTO,
-) => {
+}) => {
   /**
    * Internal Helper: Verifies that the current user belongs to the targeted engagement session.
    * @private

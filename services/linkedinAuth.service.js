@@ -11,7 +11,7 @@ const LINKEDIN_TOKEN_ENDPOINT = "https://www.linkedin.com/oauth/v2/accessToken";
 const LINKEDIN_USERINFO_ENDPOINT = "https://api.linkedin.com/v2/userinfo";
 const PROVIDER_LINKEDIN = "linkedin";
 
-const createLinkedinAuthService = (socialAuthService, axios, config) => {
+const createLinkedinAuthService = ({ socialAuthService, axios, config }) => {
   const { linkedinCallbackUrl, linkedinClientId, linkedinClientSecret } =
     config;
 

@@ -55,11 +55,11 @@ describe("Admin Routes Configuration Matrix", () => {
     mockAdminAuthenticate = jest.fn();
 
     // Initialize the route mapping tree
-    createAdminRoutes(
-      mockAdminController,
-      mockLeapRequestController,
-      mockAdminAuthenticate,
-    );
+    createAdminRoutes({
+      adminController: mockAdminController,
+      leapRequestController: mockLeapRequestController,
+      adminAuthenticate: mockAdminAuthenticate,
+    });
   });
 
   afterEach(() => {

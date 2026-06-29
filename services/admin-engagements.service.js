@@ -18,10 +18,10 @@ const SYSTEM_STATUSES = [
   "completed",
 ];
 
-const createAdminEngagementsService = (
+const createAdminEngagementsService = ({
   connectRequestRepository,
   userRepository,
-) => {
+}) => {
   /**
    * Generates an object mapping system engagement states to total transaction volumes.
    * @returns {Promise<Object>} Structured dictionary displaying distinct phase summaries and totals.
@@ -74,7 +74,7 @@ const createAdminEngagementsService = (
       }
     }
 
-    if (search && search.trim()) {
+    if (search?.trim()) {
       const matchingUsers = await userRepository.findUsersBySearchTerm(search);
       const ids = matchingUsers.map((u) => u._id);
       filter.$or = [{ mentor: { $in: ids } }, { mentee: { $in: ids } }];

@@ -5,7 +5,7 @@
 
 const catchAsync = require("../utils/catchAsync");
 
-const createGoogleCalendarController = (googleCalendarService) => {
+const createGoogleCalendarController = ({ googleCalendarService }) => {
   /**
    * Returns the explicit federated access URL path allocated to target profile synchronization locks.
    * @route   GET /api/v1/google-calendar/auth-url

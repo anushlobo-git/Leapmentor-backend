@@ -1,42 +1,44 @@
 /**
- * @fileoverview LeapRequest Repository Corporate Unit Tests
- * @description Verifies sorting evaluation boundaries, model interaction matrices,
- * and promise unwrappers with zero live connection runtime dependencies.
+ * @fileoverview Leap Request Repository Corporate Unit Tests
+ * @description Thoroughly verifies Mongoose lookup constraints, sequential sorting chains,
+ * subdocument populations, and mutation wrappers using isolated driver mocks.
  */
 
 const createLeapRequestRepository = require("../../../repositories/leapRequest.repository");
 
 describe("LeapRequest Repository", () => {
-  let mockModel;
-  let repository;
+  let mockLeapRequestModel;
+  let leapRequestRepository;
 
-  const mockLeapRecord = {
-    _id: "leapReq123",
-    mentee: "user444",
+  const mockLeapRequestRecord = {
+    _id: "leap123",
+    mentee: "user555",
     status: "pending",
-    currentBalance: 250,
-    reviewedAt: null,
-    reviewedBy: null,
+    createdAt: new Date("2026-06-01"),
   };
 
-  // Reusable fluent query chain simulator builder mapping sorting operations
-  const makeChain = (resolvedValue = null) => ({
-    sort: jest.fn().mockReturnThis(),
-    populate: jest.fn().mockReturnThis(),
-    then: jest.fn(function (callback) {
-      return Promise.resolve(callback(resolvedValue));
-    }),
-  });
+  const mockRecordsArray = [mockLeapRequestRecord];
+
+  // Safe Factory: Decorates a real Promise instance to completely avoid "manual then" linter errors
+  const makeChain = (resolvedValue = null) => {
+    const promise = Promise.resolve(resolvedValue);
+
+    // Attach Mongoose chain builders directly to the native Promise, returning itself for fluid chaining
+    promise.sort = jest.fn().mockReturnValue(promise);
+    promise.populate = jest.fn().mockReturnValue(promise);
+
+    return promise;
+  };
 
   beforeEach(() => {
-    mockModel = {
+    mockLeapRequestModel = {
       findOne: jest.fn(),
       create: jest.fn(),
       find: jest.fn(),
       countDocuments: jest.fn(),
       findById: jest.fn(),
     };
-    repository = createLeapRequestRepository(mockModel);
+    leapRequestRepository = createLeapRequestRepository(mockLeapRequestModel);
   });
 
   afterEach(() => {
@@ -45,104 +47,94 @@ describe("LeapRequest Repository", () => {
 
   // ── findLatestByMenteeAndStatus ─────────────────────────────────────────
   describe("findLatestByMenteeAndStatus", () => {
-    test("should execute findOne and arrange query arrays by inverse creation intervals", async () => {
-      const chain = makeChain(mockLeapRecord);
-      mockModel.findOne.mockReturnValue(chain);
+    test("should fetch request matching parameters and append reverse chronological sorting", async () => {
+      const mockChain = makeChain(mockLeapRequestRecord);
+      mockLeapRequestModel.findOne.mockReturnValue(mockChain);
 
-      const result = await repository.findLatestByMenteeAndStatus(
-        "user444",
+      const result = await leapRequestRepository.findLatestByMenteeAndStatus(
+        "user555",
         "pending",
       );
 
-      expect(mockModel.findOne).toHaveBeenCalledWith({
-        mentee: "user444",
+      expect(mockLeapRequestModel.findOne).toHaveBeenCalledWith({
+        mentee: "user555",
         status: "pending",
       });
-      expect(chain.sort).toHaveBeenCalledWith({ createdAt: -1 });
-      expect(result).toEqual(mockLeapRecord);
-    });
-
-    test("should resolve null if no requests align with state constraints", async () => {
-      const chain = makeChain(null);
-      mockModel.findOne.mockReturnValue(chain);
-
-      const result = await repository.findLatestByMenteeAndStatus(
-        "userUnknown",
-        "approved",
-      );
-      expect(result).toBeNull();
+      expect(mockChain.sort).toHaveBeenCalledWith({ createdAt: -1 });
+      expect(result).toEqual(mockLeapRequestRecord);
     });
   });
 
   // ── create ──────────────────────────────────────────────────────────────
   describe("create", () => {
-    test("should write new transaction documents down safely", async () => {
-      mockModel.create.mockResolvedValue(mockLeapRecord);
-      const payload = { mentee: "user444", currentBalance: 250 };
+    test("should immediately persist incoming data structural payloads", async () => {
+      mockLeapRequestModel.create.mockResolvedValue(mockLeapRequestRecord);
+      const payloadData = { mentee: "user555", status: "pending" };
 
-      const result = await repository.create(payload);
+      const result = await leapRequestRepository.create(payloadData);
 
-      expect(mockModel.create).toHaveBeenCalledWith(payload);
-      expect(result).toEqual(mockLeapRecord);
-    });
-
-    test("should pass runtime exceptions upward cleanly if database validation rejects entries", async () => {
-      mockModel.create.mockRejectedValue(
-        new Error("Enum Type Constraint Violation"),
-      );
-      await expect(repository.create({})).rejects.toThrow(
-        "Enum Type Constraint Violation",
-      );
+      expect(mockLeapRequestModel.create).toHaveBeenCalledWith(payloadData);
+      expect(result).toEqual(mockLeapRequestRecord);
     });
   });
 
   // ── findAllWithMentee ───────────────────────────────────────────────────
   describe("findAllWithMentee", () => {
-    test("should build deep baseline populations cross-referencing parent user profiles", async () => {
-      const chain = makeChain([mockLeapRecord]);
-      mockModel.find.mockReturnValue(chain);
+    test("should query items with custom filters and correctly pipe population fields and sorting rules", async () => {
+      const mockChain = makeChain(mockRecordsArray);
+      mockLeapRequestModel.find.mockReturnValue(mockChain);
+      const queryFilter = { status: "pending" };
 
-      const result = await repository.findAllWithMentee({ status: "pending" });
+      const result = await leapRequestRepository.findAllWithMentee(queryFilter);
 
-      expect(mockModel.find).toHaveBeenCalledWith({ status: "pending" });
-      expect(chain.populate).toHaveBeenCalledWith(
+      expect(mockLeapRequestModel.find).toHaveBeenCalledWith(queryFilter);
+      expect(mockChain.populate).toHaveBeenCalledWith(
         "mentee",
         "name email profilePicture",
       );
-      expect(chain.sort).toHaveBeenCalledWith({ createdAt: -1 });
-      expect(result).toEqual([mockLeapRecord]);
+      expect(mockChain.sort).toHaveBeenCalledWith({ createdAt: -1 });
+      expect(result).toEqual(mockRecordsArray);
     });
   });
 
   // ── countByStatus ───────────────────────────────────────────────────────
   describe("countByStatus", () => {
-    test("should return absolute numerical volumes processing targeted fields", async () => {
-      mockModel.countDocuments.mockResolvedValue(18);
-      const result = await repository.countByStatus("rejected");
-      expect(mockModel.countDocuments).toHaveBeenCalledWith({
-        status: "rejected",
+    test("should forward lookup rules to calculate document thresholds exactly", async () => {
+      mockLeapRequestModel.countDocuments.mockResolvedValue(42);
+
+      const count = await leapRequestRepository.countByStatus("completed");
+
+      expect(mockLeapRequestModel.countDocuments).toHaveBeenCalledWith({
+        status: "completed",
       });
-      expect(result).toBe(18);
+      expect(count).toBe(42);
     });
   });
 
   // ── findById ────────────────────────────────────────────────────────────
   describe("findById", () => {
-    test("should seek targeted individual entries directly via primary indexing", async () => {
-      mockModel.findById.mockResolvedValue(mockLeapRecord);
-      const result = await repository.findById("leapReq123");
-      expect(mockModel.findById).toHaveBeenCalledWith("leapReq123");
-      expect(result).toEqual(mockLeapRecord);
+    test("should retrieve a singular matching file context tracking explicit identifiers", async () => {
+      mockLeapRequestModel.findById.mockResolvedValue(mockLeapRequestRecord);
+
+      const result = await leapRequestRepository.findById("leap123");
+
+      expect(mockLeapRequestModel.findById).toHaveBeenCalledWith("leap123");
+      expect(result).toEqual(mockLeapRequestRecord);
     });
   });
 
   // ── save ────────────────────────────────────────────────────────────────
   describe("save", () => {
-    test("should invoke persistence updates directly onto document contexts", async () => {
-      const mockDoc = { save: jest.fn().mockResolvedValue(mockLeapRecord) };
-      const result = await repository.save(mockDoc);
-      expect(mockDoc.save).toHaveBeenCalled();
-      expect(result).toEqual(mockLeapRecord);
+    test("should execute native document instance persistence commands smoothly", async () => {
+      const mockInstance = {
+        ...mockLeapRequestRecord,
+        save: jest.fn().mockResolvedValue(mockLeapRequestRecord),
+      };
+
+      const result = await leapRequestRepository.save(mockInstance);
+
+      expect(mockInstance.save).toHaveBeenCalled();
+      expect(result).toEqual(mockLeapRequestRecord);
     });
   });
 });

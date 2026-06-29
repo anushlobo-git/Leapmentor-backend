@@ -5,7 +5,7 @@
 
 const catchAsync = require("../utils/catchAsync");
 
-const createSlotLockController = (slotLockService) => {
+const createSlotLockController = ({ slotLockService }) => {
   const lockSlot = catchAsync(async (req, res, next) => {
     const result = await slotLockService.acquireSlotLock(
       req.user._id,

@@ -10,17 +10,17 @@ const catchAsync = require("../utils/catchAsync");
  * Builds a deterministic cache key from all query parameters.
  * Sorts keys so ?skill=react&page=1 and ?page=1&skill=react hit the same cache.
  */
-const buildCacheKey = (query) => {
+const buildCacheKey = ( query ) => {
   const normalized = Object.entries(query)
     .filter(([, value]) => value !== undefined && value !== "")
     .map(([key, value]) => `${key}:${String(value).trim().toLowerCase()}`)
-    .sort()
+    .sort((a, b) => a.localeCompare(b))
     .join("|");
 
   return `cache:mentors:${normalized || "all"}`;
 };
 
-const createMentorSearchController = (mentorSearchService, cacheUtility) => {
+const createMentorSearchController = ({mentorSearchService, cacheUtility}) => {
   /**
    * Searches and filters across platform mentor registrations with standardized Cache-Aside utility hooks.
    * @route   GET /api/v1/mentors/search

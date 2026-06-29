@@ -5,11 +5,7 @@
 
 const express = require("express");
 
-const createPrivateNoteRoutes = (
-  privateNoteController,
-  authenticate,
-  validations,
-) => {
+const createPrivateNoteRoutes = ({ privateNoteController, authenticate, validations }) => {
   const router = express.Router();
   const {
     createNoteValidation,

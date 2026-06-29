@@ -1,0 +1,42 @@
+# Environment & secrets
+.env
+.env.*
+*.pem
+*.key
+*.cert
+*.p12
+*.pfx
+secrets/
+
+# Dev dependencies
+node_modules/
+
+# Version control
+.git/
+.gitignore
+
+# Test & coverage artifacts
+coverage/
+.nyc_output/
+__tests__/
+*.test.js
+*.spec.js
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# IDE & OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# SonarQube
+.scannerwork/
+
+# Docker files themselves
+Dockerfile
+.dockerignore
+docker-compose*.yml

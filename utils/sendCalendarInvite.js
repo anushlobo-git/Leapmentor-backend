@@ -6,6 +6,7 @@
 const { generateICS } = require("./generateICS");
 const sendWithRetry = require("./sendWithRetry");
 const logger = require("../config/logger");
+const env = require("../config/env");
 const {
   BLUE_GRADIENT,
   wrapEmail,
@@ -16,7 +17,7 @@ const {
   buildSlotRows,
 } = require("./emailHelpers");
 
-const BRAND_FROM = `"Leapmentor" <${process.env.SMTP_USER}>`;
+const BRAND_FROM = `"Leapmentor" <${env.smtp.user}>`;
 
 const buildMessageBlock = (message, senderLabel) =>
   message
@@ -59,12 +60,12 @@ const sendCalendarInvite = async ({
     return;
   }
 
-  const allSlots =
-    slots.length > 0
-      ? slots
-      : date && startTime && endTime
-        ? [{ date, startTime, endTime }]
-        : null;
+  let allSlots = null;
+  if (slots && slots.length > 0) {
+    allSlots = slots;
+  } else if (date && startTime && endTime) {
+    allSlots = [{ date, startTime, endTime }];
+  }
 
   if (!allSlots?.length) {
     logger.error("sendCalendarInvite: no valid slots provided", { requestId });

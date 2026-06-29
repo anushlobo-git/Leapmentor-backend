@@ -5,11 +5,7 @@
 
 const express = require("express");
 
-const createMentorSearchRoutes = (
-  mentorSearchController,
-  middlewares,
-  validations,
-) => {
+const createMentorSearchRoutes = ({ mentorSearchController, middlewares, validations }) => {
   const router = express.Router();
   const { authenticate, requireRole } = middlewares;
   const { searchMentorsValidation } = validations;

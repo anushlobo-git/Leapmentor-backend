@@ -5,7 +5,7 @@
 
 const catchAsync = require("../utils/catchAsync");
 
-const createReportController = (reportService) => {
+const createReportController = ({ reportService }) => {
   const submitReport = catchAsync(async (req, res, next) => {
     const report = await reportService.createIncidentReport(
       req.user,

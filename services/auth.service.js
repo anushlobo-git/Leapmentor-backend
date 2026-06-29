@@ -10,12 +10,12 @@ const { toUserDTO } = require("../mappers/user.mapper");
 
 const BCRYPT_SALT_REGISTER = 10;
 
-const createAuthService = (
+const createAuthService = ({
   userRepository,
   walletService,
   authUtils,
   bcrypt,
-) => {
+}) => {
   /**
    * Registers a brand-new platform user with a cryptographically hashed password.
    */

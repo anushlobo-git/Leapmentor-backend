@@ -14,6 +14,11 @@ const documentSchema = new mongoose.Schema(
       trim: true,
       maxlength: [255, "Public ID cannot exceed 255 characters"],
     },
+    fileName: {
+      type: String,
+      trim: true,
+      default: "Untitled Document",
+    },
     uploadedAt: {
       type: Date,
       default: Date.now,
@@ -64,6 +69,15 @@ const mentorProfileSchema = new mongoose.Schema(
       type: String,
       trim: true,
       maxlength: [2048, "Profile picture URL or content payload is too long"],
+      default: "",
+    },
+    profilePictureFileName: {
+      type: String,
+      trim: true,
+      maxlength: [
+        255,
+        "Profile picture file name cannot exceed 255 characters",
+      ],
       default: "",
     },
 

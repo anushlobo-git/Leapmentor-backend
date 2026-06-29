@@ -1,17 +1,36 @@
 /**
  * @fileoverview Connection Request Controller Unit Tests
- * @description Validates structural parameters delivery, payload consistency,
- * HTTP status codes mapping, and boundary exception cascading.
+ * @description Verifies mentorship engagement request parsing, referral mechanisms,
+ * response templates interpolation, dynamic status queries, and robust error propagation.
  */
+
+// CRITICAL FIX: Mock catchAsync to return the promise chain so tests can reliably await its completion.
+jest.mock("../../../utils/catchAsync", () => {
+  return (fn) => (req, res, next) =>
+    Promise.resolve(fn(req, res, next)).catch(next);
+});
 
 const createConnectRequestController = require("../../../controllers/connectRequest.controller");
 
-describe("Connection Request Controller Unit Tests", () => {
-  let mockConnectRequestService, controller, mockReq, mockRes, mockNext;
+describe("ConnectRequestController", () => {
+  let mockConnectRequestService;
+  let controller;
+  let req;
+  let res;
+  let next;
 
-  const flushPromises = () => new Promise(setImmediate);
+  const mockRequestRecord = {
+    _id: "req_111222",
+    mentee: "user_mentee_777",
+    mentor: "user_mentor_888",
+    status: "pending",
+    slots: ["2026-07-05T10:00:00.000Z"],
+  };
+
+  const mockRequestsList = [mockRequestRecord];
 
   beforeEach(() => {
+    // ── MOCK DEPENDENCIES
     mockConnectRequestService = {
       sendConnectRequestService: jest.fn(),
       getMyRequestsService: jest.fn(),
@@ -23,115 +42,320 @@ describe("Connection Request Controller Unit Tests", () => {
       getConnectDetailService: jest.fn(),
     };
 
-    controller = createConnectRequestController(mockConnectRequestService);
+    controller = createConnectRequestController({
+      connectRequestService: mockConnectRequestService,
+    });
 
-    mockReq = {
-      user: { _id: "user_uuid_123" },
+    // ── EXPRESS HTTP MOCKS
+    req = {
+      user: { _id: "user_mentee_777", name: "Alex Mentee", role: "user" },
       body: {},
-      params: {},
       query: {},
+      params: {},
     };
-    mockRes = {
+
+    res = {
       status: jest.fn().mockReturnThis(),
       json: jest.fn().mockReturnThis(),
     };
-    mockNext = jest.fn();
+
+    next = jest.fn();
   });
 
   afterEach(() => {
     jest.clearAllMocks();
   });
 
-  test("sendConnectRequest should return 201 and output verification payloads on success", async () => {
-    mockReq.body = { mentorId: "mentor_456", message: "Hello" };
-    const mockCreatedResult = { _id: "request_id_999", status: "pending" };
-    mockConnectRequestService.sendConnectRequestService.mockResolvedValue(
-      mockCreatedResult,
-    );
+  // ── sendConnectRequest ──────────────────────────────────────────────────
+  describe("sendConnectRequest", () => {
+    test("should return 201 and request object on successful dispatch", async () => {
+      req.body = {
+        mentorId: "user_mentor_888",
+        selectedSlots: ["2026-07-05T10:00:00.000Z"],
+      };
+      mockConnectRequestService.sendConnectRequestService.mockResolvedValue(
+        mockRequestRecord,
+      );
 
-    await controller.sendConnectRequest(mockReq, mockRes, mockNext);
-    await flushPromises();
+      await controller.sendConnectRequest(req, res, next);
 
-    expect(
-      mockConnectRequestService.sendConnectRequestService,
-    ).toHaveBeenCalledWith("user_uuid_123", mockReq.body, mockReq.user);
-    expect(mockRes.status).toHaveBeenCalledWith(201);
-    expect(mockRes.json).toHaveBeenCalledWith({
-      success: true,
-      message: "Connect request sent successfully",
-      request: mockCreatedResult,
+      expect(
+        mockConnectRequestService.sendConnectRequestService,
+      ).toHaveBeenCalledWith("user_mentee_777", req.body, req.user);
+      expect(res.status).toHaveBeenCalledWith(201);
+      expect(res.json).toHaveBeenCalledWith({
+        success: true,
+        message: "Connect request sent successfully",
+        request: mockRequestRecord,
+      });
+      expect(next).not.toHaveBeenCalled();
+    });
+
+    test("should call next(err) and withhold status updates when service throws", async () => {
+      const error = new Error("Mentor booking slot timeline conflict");
+      mockConnectRequestService.sendConnectRequestService.mockRejectedValue(
+        error,
+      );
+
+      await controller.sendConnectRequest(req, res, next);
+
+      expect(next).toHaveBeenCalledWith(error);
+      expect(res.status).not.toHaveBeenCalled();
     });
   });
 
-  test("respondToRequest should map successful status variations with a 200 code", async () => {
-    mockReq.params.id = "req_123";
-    mockReq.body = { status: "accepted" };
-    mockConnectRequestService.respondToRequestService.mockResolvedValue({
-      _id: "req_123",
-      status: "accepted",
+  // ── getMyRequests ───────────────────────────────────────────────────────
+  describe("getMyRequests", () => {
+    test("should return 200 and collection list generated by authenticated mentee", async () => {
+      req.user._id = "user_variant_mentee_999";
+      mockConnectRequestService.getMyRequestsService.mockResolvedValue(
+        mockRequestsList,
+      );
+
+      await controller.getMyRequests(req, res, next);
+
+      expect(
+        mockConnectRequestService.getMyRequestsService,
+      ).toHaveBeenCalledWith("user_variant_mentee_999");
+      expect(res.status).toHaveBeenCalledWith(200);
+      expect(res.json).toHaveBeenCalledWith({
+        success: true,
+        requests: mockRequestsList,
+      });
+      expect(next).not.toHaveBeenCalled();
     });
 
-    await controller.respondToRequest(mockReq, mockRes, mockNext);
-    await flushPromises();
+    test("should call next(err) and withhold status updates when service throws", async () => {
+      const error = new Error("Database collection lookup failed");
+      mockConnectRequestService.getMyRequestsService.mockRejectedValue(error);
 
-    expect(mockRes.status).toHaveBeenCalledWith(200);
-    expect(mockRes.json).toHaveBeenCalledWith({
-      success: true,
-      message: "Request accepted successfully",
-      request: expect.objectContaining({ status: "accepted" }),
-    });
-  });
+      await controller.getMyRequests(req, res, next);
 
-  test("cancelRequest should confirm termination with a 200 status code", async () => {
-    mockReq.params.id = "req_456";
-    mockConnectRequestService.cancelRequestService.mockResolvedValue();
-
-    await controller.cancelRequest(mockReq, mockRes, mockNext);
-    await flushPromises();
-
-    expect(mockConnectRequestService.cancelRequestService).toHaveBeenCalledWith(
-      "req_456",
-      "user_uuid_123",
-    );
-    expect(mockRes.status).toHaveBeenCalledWith(200);
-    expect(mockRes.json).toHaveBeenCalledWith({
-      success: true,
-      message: "Request cancelled successfully",
+      expect(next).toHaveBeenCalledWith(error);
+      expect(res.status).not.toHaveBeenCalled();
     });
   });
 
-  test("referRequest should spread execution metrics alongside success logs", async () => {
-    mockReq.params.id = "req_789";
-    const servicePayload = {
-      originalRequest: { status: "referred" },
-      newRequest: { status: "pending" },
-    };
-    mockConnectRequestService.referRequestService.mockResolvedValue(
-      servicePayload,
-    );
+  // ── getIncomingRequests ──────────────────────────────────────────────────
+  describe("getIncomingRequests", () => {
+    test("should return 200 and match specified filter parameters on successful lookup", async () => {
+      req.user._id = "user_variant_mentor_555";
+      req.query.status = "pending";
+      mockConnectRequestService.getIncomingRequestsService.mockResolvedValue(
+        mockRequestsList,
+      );
 
-    await controller.referRequest(mockReq, mockRes, mockNext);
-    await flushPromises();
+      await controller.getIncomingRequests(req, res, next);
 
-    expect(mockRes.status).toHaveBeenCalledWith(200);
-    expect(mockRes.json).toHaveBeenCalledWith({
-      success: true,
-      message: "Request referred successfully",
-      ...servicePayload,
+      expect(
+        mockConnectRequestService.getIncomingRequestsService,
+      ).toHaveBeenCalledWith("user_variant_mentor_555", "pending");
+      expect(res.status).toHaveBeenCalledWith(200);
+      expect(res.json).toHaveBeenCalledWith({
+        success: true,
+        requests: mockRequestsList,
+      });
+      expect(next).not.toHaveBeenCalled();
+    });
+
+    test("should call next(err) and withhold status updates when service throws", async () => {
+      const error = new Error("Network connection exception");
+      mockConnectRequestService.getIncomingRequestsService.mockRejectedValue(
+        error,
+      );
+
+      await controller.getIncomingRequests(req, res, next);
+
+      expect(next).toHaveBeenCalledWith(error);
+      expect(res.status).not.toHaveBeenCalled();
     });
   });
 
-  test("should catch service rejections and delegate them safely downstream to next()", async () => {
-    const mockError = new Error("Not authorized to view this session");
-    mockConnectRequestService.getConnectDetailService.mockRejectedValue(
-      mockError,
-    );
-    mockReq.params.id = "req_unauth";
+  // ── respondToRequest ─────────────────────────────────────────────────────
+  describe("respondToRequest", () => {
+    test("should return 200 and emit string log confirmation matching response flags on success", async () => {
+      req.params.id = "req_target_999";
+      req.user._id = "user_mentor_888";
+      req.body = { status: "accepted" };
 
-    await controller.getConnectDetail(mockReq, mockRes, mockNext);
-    await flushPromises();
+      const acceptedRecord = {
+        ...mockRequestRecord,
+        _id: "req_target_999",
+        status: "accepted",
+      };
+      mockConnectRequestService.respondToRequestService.mockResolvedValue(
+        acceptedRecord,
+      );
 
-    expect(mockNext).toHaveBeenCalledWith(mockError);
-    expect(mockRes.status).not.toHaveBeenCalled();
+      await controller.respondToRequest(req, res, next);
+
+      expect(
+        mockConnectRequestService.respondToRequestService,
+      ).toHaveBeenCalledWith("req_target_999", "user_mentor_888", req.body);
+      expect(res.status).toHaveBeenCalledWith(200);
+      expect(res.json).toHaveBeenCalledWith({
+        success: true,
+        message: "Request accepted successfully",
+        request: acceptedRecord,
+      });
+      expect(next).not.toHaveBeenCalled();
+    });
+
+    test("should call next(err) and withhold status updates when service throws", async () => {
+      req.params.id = "req_fail";
+      const error = new Error("Request modification state unauthorized");
+      mockConnectRequestService.respondToRequestService.mockRejectedValue(
+        error,
+      );
+
+      await controller.respondToRequest(req, res, next);
+
+      expect(next).toHaveBeenCalledWith(error);
+      expect(res.status).not.toHaveBeenCalled();
+    });
+  });
+
+  // ── cancelRequest ────────────────────────────────────────────────────────
+  describe("cancelRequest", () => {
+    test("should return 200 and confirm cancellation parameters on success", async () => {
+      req.params.id = "req_cancel_123";
+      req.user._id = "user_mentee_777";
+      mockConnectRequestService.cancelRequestService.mockResolvedValue(true);
+
+      await controller.cancelRequest(req, res, next);
+
+      expect(
+        mockConnectRequestService.cancelRequestService,
+      ).toHaveBeenCalledWith("req_cancel_123", "user_mentee_777");
+      expect(res.status).toHaveBeenCalledWith(200);
+      expect(res.json).toHaveBeenCalledWith({
+        success: true,
+        message: "Request cancelled successfully",
+      });
+      expect(next).not.toHaveBeenCalled();
+    });
+
+    test("should call next(err) and withhold status updates when service throws", async () => {
+      req.params.id = "req_fail";
+      const error = new Error("Cannot cancel a non-pending connection request");
+      mockConnectRequestService.cancelRequestService.mockRejectedValue(error);
+
+      await controller.cancelRequest(req, res, next);
+
+      expect(next).toHaveBeenCalledWith(error);
+      expect(res.status).not.toHaveBeenCalled();
+    });
+  });
+
+  // ── referRequest ─────────────────────────────────────────────────────────
+  describe("referRequest", () => {
+    test("should return 200 and flatten the spread referral service results layout on success", async () => {
+      req.params.id = "req_refer_456";
+      req.user._id = "user_mentor_888";
+      req.body = { alternativeMentorId: "user_mentor_alt_555" };
+
+      const mockReferralResult = {
+        referralId: "ref_xyz789",
+        suggestedMentor: "user_mentor_alt_555",
+      };
+      mockConnectRequestService.referRequestService.mockResolvedValue(
+        mockReferralResult,
+      );
+
+      await controller.referRequest(req, res, next);
+
+      expect(
+        mockConnectRequestService.referRequestService,
+      ).toHaveBeenCalledWith("req_refer_456", "user_mentor_888", req.body);
+      expect(res.status).toHaveBeenCalledWith(200);
+      expect(res.json).toHaveBeenCalledWith({
+        success: true,
+        message: "Request referred successfully",
+        referralId: "ref_xyz789",
+        suggestedMentor: "user_mentor_alt_555",
+      });
+      expect(next).not.toHaveBeenCalled();
+    });
+
+    test("should call next(err) and withhold status updates when service throws", async () => {
+      req.params.id = "req_fail";
+      const error = new Error("Alternative mentor match pool unavailable");
+      mockConnectRequestService.referRequestService.mockRejectedValue(error);
+
+      await controller.referRequest(req, res, next);
+
+      expect(next).toHaveBeenCalledWith(error);
+      expect(res.status).not.toHaveBeenCalled();
+    });
+  });
+
+  // ── getOngoingConnects ───────────────────────────────────────────────────
+  describe("getOngoingConnects", () => {
+    test("should return 200 and ongoing metrics related to active connection frames", async () => {
+      req.user._id = "user_variant_mix_444";
+      mockConnectRequestService.getOngoingConnectsService.mockResolvedValue(
+        mockRequestsList,
+      );
+
+      await controller.getOngoingConnects(req, res, next);
+
+      expect(
+        mockConnectRequestService.getOngoingConnectsService,
+      ).toHaveBeenCalledWith("user_variant_mix_444");
+      expect(res.status).toHaveBeenCalledWith(200);
+      expect(res.json).toHaveBeenCalledWith({
+        success: true,
+        connects: mockRequestsList,
+      });
+      expect(next).not.toHaveBeenCalled();
+    });
+
+    test("should call next(err) and withhold status updates when service throws", async () => {
+      const error = new Error("Mongoose streaming query timeout execution");
+      mockConnectRequestService.getOngoingConnectsService.mockRejectedValue(
+        error,
+      );
+
+      await controller.getOngoingConnects(req, res, next);
+
+      expect(next).toHaveBeenCalledWith(error);
+      expect(res.status).not.toHaveBeenCalled();
+    });
+  });
+
+  // ── getConnectDetail ─────────────────────────────────────────────────────
+  describe("getConnectDetail", () => {
+    test("should return 200 and targeted detail block configurations based on request keys", async () => {
+      req.params.id = "req_detail_000";
+      req.user._id = "user_mentee_777";
+      mockConnectRequestService.getConnectDetailService.mockResolvedValue(
+        mockRequestRecord,
+      );
+
+      await controller.getConnectDetail(req, res, next);
+
+      expect(
+        mockConnectRequestService.getConnectDetailService,
+      ).toHaveBeenCalledWith("req_detail_000", "user_mentee_777");
+      expect(res.status).toHaveBeenCalledWith(200);
+      expect(res.json).toHaveBeenCalledWith({
+        success: true,
+        connect: mockRequestRecord,
+      });
+      expect(next).not.toHaveBeenCalled();
+    });
+
+    test("should call next(err) and withhold status updates when service throws", async () => {
+      req.params.id = "req_missing";
+      const error = new Error("Connection request entity row not found");
+      mockConnectRequestService.getConnectDetailService.mockRejectedValue(
+        error,
+      );
+
+      await controller.getConnectDetail(req, res, next);
+
+      expect(next).toHaveBeenCalledWith(error);
+      expect(res.status).not.toHaveBeenCalled();
+    });
   });
 });

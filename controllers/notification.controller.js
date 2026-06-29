@@ -5,7 +5,7 @@
 
 const catchAsync = require("../utils/catchAsync");
 
-const createNotificationController = (notificationService) => {
+const createNotificationController = ({ notificationService }) => {
   const getNotifications = catchAsync(async (req, res, next) => {
     const notifications = await notificationService.getRecipientNotifications(
       req.user._id,

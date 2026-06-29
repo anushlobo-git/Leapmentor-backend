@@ -7,16 +7,16 @@
  * inside connectDatabase() alongside Mongo and Cloudinary so all
  * startup checks live in one place with unified retry logic.
  */
-
+const env=require("../config/env");
 const nodemailer = require("nodemailer");
 
 const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST,
-  port: Number(process.env.SMTP_PORT || 587),
+  host: env.smtp.host,
+  port: Number(env.smtp.port),
   secure: false,
   auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
+    user: env.smtp.user,
+    pass: env.smtp.pass,
   },
   connectionTimeout: 10_000, // 10 seconds to connect
   greetingTimeout: 5_000, // 5 seconds for SMTP greeting

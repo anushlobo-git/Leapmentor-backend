@@ -5,7 +5,7 @@
 
 const express = require("express");
 
-const createSessionRoutes = (sessionController, authenticate, validations) => {
+const createSessionRoutes = ({ sessionController, authenticate, validations }) => {
   const router = express.Router();
 
   const {

@@ -5,7 +5,7 @@
 
 const express = require("express");
 
-const createMessageRoutes = (messageController, authenticate, validations) => {
+const createMessageRoutes = ({ messageController, authenticate, validations }) => {
   const router = express.Router();
   const { getMessagesValidation, getUnreadCountValidation } = validations;
 

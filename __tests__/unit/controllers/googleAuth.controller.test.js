@@ -25,10 +25,10 @@ describe("Google Authentication Controller Unit Tests", () => {
       setAuthCookies: jest.fn(),
     };
 
-    controller = createGoogleAuthController(
-      mockGoogleAuthService,
-      mockCookieUtils,
-    );
+    controller = createGoogleAuthController({
+      googleAuthService: mockGoogleAuthService,
+      cookieUtils: mockCookieUtils,
+    });
 
     mockReq = {
       body: {
@@ -79,6 +79,25 @@ describe("Google Authentication Controller Unit Tests", () => {
       accessToken: "minted_access_jwt",
       isNewUser: true,
     });
+  });
+
+  test("should set primaryRole to null when user has no roles array", async () => {
+    const mockServiceResponse = {
+      accessToken: "minted_access_jwt",
+      refreshToken: "minted_refresh_jwt",
+      user: { _id: "usr_google_88", name: "Alex" },
+      isNewUser: false,
+    };
+    mockGoogleAuthService.googleAuthUser.mockResolvedValue(mockServiceResponse);
+
+    await controller.googleAuth(mockReq, mockRes, mockNext);
+    await flushPromises();
+
+    expect(mockCookieUtils.setAuthCookies).toHaveBeenCalledWith(
+      mockRes,
+      "minted_refresh_jwt",
+      null,
+    );
   });
 
   test("should route unmapped execution exceptions directly to next() for global handling", async () => {

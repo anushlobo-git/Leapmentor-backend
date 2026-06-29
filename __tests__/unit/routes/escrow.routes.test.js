@@ -44,7 +44,7 @@ describe("Escrow Router Unit Tests", () => {
   });
 
   test("should mount global authentication protection across all downstream endpoints", () => {
-    createEscrowRoutes(mockController, mockAuthenticate, mockValidations);
+    createEscrowRoutes({ escrowController: mockController, authenticate: mockAuthenticate, validations: mockValidations });
 
     expect(mockRouter.use).toHaveBeenCalledWith(
       "middleware_authentication_token_guard",
@@ -52,7 +52,7 @@ describe("Escrow Router Unit Tests", () => {
   });
 
   test("should enforce structured payload checks on token commitments and add-on sessions", () => {
-    createEscrowRoutes(mockController, mockAuthenticate, mockValidations);
+    createEscrowRoutes({ escrowController: mockController, authenticate: mockAuthenticate, validations: mockValidations });
 
     expect(mockRouter.post).toHaveBeenCalledWith(
       "/pay",
@@ -67,7 +67,7 @@ describe("Escrow Router Unit Tests", () => {
   });
 
   test("should enforce path parameter verification on mutations and active resource state checks", () => {
-    createEscrowRoutes(mockController, mockAuthenticate, mockValidations);
+    createEscrowRoutes({ escrowController: mockController, authenticate: mockAuthenticate, validations: mockValidations });
 
     expect(mockRouter.post).toHaveBeenCalledWith(
       "/release/:requestId",
@@ -87,7 +87,7 @@ describe("Escrow Router Unit Tests", () => {
   });
 
   test("should mount balance tracking and commission query routes cleanly", () => {
-    createEscrowRoutes(mockController, mockAuthenticate, mockValidations);
+    createEscrowRoutes({ escrowController: mockController, authenticate: mockAuthenticate, validations: mockValidations });
 
     expect(mockRouter.get).toHaveBeenCalledWith(
       "/wallet",

@@ -5,7 +5,7 @@
 
 const catchAsync = require("../utils/catchAsync");
 
-const createFeedbackController = (feedbackService) => {
+const createFeedbackController = ({ feedbackService }) => {
   /**
    * Submit an assessment payload for an individual completed conversation sequence.
    * @route POST /api/v1/feedback

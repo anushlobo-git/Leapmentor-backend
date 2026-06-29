@@ -5,7 +5,7 @@
 
 const catchAsync = require("../utils/catchAsync");
 
-const createGoalController = (goalService) => {
+const createGoalController = ({ goalService }) => {
   const createGoal = catchAsync(async (req, res, next) => {
     const goal = await goalService.createGoal({
       connectRequestId: req.body.connectRequestId,

@@ -15,7 +15,7 @@ describe("Invoice Controller Unit Tests", () => {
       generateInvoicePdfBuffer: jest.fn(),
     };
 
-    controller = createInvoiceController(mockInvoiceService);
+    controller = createInvoiceController({ invoiceService: mockInvoiceService });
 
     mockReq = {
       user: { _id: "user_111" },
@@ -51,5 +51,15 @@ describe("Invoice Controller Unit Tests", () => {
     );
     expect(mockRes.status).toHaveBeenCalledWith(200);
     expect(mockRes.send).toHaveBeenCalledWith(fakeBuffer);
+  });
+
+  test("downloadInvoice should route exceptions to next()", async () => {
+    const mockError = new Error("Generation failed");
+    mockInvoiceService.generateInvoicePdfBuffer.mockRejectedValue(mockError);
+
+    await controller.downloadInvoice(mockReq, mockRes, mockNext);
+    await flushPromises();
+
+    expect(mockNext).toHaveBeenCalledWith(mockError);
   });
 });

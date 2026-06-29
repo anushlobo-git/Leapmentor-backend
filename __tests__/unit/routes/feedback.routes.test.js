@@ -11,7 +11,7 @@ describe("Feedback Router Unit Tests", () => {
       getFeedbackValidation: "v_g",
     };
 
-    createFeedbackRoutes(mockController, "auth_guard", mockValidations);
+    createFeedbackRoutes({ feedbackController: mockController, authenticate: "auth_guard", validations: mockValidations });
     expect(mockRouter.use).toHaveBeenCalledWith("auth_guard");
     expect(mockRouter.post).toHaveBeenCalledWith("/", "v_p", "c_p");
   });

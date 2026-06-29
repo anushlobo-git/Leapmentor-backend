@@ -5,7 +5,7 @@
 
 const catchAsync = require("../utils/catchAsync");
 
-const createSessionController = (sessionService) => {
+const createSessionController = ({ sessionService }) => {
   const getSlots = catchAsync(async (req, res, next) => {
     const result = await sessionService.getSlots(
       req.params.connectRequestId,

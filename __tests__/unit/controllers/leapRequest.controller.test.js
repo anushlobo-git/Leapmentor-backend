@@ -13,7 +13,6 @@ describe("LeapRequest Controller", () => {
   let mockRes;
   let mockNext;
 
-  // Enforces Jest to wait until background catchAsync execution threads resolve completely
   const flushPromises = () => new Promise(setImmediate);
 
   beforeEach(() => {
@@ -26,7 +25,7 @@ describe("LeapRequest Controller", () => {
       rejectLeapRequest: jest.fn(),
     };
 
-    controller = createLeapRequestController(mockLeapRequestService);
+    controller = createLeapRequestController({ leapRequestService: mockLeapRequestService });
 
     mockReq = {
       user: { _id: "mentee123" },

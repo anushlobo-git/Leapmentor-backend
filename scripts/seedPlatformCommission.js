@@ -5,10 +5,11 @@
 require("dotenv").config({ path: __dirname + "/../.env" });
 const mongoose  = require("mongoose");
 const AdminUser = require("../models/AdminUser");
+const config    = require("../config/env");
 
 (async () => {
   try {
-    await mongoose.connect(process.env.MONGO_URI);
+    await mongoose.connect(config.mongoUri);
     console.log("✅ MongoDB connected");
 
     const admin = await AdminUser.findOne({ isActive: true });

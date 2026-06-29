@@ -1,5 +1,6 @@
 const mongoose = require("mongoose");
 
+
 const menteeProfileSchema = new mongoose.Schema(
   {
     user: {
@@ -48,6 +49,16 @@ const menteeProfileSchema = new mongoose.Schema(
       type: String, // URL or base64
       trim: true,
       maxlength: [2048, "Profile picture URL or content payload is too long"],
+      default: "",
+    },
+    
+    profilePictureFileName: {
+      type: String,
+      trim: true,
+      maxlength: [
+        255,
+        "Profile picture file name cannot exceed 255 characters",
+      ],
       default: "",
     },
 

@@ -1,6 +1,6 @@
 //no where used in the application
 const jwt = require("jsonwebtoken");
-
+const env = require("../config/env");
 const authenticate = (req, res, next) => {
   try {
     const token = req.headers.authorization?.split(" ")[1];
@@ -9,7 +9,7 @@ const authenticate = (req, res, next) => {
       return res.status(401).json({ message: "No token" });
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(token, env.jwtSecret);
 
     req.user = decoded;
     next();

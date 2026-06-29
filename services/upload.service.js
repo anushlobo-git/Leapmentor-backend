@@ -14,7 +14,7 @@ const CLOUDINARY_FOLDER_WORK_EXP =
   "leapmentor/verification-docs/work-experience";
 const VERIFICATION_STATUS_PENDING = "pending";
 
-const createUploadService = (
+const createUploadService = ({
   cloudinary,
   streamifier,
   mentorProfileRepository,
@@ -22,7 +22,7 @@ const createUploadService = (
   fireAndForgetEmail,
   sendDocumentsSubmittedEmail,
   logger,
-) => {
+}) => {
   /**
    * Helper: Extracts a meaningful error message from various error types.
    * @private
@@ -53,11 +53,10 @@ const createUploadService = (
     });
   };
 
-  const processProfilePicture = async (filePayload) => {
-    if (!filePayload) {
+  // upload.service.js — update processProfilePicture to accept role + repository
+  const processProfilePicture = async (filePayload, imageName) => {
+    if (!filePayload)
       throw new AppError("Payload missing: No file uploaded", 400);
-    }
-
     if (!filePayload.mimetype.startsWith("image/")) {
       throw new AppError("Only image files allowed for profile pictures", 400);
     }
@@ -70,6 +69,7 @@ const createUploadService = (
           resource_type: CLOUDINARY_RESOURCE_IMAGE,
           use_filename: false,
           unique_filename: true,
+          display_name: imageName || filePayload.originalname,
           transformation: [
             { width: 400, height: 400, crop: "fill", gravity: "face" },
             { quality: "auto", fetch_format: "auto" },
@@ -77,10 +77,18 @@ const createUploadService = (
         },
       );
 
+      const fileName = imageName || filePayload.originalname;
+
       logger.info("Profile picture uploaded successfully", {
         publicId: uploadResult.public_id,
       });
-      return { url: uploadResult.secure_url, publicId: uploadResult.public_id };
+
+      // ✅ Just return — profile creation endpoint handles DB save
+      return {
+        url: uploadResult.secure_url,
+        publicId: uploadResult.public_id,
+        fileName,
+      };
     } catch (err) {
       logger.error("Cloudinary upload failed", { error: err.message });
       throw new AppError("Failed to upload profile picture", 500);
@@ -109,6 +117,8 @@ const createUploadService = (
           resource_type: CLOUDINARY_RESOURCE_RAW,
           folder: CLOUDINARY_FOLDER_RESUMES,
           unique_filename: true,
+          display_name: resumeFile.originalname,
+          use_filename: false,
         },
       );
       uploadedPublicIds.push(resumeResult.public_id);
@@ -120,6 +130,8 @@ const createUploadService = (
             resource_type: CLOUDINARY_RESOURCE_RAW,
             folder: CLOUDINARY_FOLDER_WORK_EXP,
             unique_filename: true,
+            display_name: file.originalname,
+            use_filename: false,
           }),
         ),
       );
@@ -134,11 +146,13 @@ const createUploadService = (
             resumeDocument: {
               url: resumeResult.secure_url,
               publicId: resumeResult.public_id,
+              fileName: resumeFile.originalname,
               uploadedAt: new Date(),
             },
-            workExperienceDocuments: workResults.map((r) => ({
+            workExperienceDocuments: workResults.map((r, i) => ({
               url: r.secure_url,
               publicId: r.public_id,
+              fileName: workExperienceFiles[i].originalname,
               uploadedAt: new Date(),
             })),
             verificationStatus: VERIFICATION_STATUS_PENDING,
@@ -190,6 +204,6 @@ const createUploadService = (
     processProfilePicture,
     processVerificationDocuments,
   };
-};
+};;
 
 module.exports = createUploadService;

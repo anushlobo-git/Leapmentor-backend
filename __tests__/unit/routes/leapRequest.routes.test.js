@@ -41,11 +41,11 @@ describe("LeapRequest Routes Configuration Matrix", () => {
     mockAuthenticate = jest.fn();
     mockAdminAuthenticate = jest.fn();
 
-    createLeapRequestRoutes(
-      mockLeapRequestController,
-      mockAuthenticate,
-      mockAdminAuthenticate,
-    );
+    createLeapRequestRoutes({ 
+      leapRequestController: mockLeapRequestController,
+      authenticate: mockAuthenticate,
+      adminAuthenticate: mockAdminAuthenticate,
+    });
   });
 
   afterEach(() => {

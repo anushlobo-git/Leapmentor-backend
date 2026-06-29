@@ -6,7 +6,7 @@
 
 const createAdminEngagementsService = require("../../../services/admin-engagements.service");
 
-// Mock the mapper dependency to ensure complete isolation from layout rules
+// toConnectRequestDTO is imported directly inside the service, so jest.mock works here
 jest.mock("../../../mappers/connectRequest.mapper", () => ({
   toConnectRequestDTO: jest.fn((item) => ({ DTO: true, id: item._id })),
 }));
@@ -27,10 +27,12 @@ describe("Admin Engagements Service", () => {
       findUsersBySearchTerm: jest.fn(),
     };
 
-    engagementsService = createAdminEngagementsService(
-      mockConnectRequestRepository,
-      mockUserRepository,
-    );
+    //  Correct instantiation — matches the destructured signature:
+    // createAdminEngagementsService({ connectRequestRepository, userRepository })
+    engagementsService = createAdminEngagementsService({
+      connectRequestRepository: mockConnectRequestRepository,
+      userRepository: mockUserRepository,
+    });
   });
 
   afterEach(() => {
@@ -40,7 +42,6 @@ describe("Admin Engagements Service", () => {
   // ── getEngagementStatsService ───────────────────────────────────────────
   describe("getEngagementStatsService", () => {
     test("should compile distinct status volumes into a single total summary", async () => {
-      // Mock unique count values for each of the 6 core system statuses
       mockConnectRequestRepository.countByStatus
         .mockResolvedValueOnce(10) // pending
         .mockResolvedValueOnce(5) // accepted
@@ -64,7 +65,7 @@ describe("Admin Engagements Service", () => {
         referred: 1,
         ongoing: 4,
         completed: 8,
-        total: 30, // 10 + 5 + 2 + 1 + 4 + 8
+        total: 30,
       });
     });
 
@@ -109,6 +110,17 @@ describe("Admin Engagements Service", () => {
       });
     });
 
+    test("should apply status filter when status param is provided", async () => {
+      mockConnectRequestRepository.countByFilter.mockResolvedValue(3);
+      mockConnectRequestRepository.findEngagements.mockResolvedValue([]);
+
+      await engagementsService.getEngagementsService({ status: "pending" });
+
+      expect(mockConnectRequestRepository.countByFilter).toHaveBeenCalledWith({
+        status: "pending",
+      });
+    });
+
     test("should inject compound date limits and apply 23:59:59 time extensions on upper bounds", async () => {
       mockConnectRequestRepository.countByFilter.mockResolvedValue(0);
       mockConnectRequestRepository.findEngagements.mockResolvedValue([]);
@@ -121,6 +133,32 @@ describe("Admin Engagements Service", () => {
       expect(mockConnectRequestRepository.countByFilter).toHaveBeenCalledWith({
         requestedAt: {
           $gte: new Date("2026-01-01"),
+          $lte: new Date(new Date("2026-01-05").setHours(23, 59, 59, 999)),
+        },
+      });
+    });
+
+    test("should apply only dateFrom when dateTo is absent", async () => {
+      mockConnectRequestRepository.countByFilter.mockResolvedValue(0);
+      mockConnectRequestRepository.findEngagements.mockResolvedValue([]);
+
+      await engagementsService.getEngagementsService({
+        dateFrom: "2026-01-01",
+      });
+
+      expect(mockConnectRequestRepository.countByFilter).toHaveBeenCalledWith({
+        requestedAt: { $gte: new Date("2026-01-01") },
+      });
+    });
+
+    test("should apply only dateTo when dateFrom is absent", async () => {
+      mockConnectRequestRepository.countByFilter.mockResolvedValue(0);
+      mockConnectRequestRepository.findEngagements.mockResolvedValue([]);
+
+      await engagementsService.getEngagementsService({ dateTo: "2026-01-05" });
+
+      expect(mockConnectRequestRepository.countByFilter).toHaveBeenCalledWith({
+        requestedAt: {
           $lte: new Date(new Date("2026-01-05").setHours(23, 59, 59, 999)),
         },
       });
@@ -147,7 +185,7 @@ describe("Admin Engagements Service", () => {
       });
     });
 
-    test("should bypass database aggregation matching queries if the search parameter evaluates to an empty string", async () => {
+    test("should bypass user search when search parameter is an empty string", async () => {
       mockConnectRequestRepository.countByFilter.mockResolvedValue(0);
       mockConnectRequestRepository.findEngagements.mockResolvedValue([]);
 
@@ -167,7 +205,7 @@ describe("Admin Engagements Service", () => {
 
       expect(mockConnectRequestRepository.findEngagements).toHaveBeenCalledWith(
         expect.any(Object),
-        { skip: 20, limit: 10 }, // (Page 3 - 1) * 10 = 20 skipped entries
+        { skip: 20, limit: 10 },
       );
       expect(result.pagination.totalPages).toBe(5);
     });

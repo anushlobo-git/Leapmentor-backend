@@ -8,6 +8,7 @@ const { verifyConnection } = require("./cloudinary");
 const logger = require("./logger");
 const { retryWithBackoff } = require("../utils/retryWithBackoff");
 const transporter = require("../utils/mailer");
+const env = require("./env");
 
 /**
  * Establishes MongoDB, verifies Cloudinary, and verifies SMTP — all as one
@@ -22,7 +23,7 @@ const connectDatabase = () => {
   return retryWithBackoff(
     async () => {
       // ── 1. MongoDB ────────────────────────────────────────────
-      const conn = await mongoose.connect(process.env.MONGO_URI, {
+      const conn = await mongoose.connect(env.mongoUri, {
         autoIndex: true,
         serverSelectionTimeoutMS: 10_000, // fail fast after 10s instead of Mongoose's 30s default
       });

@@ -7,7 +7,7 @@
 const catchAsync = require("../utils/catchAsync");
 const AppError = require("../utils/AppError");
 
-const createRefreshController = (authUtils, jwt, config) => {
+const createRefreshController = ({ authUtils, jwt, config }) => {
   /**
    * Evaluate an incoming rotation cookie token to issue a fresh short-term access key.
    * @route   POST /api/v1/auth/refresh

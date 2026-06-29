@@ -13,11 +13,11 @@ const TRANSACTION_TYPE_CREDIT = "credit";
 const DEFAULT_INITIAL_BALANCE = 0;
 const DEFAULT_INITIAL_ESCROW = 0;
 
-const createWalletService = (
+const createWalletService = ({
   walletRepository,
   transactionRepository,
   logger,
-) => {
+}) => {
   /**
    * Provision an individual role-specific wallet for a user and apply welcome bonuses.
    */

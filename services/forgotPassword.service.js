@@ -14,13 +14,13 @@ const AMBIGUOUS_SUCCESS_MESSAGE = "If this email exists, an OTP has been sent.";
 const INITIAL_OTP_EXPIRY_MS = 10 * 60 * 1000; // 10 minutes
 const EXTENDED_VERIFIED_EXPIRY_MS = 5 * 60 * 1000; // 5 minutes
 
-const createForgotPasswordService = (
+const createForgotPasswordService = ({
   userRepo,
   verificationTokenRepo,
   sendWithRetry,
   environmentConfig = {},
-) => {
-  const fromEmail = environmentConfig.fromEmail || process.env.FROM_EMAIL;
+}) => {
+  const fromEmail = environmentConfig.fromEmail || env.smtp.fromEmail;
 
   /**
    * Helper: Generates a cryptographically secure 6-digit OTP string.

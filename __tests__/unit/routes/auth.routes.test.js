@@ -52,7 +52,11 @@ describe("User Authentication Router Unit Tests", () => {
   });
 
   test("should anchor local auth endpoints to matching controller methods and validation guards", () => {
-    createAuthRoutes(mockControllers, mockValidations, mockCookieUtils);
+    createAuthRoutes({
+      controllers: mockControllers,
+      validations: mockValidations,
+      cookieUtils: mockCookieUtils,
+    });
 
     expect(mockRouter.post).toHaveBeenCalledWith(
       "/register",
@@ -72,7 +76,11 @@ describe("User Authentication Router Unit Tests", () => {
   });
 
   test("should attach social federated identity endpoints using proper HTTP verbs", () => {
-    createAuthRoutes(mockControllers, mockValidations, mockCookieUtils);
+    createAuthRoutes({
+      controllers: mockControllers,
+      validations: mockValidations,
+      cookieUtils: mockCookieUtils,
+    });
 
     expect(mockRouter.post).toHaveBeenCalledWith(
       "/google",
@@ -99,7 +107,11 @@ describe("User Authentication Router Unit Tests", () => {
   });
 
   test("should execute an inline handler on /logout to scrub cookies and return a 200 status code", () => {
-    createAuthRoutes(mockControllers, mockValidations, mockCookieUtils);
+    createAuthRoutes({
+      controllers: mockControllers,
+      validations: mockValidations,
+      cookieUtils: mockCookieUtils,
+    });
 
     // Extract the inline execution block registered for the logout path
     const logoutMatch = mockRouter.post.mock.calls.find(

@@ -5,7 +5,7 @@
 
 const catchAsync = require("../utils/catchAsync");
 
-const createVerificationController = (verificationService) => {
+const createVerificationController = ({ verificationService }) => {
   const sendVerification = catchAsync(async (req, res, next) => {
     await verificationService.initiateVerification(req.body.email);
     return res

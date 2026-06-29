@@ -9,11 +9,7 @@ const AppError = require("../utils/AppError");
 const DEFAULT_COMMISSION_RATE = 20;
 const RADIX_DECIMAL = 10;
 
-const createAdminSettingsService = (
-  adminUserRepository,
-  userRepository,
-  connectRequestRepository,
-) => {
+const createAdminSettingsService = ({ adminUserRepository, userRepository, connectRequestRepository ,crypto }) => {
   /**
    * Fetch high-level ecosystem user registry tallies and active engagement counts.
    * @returns {Promise<Object>} Object containing aggregate user and active session counts.
@@ -64,7 +60,7 @@ const createAdminSettingsService = (
       );
     }
 
-    const tempPassword = Math.random().toString(36).slice(-8) + "A1!";
+    const tempPassword = crypto.randomBytes(6).toString("base64url") + "A1!";
 
     const newAdmin = await adminUserRepository.createAdmin({
       name: name.trim(),

@@ -18,15 +18,27 @@ describe("AdminUser Repository", () => {
     walletBalance: 500,
   };
 
-  // Fluent chain simulation factory mapping targeted method responses
-  const makeChain = (resolvedValue = null) => ({
-    select: jest.fn().mockReturnThis(),
-    session: jest.fn().mockReturnThis(),
-    lean: jest.fn().mockResolvedValue(resolvedValue),
-    then: jest.fn(function (callback) {
-      return Promise.resolve(callback(resolvedValue));
-    }),
-  });
+  // Fluent chain simulation factory mapping targeted method responses safely
+  const makeChain = (resolvedValue = null) => {
+    const chain = {
+      select: jest.fn(),
+      session: jest.fn(),
+      lean: jest.fn(),
+      then: jest.fn(),
+    };
+
+    chain.select.mockReturnValue(chain);
+    chain.session.mockReturnValue(chain);
+    chain.lean.mockResolvedValue(resolvedValue);
+    chain.then.mockImplementation((callback) => {
+      if (typeof callback === "function") {
+        return Promise.resolve(callback(resolvedValue));
+      }
+      return Promise.resolve(resolvedValue);
+    });
+
+    return chain;
+  };
 
   beforeEach(() => {
     mockAdminModel = {

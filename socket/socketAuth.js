@@ -1,7 +1,7 @@
 // backend/socket/socketAuth.js
 const jwt = require("jsonwebtoken");
 const User = require("../models/User");
-
+const env = require("../config/env");
 // JWT middleware for socket.io handshake
 // Mirrors the HTTP authenticate middleware pattern
 const socketAuth = async (socket, next) => {
@@ -12,7 +12,7 @@ const socketAuth = async (socket, next) => {
       return next(new Error("Authentication error: no token provided"));
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(token, env.jwtSecret);
 
     const user = await User.findById(decoded.id).select("-password");
     if (!user) {

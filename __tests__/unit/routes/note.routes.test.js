@@ -21,7 +21,7 @@ describe("Note Router Unit Tests", () => {
       noteIdParamValidation: "v_del",
     };
 
-    createNoteRoutes(mockController, mockMiddlewares, mockValidations);
+    createNoteRoutes({ noteController: mockController, middlewares: mockMiddlewares, validations: mockValidations });
     expect(mockRouter.use).toHaveBeenCalledWith("auth_wall");
     expect(mockRouter.post).toHaveBeenCalledWith(
       "/upload",

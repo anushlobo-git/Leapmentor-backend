@@ -1,28 +1,21 @@
 /**
- * @fileoverview Admin Authentication Service Corporate Unit Tests
+ * @fileoverview Admin Authentication Service Unit Tests
  * @description Validates account matching constraints, state locks, password
  * verification gates, and dynamic token issuance with zero network connection.
  */
 
 const createAdminAuthService = require("../../../services/admin-auth.service");
 const AppError = require("../../../utils/AppError");
-const jwt = require("jsonwebtoken");
-
-// Mock dependencies to guarantee absolute isolation
-jest.mock("jsonwebtoken");
-jest.mock("../../../mappers/admin.mapper", () => ({
-  toAdminDTO: jest.fn((admin) => ({ DTO: true, email: admin.email })),
-}));
 
 describe("AdminAuth Service", () => {
   let mockAdminUserRepository;
+  let mockJwt;
+  let mockToAdminDTO;
   let authService;
   let mockAdminInstance;
 
   beforeEach(() => {
-    process.env.JWT_SECRET = "test-secret-key";
-
-    // Setup a clean document instance wrapper with mock prototype methods
+    // Setup a clean admin document instance with mock prototype methods
     mockAdminInstance = {
       _id: "admin123",
       email: "root@leapmentor.com",
@@ -31,18 +24,33 @@ describe("AdminAuth Service", () => {
       comparePassword: jest.fn(),
     };
 
+    // Mock the repository
     mockAdminUserRepository = {
       findAdminByEmail: jest.fn(),
       saveAdmin: jest.fn(),
     };
 
-    authService = createAdminAuthService(mockAdminUserRepository);
-    jwt.sign.mockReturnValue("mocked-jwt-token");
+    // Mock jwt directly — service receives it as a dependency
+    mockJwt = {
+      sign: jest.fn().mockReturnValue("mocked-jwt-token"),
+    };
+
+    // Mock the DTO mapper
+    mockToAdminDTO = jest
+      .fn()
+      .mockImplementation((admin) => ({ DTO: true, email: admin.email }));
+
+    // ✅ Correct instantiation — matches the destructured signature:
+    // createAdminAuthService({ adminUserRepository, jwt, toAdminDTO })
+    authService = createAdminAuthService({
+      adminUserRepository: mockAdminUserRepository,
+      jwt: mockJwt,
+      toAdminDTO: mockToAdminDTO,
+    });
   });
 
   afterEach(() => {
     jest.clearAllMocks();
-    delete process.env.JWT_SECRET;
   });
 
   describe("adminLoginService", () => {
@@ -58,21 +66,32 @@ describe("AdminAuth Service", () => {
         password: "securePassword123",
       });
 
+      // Repository lookup
       expect(mockAdminUserRepository.findAdminByEmail).toHaveBeenCalledWith(
         "root@leapmentor.com",
       );
+
+      // Password comparison
       expect(mockAdminInstance.comparePassword).toHaveBeenCalledWith(
         "securePassword123",
       );
+
+      // Timestamp updated
       expect(mockAdminInstance.lastLoginAt).toBeInstanceOf(Date);
+
+      // Admin saved after login
       expect(mockAdminUserRepository.saveAdmin).toHaveBeenCalledWith(
         mockAdminInstance,
       );
-      expect(jwt.sign).toHaveBeenCalledWith(
+
+      // JWT signed with correct payload and options
+      expect(mockJwt.sign).toHaveBeenCalledWith(
         { id: "admin123", role: "admin" },
-        "test-secret-key",
+        expect.anything(), // env.jwtSecret resolved at runtime
         { expiresIn: "7d" },
       );
+
+      // Return shape
       expect(result).toEqual({
         token: "mocked-jwt-token",
         admin: { DTO: true, email: "root@leapmentor.com" },
@@ -89,15 +108,17 @@ describe("AdminAuth Service", () => {
         }),
       ).rejects.toThrow(AppError);
 
-      try {
-        await authService.adminLoginService({
+      await expect(
+        authService.adminLoginService({
           email: "missing@test.com",
           password: "any",
-        });
-      } catch (error) {
-        expect(error.statusCode).toBe(401);
-        expect(error.message).toBe("Invalid credentials.");
-      }
+        }),
+      ).rejects.toMatchObject({
+        statusCode: 401,
+        message: "Invalid credentials.",
+      });
+
+      // Password check must never be reached when admin is not found
       expect(mockAdminInstance.comparePassword).not.toHaveBeenCalled();
     });
 
@@ -114,23 +135,25 @@ describe("AdminAuth Service", () => {
         }),
       ).rejects.toThrow(AppError);
 
-      try {
-        await authService.adminLoginService({
+      await expect(
+        authService.adminLoginService({
           email: "root@leapmentor.com",
           password: "any",
-        });
-      } catch (error) {
-        expect(error.statusCode).toBe(403);
-        expect(error.message).toBe("Admin account is deactivated.");
-      }
+        }),
+      ).rejects.toMatchObject({
+        statusCode: 403,
+        message: "Admin account is deactivated.",
+      });
+
+      // Password check must never be reached when account is deactivated
       expect(mockAdminInstance.comparePassword).not.toHaveBeenCalled();
     });
 
-    test("should throw an unauthorized error (401) if the decrypted password evaluation fails matches", async () => {
+    test("should throw an unauthorized error (401) if the decrypted password evaluation fails", async () => {
       mockAdminUserRepository.findAdminByEmail.mockResolvedValue(
         mockAdminInstance,
       );
-      mockAdminInstance.comparePassword.mockResolvedValue(false); // Invalid password match
+      mockAdminInstance.comparePassword.mockResolvedValue(false);
 
       await expect(
         authService.adminLoginService({
@@ -139,15 +162,17 @@ describe("AdminAuth Service", () => {
         }),
       ).rejects.toThrow(AppError);
 
-      try {
-        await authService.adminLoginService({
+      await expect(
+        authService.adminLoginService({
           email: "root@leapmentor.com",
           password: "wrongPassword",
-        });
-      } catch (error) {
-        expect(error.statusCode).toBe(401);
-        expect(error.message).toBe("Invalid credentials.");
-      }
+        }),
+      ).rejects.toMatchObject({
+        statusCode: 401,
+        message: "Invalid credentials.",
+      });
+
+      // Admin must never be saved when password is wrong
       expect(mockAdminUserRepository.saveAdmin).not.toHaveBeenCalled();
     });
   });

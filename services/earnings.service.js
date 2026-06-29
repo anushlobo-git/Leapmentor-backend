@@ -15,13 +15,13 @@ const DEFAULT_LIMIT_SIZE = 10;
 const MAX_LIMIT_SIZE = 20;
 const RADIX_DECIMAL = 10;
 
-const createEarningsService = (
+const createEarningsService = ({
   connectRequestRepository,
   mentorRepository,
   walletRepository,
   transactionRepository,
   userRepository,
-) => {
+}) => {
   /**
    * Compute aggregate, monthly, pending, and liquid financial balances for a distinct mentor.
    * @param {string} mentorId    - Unique identifier database key of the target mentor.

@@ -11,13 +11,13 @@ const LINKEDIN_AUTH_GATEWAY = "https://www.linkedin.com/oauth/v2/authorization";
 const OAUTH_SCOPE_CLAIMS = "openid profile email";
 const OAUTH_RESPONSE_TYPE = "code";
 
-const createLinkedinAuthController = (
+const createLinkedinAuthController = ({
   linkedinAuthService,
   authUtils,
   cookieUtils,
   config,
   logger,
-) => {
+}) => {
   const { linkedinClientId, linkedinCallbackUrl, clientUrl } = config;
 
   /**

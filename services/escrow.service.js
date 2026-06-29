@@ -12,18 +12,19 @@ const DEFAULT_TIMEZONE = "Asia/Kolkata";
 const ROLE_MENTEE = "mentee";
 const ROLE_MENTOR = "mentor";
 
-const createEscrowService = (
+const createEscrowService = ({
   mongoose,
   adminUserRepo,
   connectRequestRepo,
   walletRepo,
   transactionRepo,
+  mentorProfileRepo,
   availabilityRepo,
   fireAndForgetEmail,
   emailUtils,
   calendarUtils,
   logger,
-) => {
+}) => {
   const { sendInvoiceEmail, sendPaymentReceivedEmail } = emailUtils;
   const { sendCalendarInvite } = calendarUtils;
 
@@ -590,12 +591,34 @@ const createEscrowService = (
     const commissionRate = admin?.commissionRate ?? DEFAULT_COMMISSION_RATE;
     const menteeWallet = await walletRepo.findByUserId(connectRequest.mentee);
 
+    const sessionCount =
+      connectRequest.sessionCount ??
+      (Array.isArray(connectRequest.selectedSlots)
+        ? connectRequest.selectedSlots.length
+        : null);
+    let sessionRate = connectRequest.sessionRate ?? null;
+
+    if (sessionRate == null && mentorProfileRepo) {
+      const mentorId = connectRequest.mentor?._id ?? connectRequest.mentor;
+      if (mentorId) {
+        const mentorProfile =
+          await mentorProfileRepo.findMentorProfile(mentorId);
+        sessionRate = mentorProfile?.hourlyRate ?? null;
+      }
+    }
+
+    const totalAmount =
+      connectRequest.totalAmount ??
+      (sessionRate != null && sessionCount != null
+        ? sessionRate * sessionCount
+        : null);
+
     return {
       status: connectRequest.status,
       paymentStatus: connectRequest.paymentStatus,
-      sessionRate: connectRequest.sessionRate,
-      sessionCount: connectRequest.sessionCount,
-      totalAmount: connectRequest.totalAmount,
+      sessionRate,
+      sessionCount,
+      totalAmount,
       paidAt: connectRequest.paidAt,
       completedAt: connectRequest.completedAt,
       confirmedSlot: connectRequest.confirmedSlot,

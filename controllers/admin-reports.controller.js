@@ -9,7 +9,7 @@ const catchAsync = require("../utils/catchAsync");
 const CACHE_TTL_SECONDS = 300; // 5-Minute corporate caching standard window
 const STATS_CACHE_KEY = "admin:reports:telemetry-stats";
 
-const createAdminReportsController = (adminReportsService, cacheUtility) => {
+const createAdminReportsController = ({adminReportsService, cacheUtility}) => {
   const getReportStats = catchAsync(async (req, res) => {
     const data = await cacheUtility.getOrSetCache(
       STATS_CACHE_KEY,

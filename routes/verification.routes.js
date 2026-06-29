@@ -5,7 +5,7 @@
 
 const express = require("express");
 
-const createVerificationRoutes = (verificationController, validations) => {
+const createVerificationRoutes = ({ verificationController, validations }) => {
   const router = express.Router();
   const { emailPayloadValidation, verifyOtpValidation, verifyLinkValidation } =
     validations;

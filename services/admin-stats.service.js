@@ -7,7 +7,7 @@
 // Configurations
 const GROWTH_LOOKBACK_DAYS = 90;
 
-const createAdminStatsService = (userRepository, mentorProfileRepository) => {
+const createAdminStatsService = ({ userRepository, mentorProfileRepository }) => {
   /**
    * Computes platform-wide baseline user totals and rolling monthly aggregates.
    * @returns {Promise<Object>} High-level total metrics and current month registration counts.

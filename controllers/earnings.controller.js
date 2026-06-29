@@ -6,7 +6,7 @@
 
 const catchAsync = require("../utils/catchAsync");
 
-const createEarningsController = (earningsService) => {
+const createEarningsController = ({ earningsService }) => {
   /**
    * Fetch high-level earnings telemetry, total clear balances, and escrow distributions.
    * @route   GET /api/v1/earnings

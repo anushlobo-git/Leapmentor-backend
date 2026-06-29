@@ -1,18 +1,21 @@
-# LeapMentor Backend
+# LeapMentor — Backend Service
 
-LeapMentor mentorship platform — connecting mentees with industry expert mentors.
+LeapMentor is a full-stack mentorship platform that connects mentors and mentees through structured booking, real-time communication, session management, and verified profiles. This repository contains the backend REST API and Socket.IO server that powers the platform.
 
+---
 
 ## Table of Contents
 
 - [Overview](#overview)
 - [Tech Stack](#tech-stack)
 - [Project Structure](#project-structure)
-- [Getting Started](#getting-started)
+- [Prerequisites](#prerequisites)
+- [Installation](#installation)
 - [Environment Variables](#environment-variables)
-- [API Routes](#api-routes)
+- [Running the Project](#running-the-project)
+- [API Reference](#api-reference)
 - [Authentication Flows](#authentication-flows)
-- [Real-time (Socket.IO)](#real-time-socketio)
+- [Real-time Events (Socket.IO)](#real-time-events-socketio)
 - [Cron Jobs](#cron-jobs)
 - [Testing](#testing)
 - [Deployment](#deployment)
@@ -21,33 +24,34 @@ LeapMentor mentorship platform — connecting mentees with industry expert mento
 
 ## Overview
 
-LeapMentor's backend handles:
+The LeapMentor backend provides the following core capabilities:
 
-- JWT-based auth with Google OAuth and Clerk SSO (LinkedIn, Apple)
-- Mentor/mentee onboarding and profile management
-- Slot-based availability and booking with TTL-backed slot locking
-- Real-time chat via Socket.IO
-- Session lifecycle, feedback, goals, and notes
-- Escrow-based payment flow with earnings tracking
-- Admin panel with user management, reports, and platform settings
+- JWT-based authentication with Email/Password, Google OAuth, and Clerk SSO (LinkedIn / Apple)
+- Mentor and mentee profile onboarding with Cloudinary-backed document and image uploads
+- Mentor discovery with search, filtering, and Redis-cached results
+- Availability management and slot-based session booking with conflict detection
+- Real-time chat and notifications via Socket.IO
+- Escrow-based payment flow with admin-controlled refund processing
+- Session feedback, shared notes, private notes, and goal tracking
+- Admin dashboard with verification workflows, engagement reporting, and commission management
+- Scheduled cron jobs for availability cleanup and session reminders
 
 ---
 
 ## Tech Stack
 
 | Layer | Technology |
-|-------|-----------|
+|---|---|
 | Runtime | Node.js 18+ |
 | Framework | Express 5 |
-| Database | MongoDB + Mongoose 9 |
+| Database | MongoDB with Mongoose 9 |
+| Caching | Redis |
 | Real-time | Socket.IO 4 |
-| Auth | JWT + Google OAuth + Clerk |
+| Authentication | JWT, Google OAuth, Clerk SSO |
+| File Storage | Cloudinary |
 | Email | Nodemailer (SMTP) |
-| File Uploads | Cloudinary + Multer |
 | Push Notifications | Web Push (VAPID) |
-| PDF Generation | PDFKit |
-| Scheduling | node-cron |
-| Testing | Jest + Supertest + mongodb-memory-server |
+| Testing | Jest, Supertest, mongodb-memory-server |
 | Deployment | Render |
 
 ---
@@ -55,366 +59,363 @@ LeapMentor's backend handles:
 ## Project Structure
 
 ```
-├── app.js                  # Express setup — middleware, routes, CORS
-├── server.js               # Entry point — HTTP server + Socket.IO
-├── config/
-│   ├── db.js               # MongoDB connection
-│   └── cloudinary.js       # Cloudinary config
-├── controllers/            # Route handler logic (one file per feature)
-│   └── admin/              # Admin-specific controllers
-├── models/                 # Mongoose schemas
-├── routes/                 # Express route definitions
-├── middleware/
-│   ├── authenticate.js     # JWT auth guard
-│   ├── adminAuth.js        # Admin role guard
-│   ├── auth.middleware.js  # Role-based access (requireRole)
-│   ├── noteAccess.js       # Note ownership check
-│   └── upload.middleware.js# Multer + Cloudinary upload
-├── socket/
-│   ├── socketAuth.js       # Socket.IO JWT middleware
-│   └── socketHandler.js    # Real-time event handlers
-├── services/               # Business logic layer
-├── repositories/           # DB query abstraction
-├── utils/                  # Helpers — tokens, slots, emails, invoices, push
-├── cron/                   # Scheduled jobs
-├── scripts/                # One-time seed scripts
-└── __tests__/              # Jest test suites
+Leapmentor-backend/
+├── app.js                    # Express app configuration and middleware registration
+├── server.js                 # HTTP server entry point and Socket.IO initialisation
+├── config/                   # Database, Cloudinary, Redis, and third-party configurations
+├── controllers/              # Thin HTTP layer — receives requests, delegates to services
+├── middleware/               # Authentication, role guards, upload handlers, error handling
+├── models/                   # Mongoose schema definitions
+├── repositories/             # Data access layer — all direct database interactions
+├── routes/                   # Express route declarations with validation middleware
+├── services/                 # Business logic layer — orchestrates repositories and utilities
+├── mappers/                  # DTO mappers — decouples database documents from API responses
+├── validations/              # Celebrate/Joi request validation schemas
+├── socket/                   # Socket.IO event handlers and room management
+├── utils/                    # Shared utilities — caching, email, ICS generation, AppError
+├── cron/                     # Scheduled background jobs
+├── scripts/                  # One-off admin and migration scripts
+└── __tests__/                # Jest test suites
 ```
 
 ---
 
-## Getting Started
+## Prerequisites
 
-### Prerequisites
+Ensure the following are available before running the project locally:
 
-- Node.js v18+
-- MongoDB Atlas URI (or local MongoDB)
-- `.env` file (see [Environment Variables](#environment-variables))
+- **Node.js** v18 or higher
+- **npm** v9 or higher
+- **MongoDB** — local instance or MongoDB Atlas cluster URI
+- **Redis** — local instance or hosted Redis URL
+- **Cloudinary** account for file storage
+- **SMTP** credentials for transactional email
+- **Google Cloud** project with OAuth 2.0 credentials
+- **Clerk** account for SSO (LinkedIn / Apple)
+- **VAPID keys** for web push notifications (generate via `web-push generate-vapid-keys`)
 
-### Install & Run
+---
+
+## Installation
 
 ```bash
-# Clone the repo
-git clone https://github.com/your-org/leapmentor-backend.git
-cd leapmentor-backend
+# Clone the repository
+git clone <repository-url>
+
+# Navigate to the backend directory
+cd Leapmentor-backend
 
 # Install dependencies
 npm install
-
-# Development (with nodemon)
-npm run dev
-
-# Production
-npm start
-```
-
-### Seed Scripts
-
-Run these once after first setup:
-
-```bash
-# Create the first admin user
-node scripts/seedAdmin.js
-
-# Set platform commission rate
-node scripts/seedPlatformCommission.js
 ```
 
 ---
 
 ## Environment Variables
 
-Create a `.env` file in the root:
+Create a `.env` file in the `Leapmentor-backend` root directory. Use the template below — replace placeholder values with your actual credentials. **Never commit real secrets to version control.**
 
 ```env
-# Server
+# ── Server ────────────────────────────────────────────────
 PORT=5000
 NODE_ENV=development
 
-# MongoDB
-MONGO_URI=mongodb+srv://<user>:<pass>@cluster.mongodb.net/leapmentor
+# ── Database ──────────────────────────────────────────────
+MONGO_URI=mongodb+srv://<username>:<password>@<cluster-url>/<database-name>
 
-# JWT
-JWT_SECRET=your_jwt_secret_here
+# ── Redis ─────────────────────────────────────────────────
+REDIS_URL=redis://<host>:<port>
 
-# Google OAuth
-GOOGLE_CLIENT_ID=your_google_client_id
-GOOGLE_CLIENT_SECRET=your_google_client_secret
+# ── JWT ───────────────────────────────────────────────────
+JWT_SECRET=<your_jwt_secret_min_32_chars>
 
-# Clerk SSO
-CLERK_SECRET_KEY=your_clerk_secret_key
+# ── Google OAuth ──────────────────────────────────────────
+GOOGLE_CLIENT_ID=<your_google_client_id>
+GOOGLE_CLIENT_SECRET=<your_google_client_secret>
 
-# Frontend URLs
+# ── Clerk SSO (LinkedIn / Apple) ──────────────────────────
+CLERK_SECRET_KEY=<your_clerk_secret_key>
+
+# ── Client URLs ───────────────────────────────────────────
 APP_BASE_URL=http://localhost:5173
 CLIENT_URL=http://localhost:5173
 
-# SMTP (Email)
-SMTP_HOST=smtp.yourprovider.com
+# ── Email (SMTP) ──────────────────────────────────────────
+SMTP_HOST=<smtp_host>
 SMTP_PORT=587
-SMTP_USER=your@email.com
-SMTP_PASS=yourpassword
-FROM_EMAIL=noreply@leapmentor.com
+SMTP_USER=<smtp_username>
+SMTP_PASS=<smtp_password>
+FROM_EMAIL=LeapMentor <no-reply@yourdomain.com>
 
-# Cloudinary
-CLOUDINARY_CLOUD_NAME=your_cloud_name
-CLOUDINARY_API_KEY=your_api_key
-CLOUDINARY_API_SECRET=your_api_secret
+# ── Cloudinary ────────────────────────────────────────────
+CLOUDINARY_CLOUD_NAME=<cloud_name>
+CLOUDINARY_API_KEY=<api_key>
+CLOUDINARY_API_SECRET=<api_secret>
 
-# Web Push (VAPID)
-VAPID_PUBLIC_KEY=your_vapid_public_key
-VAPID_PRIVATE_KEY=your_vapid_private_key
-VAPID_EMAIL=mailto:your@email.com
+# ── Web Push (VAPID) ──────────────────────────────────────
+VAPID_PUBLIC_KEY=<vapid_public_key>
+VAPID_PRIVATE_KEY=<vapid_private_key>
+VAPID_EMAIL=mailto:<your_email>
 ```
 
 ---
 
-## API Routes
+## Running the Project
 
-All routes are prefixed with `/api/v1`.  
-Protected routes require the header: `Authorization: Bearer <token>`
+```bash
+# Development mode with hot reload
+npm run dev
 
-### Auth — `/auth`
+# Production mode
+npm start
+```
 
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| POST | `/auth/register` | No | Register with email + password |
-| POST | `/auth/login` | No | Login, returns JWT |
-| POST | `/auth/google` | No | Google OAuth login/register |
-| GET | `/auth/google/callback` | No | Google OAuth callback |
-| POST | `/auth/clerk-sso` | No | Clerk SSO (LinkedIn, Apple) |
-| POST | `/auth/forgot-password` | No | Send password reset email |
-| POST | `/auth/reset-password` | No | Reset password with token |
-| POST | `/auth/change-password` | Yes | Change password (logged in) |
+The server starts on the port defined by `PORT` in your `.env` file (default: `5000`).
 
-### Verification — `/verification`
+---
 
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| POST | `/verification/send` | No | Send OTP + magic link |
-| POST | `/verification/resend` | No | Resend verification email |
-| POST | `/verification/verify-otp` | No | Verify OTP code |
-| GET | `/verification/verify-link/:token` | No | Verify via magic link |
+## API Reference
 
-### Users — `/users`
+All protected routes require the header:
+```
+Authorization: Bearer <jwt_token>
+```
 
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| GET | `/users/me` | Yes | Get logged-in user info |
+### Authentication — `/auth`
 
-### Mentor Profile — `/mentor-profile`
+| Method | Endpoint               | Auth| Description                      |
+|--------|------------------------|---- |----------------------------------|
+| POST   | `/auth/register`       | No  | Register with email and password |
+| POST   | `/auth/login`          | No  | Login and receive JWT            |
+| POST   | `/auth/google`         | No  | Google OAuth sign-in             |
+| POST   | `/auth/verify-otp`     | No  | Verify email via OTP             |
+| GET    | `/auth/verify-email`   | No  | Verify email via magic link      |
+| POST   | `/auth/resend-otp`     | No  | Resend OTP to email              |
+| POST   | `/auth/forgot-password`| No  | Request password reset link      |
+| POST   | `/auth/reset-password` | No  | Reset password via token         |
+| GET    | `/auth/me`             | Yes | Get authenticated user details   |
 
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| POST | `/mentor-profile` | Mentor | Create profile (onboarding) |
-| GET | `/mentor-profile/me` | Mentor | Get own profile |
-| PUT | `/mentor-profile/me` | Mentor | Update own profile |
-| GET | `/mentor-profile/:id` | No | Get public profile by userId |
+### Mentor Profiles — `/mentor-profile`
 
-### Mentee Profile — `/mentee-profile`
+| Method | Endpoint              | Auth   | Description                  |
+|--------|-----------------------|--------|------------------------------|
+| POST   | `/mentor-profile`     | Mentor | Create onboarding profile    |
+| GET    | `/mentor-profile/me`  | Mentor | Get own profile              |
+| PUT    | `/mentor-profile/me`  | Mentor | Update own profile           |
+| GET    | `/mentor-profile/:id` | Public | Get published mentor profile |
 
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| POST | `/mentee-profile` | Mentee | Create profile (onboarding) |
-| GET | `/mentee-profile/me` | Mentee | Get own profile |
-| PUT | `/mentee-profile/me` | Mentee | Update own profile |
-| GET | `/mentee-profile/:id` | No | Get public profile |
+### Mentee Profiles — `/mentee-profile`
 
-### Mentor Search — `/mentor-search`
+| Method | Endpoint              | Auth   | Description                  |
+|--------|-----------------------|--------|------------------------------|
+| POST   | `/mentee-profile`     | Mentee | Create onboarding profile    |
+| GET    | `/mentee-profile/me`  | Mentee | Get own profile              | 
+| PUT    | `/mentee-profile/me`  | Mentee | Update own profile           |
+| GET    | `/mentee-profile/:id` | Public | Get published mentee profile |
 
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| GET | `/mentor-search` | Yes | Search mentors with filters + pagination |
+### File Uploads — `/upload`
+
+| Method | Endpoint                         | Auth   | Description                                 |
+|--------|----------------------------------|--------|---------------------------------------------|
+| POST   | `/upload/profile-picture`        | Yes    | Upload profile picture to Cloudinary        |
+| POST   | `/upload/verification-documents` | Mentor | Upload resume and work experience documents |
+
+### Mentor Discovery — `/mentors`
+
+| Method | Endpoint          | Auth   | Description               |
+|--------|-------------------|--------|---------------------------|
+| GET    | `/mentors/search` | Mentee | Search and filter mentors |
 
 ### Availability — `/availability`
 
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| GET | `/availability/me` | Mentor | Get own availability |
-| POST | `/availability` | Mentor | Create availability |
-| PATCH | `/availability/me` | Mentor | Update availability |
-| DELETE | `/availability/me` | Mentor | Clear availability |
-| GET | `/availability/:mentorId` | No | Get mentor availability (public) |
-| GET | `/availability/:mentorId/slots?duration=60` | Yes | Get bookable slots |
+| Method | Endpoint                  | Auth   | Description             |
+|--------|---------------------------|--------|-------------------------|
+| POST   | `/availability`           | Mentor | Set availability slots  |
+| GET    | `/availability/:mentorId` | Yes    | Get mentor availability |
+| PUT    | `/availability`           | Mentor | Update availability     |
 
-### Connect Requests — `/connect-request`
+### Connect Requests — `/connect-requests`
 
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| POST | `/connect-request` | Mentee | Send connect request |
-| GET | `/connect-request/mentor` | Mentor | Get all received requests |
-| GET | `/connect-request/mentee` | Mentee | Get all sent requests |
-| PATCH | `/connect-request/:id/accept` | Mentor | Accept a request |
-| PATCH | `/connect-request/:id/reject` | Mentor | Reject a request |
-| PATCH | `/connect-request/:id/cancel` | Mentee | Cancel a request |
-| GET | `/connect-request/:id` | Yes | Get single request details |
+| Method | Endpoint                        | Auth   | Description                     |
+|--------|---------------------------------|--------|---------------------------------|
+| POST   | `/connect-requests`             | Mentee | Send a connect request          |
+| GET    | `/connect-requests/my-requests` | Mentee | Get outgoing requests           |
+| GET    | `/connect-requests/incoming`    | Mentor | Get incoming requests           |
+| PATCH  | `/connect-requests/:id/respond` | Mentor | Accept or reject a request      |
+| PATCH  | `/connect-requests/:id/refer`   | Mentor | Refer request to another mentor |
+| DELETE | `/connect-requests/:id`         | Mentee | Cancel a request                |
+| GET    | `/connect-requests/ongoing`     | Yes    | Get ongoing sessions            |
+| GET    | `/connect-requests/:id`         | Yes    | Get session detail              |
 
-### Sessions — `/sessions`
+### Payments & Escrow — `/escrow`
 
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| GET | `/sessions` | Yes | Get sessions for logged-in user |
-| GET | `/sessions/:id` | Yes | Get single session details |
-| PATCH | `/sessions/:id/complete` | Mentor | Mark session as complete |
-| PATCH | `/sessions/:id/cancel` | Yes | Cancel a session |
-
-### Messages — `/messages`
-
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| GET | `/messages/:connectionId` | Yes | Get chat history |
-| POST | `/messages/:connectionId` | Yes | Send message (REST fallback) |
-
-### Notifications — `/notifications`
-
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| GET | `/notifications` | Yes | Get all notifications |
-| PATCH | `/notifications/:id/read` | Yes | Mark one as read |
-| PATCH | `/notifications/read-all` | Yes | Mark all as read |
-
-### Push — `/push`
-
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| POST | `/push/subscribe` | Yes | Save push subscription |
-| DELETE | `/push/unsubscribe` | Yes | Remove push subscription |
-
-### Feedback — `/feedback`
-
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| POST | `/feedback` | Mentee | Submit session feedback |
-| GET | `/feedback/mentor/:mentorId` | No | Get mentor's public feedback |
-
-### Goals — `/goals`
-
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| POST | `/goals` | Yes | Create a goal |
-| GET | `/goals` | Yes | Get own goals |
-| PATCH | `/goals/:id` | Yes | Update a goal |
-| DELETE | `/goals/:id` | Yes | Delete a goal |
-
-### Notes — `/notes` + `/private-notes`
-
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| POST | `/notes` | Yes | Create a shared note |
-| GET | `/notes/:connectionId` | Yes | Get notes for a connection |
-| PATCH | `/notes/:id` | Yes | Update a note |
-| DELETE | `/notes/:id` | Yes | Delete a note |
-| POST | `/private-notes` | Yes | Create a private note |
-| GET | `/private-notes` | Yes | Get own private notes |
+| Method | Endpoint                           | Auth   | Description                     |
+|--------|------------------------------------|--------|---------------------------------|
+| POST   | `/escrow/deposit`                  | Mentee | Deposit to escrow for a session |
+| POST   | `/escrow/release`                  | Mentor | Release payment after session   |
+| GET    | `/escrow/status/:connectRequestId` | Yes    | Get escrow status               |
 
 ### Earnings — `/earnings`
 
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| GET | `/earnings` | Mentor | Get earnings summary + transactions |
+| Method | Endpoint    | Auth   | Description                                  |
+|--------|-------------|--------|----------------------------------------------|
+| GET    | `/earnings` | Mentor | Get earnings summary and transaction history |
+
+### Feedback — `/feedback`
+
+| Method | Endpoint                      | Auth | Description                        |
+|--------|-------------------------------|------|------------------------------------|
+| POST   | `/feedback`                   | Yes  | Submit session feedback and rating |
+| GET    | `/feedback/:connectRequestId` | Yes  | Get feedback for a session         |
+
+### Chat — `/messages`
+
+| Method | Endpoint                  | Auth | Description                          |
+|--------|---------------------------|------|--------------------------------------|
+| GET    | `/messages/:connectionId` | Yes  | Get message history for a connection |
+
+### Notes — `/notes` and `/private-notes`
+
+| Method | Endpoint               | Auth | Description                        |
+|--------|------------------------|------|------------------------------------|
+| POST   | `/notes`               | Yes  | Create a shared session note       |
+| GET    | `/notes/:connectionId` | Yes  |  Get shared notes for a connection |
+| PATCH  | `/notes/:id`           | Yes  | Update a shared note               |
+| DELETE | `/notes/:id`           | Yes  | Delete a shared note               |
+| POST   | `/private-notes`       | Yes  | Create a private note              |
+| GET    | `/private-notes`       | Yes  | Get own private notes              |
 
 ### Reports — `/reports`
 
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| POST | `/reports` | Yes | Submit a report |
-| GET | `/reports/me` | Yes | Get own submitted reports |
+| Method | Endpoint      | Auth | Description               |
+|--------|---------------|------|---------------------------|
+| POST   | `/reports`    | Yes  | Submit a report           |
+| GET    | `/reports/me` | Yes  | Get own submitted reports |
+
+### Notifications — `/notifications`
+
+| Method | Endpoint                  | Auth | Description                     |
+|--------|---------------------------|------|---------------------------------|
+| GET    | `/notifications`          | Yes  | Get all notifications           |
+| PATCH  | `/notifications/:id/read` | Yes  | Mark notification as read       |
+| PATCH  | `/notifications/read-all` | Yes  |  Mark all notifications as read |
 
 ### Admin — `/admin`
 
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| POST | `/admin/login` | No | Admin login |
-| GET | `/admin/users` | Admin | List all users |
-| PATCH | `/admin/users/:id/ban` | Admin | Ban a user |
-| GET | `/admin/reports` | Admin | View all reports |
-| PATCH | `/admin/reports/:id` | Admin | Update report status |
-| GET | `/admin/payments` | Admin | View all transactions |
-| GET | `/admin/settings` | Admin | Get platform settings |
-| PATCH | `/admin/settings` | Admin | Update platform settings |
+| Method | Endpoint                                 | Auth  | Description                               |
+|--------|------------------------------------------|-------|-------------------------------------------|
+| POST   | `/admin/login`                           | No    | Admin login                               | 
+| GET    | `/admin/users`                           | Admin | List all users                            |
+| PATCH  | `/admin/users/:id/ban`                   | Admin | Ban a user                                |
+| GET    | `/admin/mentor-verifications`            | Admin | List all mentor verification applications |
+| PATCH  | `/admin/mentor-verifications/:id/verify` | Admin | Approve mentor verification               |
+| PATCH  | `/admin/mentor-verifications/:id/revoke` | Admin | Revoke mentor verification                |
+| GET    | `/admin/engagements`                     | Admin | View all connect request engagements      |
+| GET    | `/admin/reports`                         | Admin | View all submitted reports                |
+| PATCH  | `/admin/reports/:id`                     | Admin | Resolve or dismiss a report               |
+| POST   | `/admin/reports/:id/refund`              | Admin | Process mentee refund                     |
+| GET    | `/admin/payments`                        | Admin | View all transactions                     |
+| GET    | `/admin/settings`                        | Admin | Get platform settings                     |
+| PATCH  | `/admin/settings`                        | Admin | Update platform settings                  |
+| POST   |  `/admin/settings/add-admin`             | Admin | Provision a new admin account             |
 
 ---
 
 ## Authentication Flows
 
 ### Email / Password
-1. `POST /auth/register` → creates user, sends OTP + magic link to email
-2. User verifies via OTP or magic link → `isEmailVerified = true`
-3. `POST /auth/login` → returns JWT
-4. All protected routes expect: `Authorization: Bearer <token>`
+
+1. `POST /auth/register` — creates user account and sends OTP + magic link to the registered email
+2. User verifies identity via OTP or magic link — sets `isEmailVerified = true`
+3. `POST /auth/login` — returns a signed JWT on success
+4. All protected routes require: `Authorization: Bearer <token>`
 
 ### Google OAuth
-1. Frontend renders Google button via GSI (Google Sign-In library)
-2. On click, Google returns a `credential` (signed JWT)
-3. Frontend POSTs credential to `POST /auth/google`
-4. Backend verifies with `google-auth-library`, creates/finds user, returns JWT
+
+1. Frontend renders the Google Sign-In button via the GSI library
+2. On successful sign-in, Google returns a signed credential JWT
+3. Frontend posts the credential to `POST /auth/google`
+4. Backend verifies the token with `google-auth-library`, finds or creates the user, and returns a JWT
 
 ### Clerk SSO (LinkedIn / Apple)
-1. Frontend triggers Clerk's `authenticateWithRedirect`
-2. After auth, Clerk redirects to `/sso-callback`
-3. Backend exchanges Clerk session for internal JWT
-4. Role and terms acceptance stored in `localStorage` before redirect
+
+1. Frontend triggers Clerk's `authenticateWithRedirect` flow
+2. After authentication, Clerk redirects to the SSO callback route
+3. Backend exchanges the Clerk session token for an internal JWT
+4. Role selection and terms acceptance are persisted before redirect to the dashboard
 
 ---
 
-## Real-time (Socket.IO)
+## Real-time Events (Socket.IO)
 
-Socket.IO runs on the same HTTP server as Express. Auth is handled by `socketAuth.js` which validates the JWT passed in `socket.handshake.auth.token`.
+Socket.IO runs on the same HTTP server as Express. Authentication is handled by `socketAuth.js`, which validates the JWT passed in `socket.handshake.auth.token`.
 
-### Key Events
+### Client → Server
 
-| Event | Direction | Description |
-|-------|-----------|-------------|
-| `join_room` | Client → Server | Join a chat room by `connectionId` |
-| `send_message` | Client → Server | Send a chat message |
-| `receive_message` | Server → Client | Receive a new message |
-| `notification` | Server → Client | Real-time notification push |
-| `disconnect` | Client → Server | Auto-cleanup on disconnect |
+| Event | Payload | Description |
+|---|---|---|
+| `join_room` | `{ connectionId }` | Join a chat room for a given connection |
+| `send_message` | `{ connectionId, content }` | Send a message in a chat room |
+| `disconnect` | — | Auto-cleanup on client disconnect |
+
+### Server → Client
+
+| Event | Description |
+|---|---|
+| `receive_message` | Delivers a new chat message to room members |
+| `notification` | Pushes a real-time notification to a specific user |
+| `new_connect_request` | Notifies a mentor of an incoming request |
+| `request_status_changed` | Notifies participants when a request status changes |
+| `request_accepted` | Notifies mentee when their request is accepted |
+| `request_declined` | Notifies mentee when their request is declined |
+| `request_referred` | Notifies mentee when their request is referred |
 
 ---
 
 ## Cron Jobs
 
 | File | Schedule | Description |
-|------|----------|-------------|
-| `cleanupAvailability.js` | Nightly (midnight) | Removes past specific dates from mentor availability |
-| `sessionReminders.js` | Every hour | Sends push + email reminders for upcoming sessions |
+|---|---|---|
+| `cleanupAvailability.js` | Daily at midnight | Removes expired specific-date slots from mentor availability |
+| `sessionReminders.js` | Every hour | Sends push notification and email reminders for upcoming sessions |
 
 ---
 
 ## Testing
 
 ```bash
-# Run all tests
+# Run all test suites
 npm test
 
-# With coverage report
+# Run with coverage report
 npm run test:coverage
 
-# Watch mode
+# Run in watch mode during development
 npm run test:watch
 ```
 
-Test suites in `__tests__/`:
+Test suites are located in `__tests__/` and use `mongodb-memory-server` — no live database connection is required.
 
-- `auth.test.js` — register, login, token validation
-- `availability.test.js` — create, update, slot generation
-- `escrow.test.js` — payment hold and release logic
-- `session.test.js` — session lifecycle
-
-Tests use `mongodb-memory-server` so no real DB connection is needed.
+| Suite | Coverage |
+|---|---|
+| `auth.test.js` | Registration, login, token validation |
+| `availability.test.js` | Slot creation, updates, conflict detection |
+| `escrow.test.js` | Payment hold and release logic |
+| `session.test.js` | Full session lifecycle |
 
 ---
 
 ## Deployment
 
-Deployed on **Render**.
+The backend is deployed on **Render**.
 
-1. Connect your GitHub repo to Render
-2. Set all `.env` variables in Render dashboard → **Environment**
-3. Set **Start Command** to: `node server.js`
-4. After deploy, add your Render backend URL to:
-   - Google Cloud Console → **Authorized redirect URIs**
-   - Google Cloud Console → **Authorized JavaScript origins** (frontend URL)
-
-
-
+1. Connect the GitHub repository to your Render service
+2. Add all environment variables from the [Environment Variables](#environment-variables) section to the Render dashboard under **Environment**
+3. Set the **Start Command** to:
+   ```
+   node server.js
+   ```
+4. After the first deploy, add the Render backend URL to:
+   - **Google Cloud Console** → Authorised Redirect URIs
+   - **Google Cloud Console** → Authorised JavaScript Origins (frontend URL)
+   - **Clerk Dashboard** → Allowed redirect URLs

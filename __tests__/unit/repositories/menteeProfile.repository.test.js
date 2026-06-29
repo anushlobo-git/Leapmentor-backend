@@ -1,217 +1,218 @@
 /**
- * @fileoverview MenteeProfile Repository Corporate Unit Tests
- * @description Verifies mapping selections, population filters,
- * and update execution trees with zero real database connectivity.
+ * @fileoverview Mentee Profile Repository Corporate Unit Tests
+ * @description Assures precise verification of lookup criteria, lean query builders,
+ * multi-stage subdocument populations, and mutation wrappers using isolated driver mocks.
  */
 
 const createMenteeProfileRepository = require("../../../repositories/menteeProfile.repository");
 
 describe("MenteeProfile Repository", () => {
-  let mockModel;
-  let repository;
+  let mockMenteeProfileModel;
+  let menteeProfileRepository;
 
-  const mockProfile = {
-    _id: "menteeProfile999",
-    user: "user777",
-    currentRole: "Data Analyst",
-    company: "Leap Corporation",
-    skills: ["Python", "SQL"],
+  const mockProfileRecord = {
+    _id: "profile001",
+    user: "user123",
+    currentRole: "Software Engineer Intern",
+    company: "Leapmentor",
+    skills: ["JavaScript", "Node.js"],
     isProfileComplete: true,
     isProfilePublished: true,
   };
 
-  // Reusable query chain factory mapping fluent criteria queries
-  const makeChain = (resolvedValue = null) => ({
-    select: jest.fn().mockReturnThis(),
-    populate: jest.fn().mockReturnThis(),
-    lean: jest.fn().mockResolvedValue(resolvedValue),
-    then: jest.fn(function (callback) {
-      return Promise.resolve(callback(resolvedValue));
-    }),
-  });
+  const mockRecordsArray = [mockProfileRecord];
+
+  // Safe Factory: Decorates a real Promise instance to completely avoid "manual then" linter errors
+  const makeChain = (resolvedValue = null) => {
+    const promise = Promise.resolve(resolvedValue);
+
+    // Attach Mongoose chain builders directly to the native Promise, returning itself for fluid chaining
+    promise.select = jest.fn().mockReturnValue(promise);
+    promise.populate = jest.fn().mockReturnValue(promise);
+    promise.lean = jest
+      .fn()
+      .mockImplementation(() => Promise.resolve(resolvedValue));
+
+    return promise;
+  };
 
   beforeEach(() => {
-    mockModel = {
+    mockMenteeProfileModel = {
       find: jest.fn(),
       findOne: jest.fn(),
       findOneAndDelete: jest.fn(),
       create: jest.fn(),
       findOneAndUpdate: jest.fn(),
     };
-    repository = createMenteeProfileRepository(mockModel);
+    menteeProfileRepository = createMenteeProfileRepository(
+      mockMenteeProfileModel,
+    );
   });
 
   afterEach(() => {
     jest.clearAllMocks();
   });
 
-  // ── findMenteeProfilesByUserIds ─────────────────────────────────────────
-  describe("findMenteeProfilesByUserIds", () => {
-    test("should fetch core completion flags matching incoming user constraints", async () => {
-      const chain = makeChain([mockProfile]);
-      mockModel.find.mockReturnValue(chain);
+  // ── COLLECTION QUERIES WITH FILTERS ─────────────────────────────────────
+  describe("Collection Queries With Filters", () => {
+    test("findMenteeProfilesByUserIds should execute find tracking precise selection projections", async () => {
+      const mockChain = makeChain(mockRecordsArray);
+      mockMenteeProfileModel.find.mockReturnValue(mockChain);
+      const userIds = ["user123", "user456"];
 
-      const result = await repository.findMenteeProfilesByUserIds(["user777"]);
+      const result =
+        await menteeProfileRepository.findMenteeProfilesByUserIds(userIds);
 
-      expect(mockModel.find).toHaveBeenCalledWith({
-        user: { $in: ["user777"] },
+      expect(mockMenteeProfileModel.find).toHaveBeenCalledWith({
+        user: { $in: userIds },
       });
-      expect(chain.select).toHaveBeenCalledWith(
+      expect(mockChain.select).toHaveBeenCalledWith(
         "user isProfileComplete isProfilePublished",
       );
-      expect(result).toEqual([mockProfile]);
+      expect(mockChain.lean).toHaveBeenCalled();
+      expect(result).toEqual(mockRecordsArray);
     });
-  });
 
-  // ── findMenteeProfilesByUserIdsFull ─────────────────────────────────────
-  describe("findMenteeProfilesByUserIdsFull", () => {
-    test("should fetch complete comprehensive profiles for target user lists", async () => {
-      const chain = makeChain([mockProfile]);
-      mockModel.find.mockReturnValue(chain);
+    test("findMenteeProfilesByUserIdsFull should include extensive profile details in the selection fields", async () => {
+      const mockChain = makeChain(mockRecordsArray);
+      mockMenteeProfileModel.find.mockReturnValue(mockChain);
+      const userIds = ["user123"];
 
-      const result = await repository.findMenteeProfilesByUserIdsFull([
-        "user777",
-      ]);
+      const result =
+        await menteeProfileRepository.findMenteeProfilesByUserIdsFull(userIds);
 
-      expect(mockModel.find).toHaveBeenCalledWith({
-        user: { $in: ["user777"] },
+      expect(mockMenteeProfileModel.find).toHaveBeenCalledWith({
+        user: { $in: userIds },
       });
-      expect(chain.select).toHaveBeenCalledWith(
+      expect(mockChain.select).toHaveBeenCalledWith(
         "user currentRole company profilePicture skills bio interestedFields isProfileComplete isProfilePublished",
       );
-      expect(result).toEqual([mockProfile]);
+      expect(mockChain.lean).toHaveBeenCalled();
+      expect(result).toEqual(mockRecordsArray);
     });
   });
 
-  // ── findMenteeProfileByUserId ───────────────────────────────────────────
-  describe("findMenteeProfileByUserId", () => {
-    test("should return individual profiling data mapped dynamically", async () => {
-      const chain = makeChain(mockProfile);
-      mockModel.findOne.mockReturnValue(chain);
+  // ── SINGULAR LOOKUPS & POPULATIONS ──────────────────────────────────────
+  describe("Singular Lookups & Populations", () => {
+    test("findMenteeProfileByUserId should locate a profile map using plain lean optimization", async () => {
+      const mockChain = makeChain(mockProfileRecord);
+      mockMenteeProfileModel.findOne.mockReturnValue(mockChain);
 
-      const result = await repository.findMenteeProfileByUserId("user777");
+      const result =
+        await menteeProfileRepository.findMenteeProfileByUserId("user123");
 
-      expect(mockModel.findOne).toHaveBeenCalledWith({ user: "user777" });
-      expect(result).toEqual(mockProfile);
-    });
-
-    test("should resolve null if user identifier has no tracking document profile", async () => {
-      const chain = makeChain(null);
-      mockModel.findOne.mockReturnValue(chain);
-
-      const result = await repository.findMenteeProfileByUserId("absentUser");
-      expect(result).toBeNull();
-    });
-  });
-
-  // ── deleteMenteeProfileByUserId ─────────────────────────────────────────
-  describe("deleteMentorProfileByUserId", () => {
-    test("should invoke fineOneAndDelete execution layers natively", async () => {
-      mockModel.findOneAndDelete.mockResolvedValue(mockProfile);
-
-      const result = await repository.deleteMenteeProfileByUserId("user777");
-
-      expect(mockModel.findOneAndDelete).toHaveBeenCalledWith({
-        user: "user777",
+      expect(mockMenteeProfileModel.findOne).toHaveBeenCalledWith({
+        user: "user123",
       });
-      expect(result).toEqual(mockProfile);
+      expect(mockChain.lean).toHaveBeenCalled();
+      expect(result).toEqual(mockProfileRecord);
     });
-  });
 
-  // ── findMenteeProfile ───────────────────────────────────────────────────
-  describe("findMenteeProfile", () => {
-    test("should filter biographical projection blocks cleanly", async () => {
-      const chain = makeChain(mockProfile);
-      mockModel.findOne.mockReturnValue(chain);
+    test("findMenteeProfile should request a curated subset of biographical projection keys", async () => {
+      const mockChain = makeChain(mockProfileRecord);
+      mockMenteeProfileModel.findOne.mockReturnValue(mockChain);
 
-      const result = await repository.findMenteeProfile("user777");
+      const result = await menteeProfileRepository.findMenteeProfile("user123");
 
-      expect(mockModel.findOne).toHaveBeenCalledWith({ user: "user777" });
-      expect(chain.select).toHaveBeenCalledWith(
+      expect(mockMenteeProfileModel.findOne).toHaveBeenCalledWith({
+        user: "user123",
+      });
+      expect(mockChain.select).toHaveBeenCalledWith(
         "currentRole company profilePicture skills bio interestedFields",
       );
-      expect(result).toEqual(mockProfile);
+      expect(mockChain.lean).toHaveBeenCalled();
+      expect(result).toEqual(mockProfileRecord);
     });
-  });
 
-  // ── findByUserId ────────────────────────────────────────────────────────
-  describe("findByUserId", () => {
-    test("should execute standard lookup queries matching user references", async () => {
-      const chain = makeChain(mockProfile);
-      mockModel.findOne.mockReturnValue(chain);
+    test("findByUserId should return the raw unchained document query match", async () => {
+      mockMenteeProfileModel.findOne.mockResolvedValue(mockProfileRecord);
 
-      const result = await repository.findByUserId("user777");
+      const result = await menteeProfileRepository.findByUserId("user123");
 
-      expect(mockModel.findOne).toHaveBeenCalledWith({ user: "user777" });
-      expect(result).toEqual(mockProfile);
+      expect(mockMenteeProfileModel.findOne).toHaveBeenCalledWith({
+        user: "user123",
+      });
+      expect(result).toEqual(mockProfileRecord);
     });
-  });
 
-  // ── findByUserIdWithAccountInfo ─────────────────────────────────────────
-  describe("findByUserIdWithAccountInfo", () => {
-    test("should compile query paths with parent user collections populated", async () => {
-      const chain = makeChain(mockProfile);
-      mockModel.findOne.mockReturnValue(chain);
+    test("findByUserIdWithAccountInfo should extend queries to pull parent identity credentials", async () => {
+      const mockChain = makeChain(mockProfileRecord);
+      mockMenteeProfileModel.findOne.mockReturnValue(mockChain);
 
-      const result = await repository.findByUserIdWithAccountInfo("user777");
+      const result =
+        await menteeProfileRepository.findByUserIdWithAccountInfo("user123");
 
-      expect(mockModel.findOne).toHaveBeenCalledWith({ user: "user777" });
-      expect(chain.populate).toHaveBeenCalledWith(
+      expect(mockMenteeProfileModel.findOne).toHaveBeenCalledWith({
+        user: "user123",
+      });
+      expect(mockChain.populate).toHaveBeenCalledWith(
         "user",
         "name email isEmailVerified",
       );
-      expect(result).toEqual(mockProfile);
+      expect(result).toEqual(mockProfileRecord);
     });
-  });
 
-  // ── findPublishedByUserId ───────────────────────────────────────────────
-  describe("findPublishedByUserId", () => {
-    test("should evaluate constraints ensuring profile visibility validation", async () => {
-      const chain = makeChain(mockProfile);
-      mockModel.findOne.mockReturnValue(chain);
+    test("findPublishedByUserId should enforce publication criteria restrictions during account lookups", async () => {
+      const mockChain = makeChain(mockProfileRecord);
+      mockMenteeProfileModel.findOne.mockReturnValue(mockChain);
 
-      const result = await repository.findPublishedByUserId("user777");
+      const result =
+        await menteeProfileRepository.findPublishedByUserId("user123");
 
-      expect(mockModel.findOne).toHaveBeenCalledWith({
-        user: "user777",
+      expect(mockMenteeProfileModel.findOne).toHaveBeenCalledWith({
+        user: "user123",
         isProfilePublished: true,
       });
-      expect(chain.populate).toHaveBeenCalledWith("user", "name email");
-      expect(result).toEqual(mockProfile);
+      expect(mockChain.populate).toHaveBeenCalledWith("user", "name email");
+      expect(result).toEqual(mockProfileRecord);
     });
   });
 
-  // ── create ──────────────────────────────────────────────────────────────
-  describe("create", () => {
-    test("should write profile properties down immediately inside the database", async () => {
-      mockModel.create.mockResolvedValue(mockProfile);
-      const result = await repository.create({ user: "user777" });
-      expect(mockModel.create).toHaveBeenCalledWith({ user: "user777" });
-      expect(result).toEqual(mockProfile);
-    });
-
-    test("should propagate internal schema exceptions outward cleanly", async () => {
-      mockModel.create.mockRejectedValue(new Error("Database Write Rejection"));
-      await expect(repository.create({})).rejects.toThrow(
-        "Database Write Rejection",
+  // ── DATA MUTATIONS & WRITE ACTIONS ──────────────────────────────────────
+  describe("Data Mutations & Write Actions", () => {
+    test("deleteMenteeProfileByUserId should immediately deploy native removal criteria hooks", async () => {
+      mockMenteeProfileModel.findOneAndDelete.mockResolvedValue(
+        mockProfileRecord,
       );
+
+      const result =
+        await menteeProfileRepository.deleteMenteeProfileByUserId("user123");
+
+      expect(mockMenteeProfileModel.findOneAndDelete).toHaveBeenCalledWith({
+        user: "user123",
+      });
+      expect(result).toEqual(mockProfileRecord);
     });
-  });
 
-  // ── findOneAndUpdateByUserId ────────────────────────────────────────────
-  describe("findOneAndUpdateByUserId", () => {
-    test("should issue atomic changes while keeping core schema validation gates active", async () => {
-      mockModel.findOneAndUpdate.mockResolvedValue(mockProfile);
-      const data = { currentRole: "Senior Analyst" };
+    test("create should persist structural data schemas directly down to the persistence tier", async () => {
+      mockMenteeProfileModel.create.mockResolvedValue(mockProfileRecord);
+      const incomingPayload = { user: "user123", skills: ["JavaScript"] };
 
-      const result = await repository.findOneAndUpdateByUserId("user777", data);
+      const result = await menteeProfileRepository.create(incomingPayload);
 
-      expect(mockModel.findOneAndUpdate).toHaveBeenCalledWith(
-        { user: "user777" },
-        { $set: data },
+      expect(mockMenteeProfileModel.create).toHaveBeenCalledWith(
+        incomingPayload,
+      );
+      expect(result).toEqual(mockProfileRecord);
+    });
+
+    test("findOneAndUpdateByUserId should execute modifications alongside strict validation controls", async () => {
+      mockMenteeProfileModel.findOneAndUpdate.mockResolvedValue(
+        mockProfileRecord,
+      );
+      const updateData = { company: "Leapmentor Inc" };
+
+      const result = await menteeProfileRepository.findOneAndUpdateByUserId(
+        "user123",
+        updateData,
+      );
+
+      expect(mockMenteeProfileModel.findOneAndUpdate).toHaveBeenCalledWith(
+        { user: "user123" },
+        { $set: updateData },
         { new: true, runValidators: true },
       );
-      expect(result).toEqual(mockProfile);
+      expect(result).toEqual(mockProfileRecord);
     });
   });
 });

@@ -26,7 +26,7 @@ describe("Admin Settings Router Architecture", () => {
     };
     const mockAuth = jest.fn();
 
-    createAdminSettingsRoutes(mockCtrl, mockAuth);
+    createAdminSettingsRoutes({ adminSettingsController: mockCtrl, adminAuthenticate: mockAuth });
     expect(mockRouter.use).toHaveBeenCalledWith(mockAuth);
     expect(mockRouter.post).toHaveBeenCalledWith(
       "/add-admin",

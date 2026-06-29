@@ -13,7 +13,7 @@ describe("Invoice Router Unit Tests", () => {
     const mockController = { downloadInvoice: "c_dl" };
     const mockValidations = { getInvoicePdfValidation: "v_pdf" };
 
-    createInvoiceRoutes(mockController, "auth_guard", mockValidations);
+    createInvoiceRoutes({ invoiceController: mockController, authenticate: "auth_guard", validations: mockValidations });
 
     expect(mockRouter.use).toHaveBeenCalledWith("auth_guard");
     expect(mockRouter.get).toHaveBeenCalledWith(

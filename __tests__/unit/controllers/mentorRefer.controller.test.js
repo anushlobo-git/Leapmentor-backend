@@ -9,7 +9,6 @@ const createMentorReferController = require("../../../controllers/mentorRefer.co
 describe("Mentor Referral Controller Unit Tests", () => {
   let mockMentorReferService, controller, mockReq, mockRes, mockNext;
 
-  // Clear microtask loops to capture async operations wrapped in catchAsync
   const flushPromises = () => new Promise(setImmediate);
 
   beforeEach(() => {
@@ -17,7 +16,7 @@ describe("Mentor Referral Controller Unit Tests", () => {
       getSimilarMentorsList: jest.fn(),
     };
 
-    controller = createMentorReferController(mockMentorReferService);
+    controller = createMentorReferController({ mentorReferService: mockMentorReferService });
 
     mockReq = {
       user: { _id: "mentor_origin_uuid_101" },

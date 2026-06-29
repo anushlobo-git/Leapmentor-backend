@@ -5,27 +5,28 @@
  */
 
 const AppError = require("../utils/AppError");
-
+const env = require("../config/env");
 // Upper-case Domain Constants
 const SCOPES = ["https://www.googleapis.com/auth/calendar.readonly"];
 const CALENDAR_VERSION = "v3";
 const DEFAULT_TIMEZONE_SUFFIX = "Z";
 const MAX_EVENT_RESULTS = 250;
 
-const createGoogleCalendarService = (
+const createGoogleCalendarService = ({
   google,
   availabilityRepository,
   logger,
-) => {
+  googleConfig,
+}) => {
   /**
    * Instantiates a fresh Google API OAuth2 client mapping configurations dynamically.
    * @private
    */
   const _getOAuth2Client = () => {
     return new google.auth.OAuth2(
-      process.env.GOOGLE_CLIENT_ID,
-      process.env.GOOGLE_CLIENT_SECRET,
-      process.env.GOOGLE_REDIRECT_URI,
+      googleConfig.clientId,
+      googleConfig.clientSecret,
+      googleConfig.redirectUri,
     );
   };
 

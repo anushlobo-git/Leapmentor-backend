@@ -14,12 +14,12 @@ const CONFIG_DEFAULT_LIMIT = 6;
 const ATLAS_PIPELINE_CAP = 200;
 const EXTRA_NAME_MATCH_SCORE = 2;
 
-const createMentorSearchService = (
+const createMentorSearchService = ({
   mentorSearchRepository,
   userRepository,
   toMentorProfileDTO,
   logger,
-) => {
+}) => {
   /**
    * Retrieves a simple, unfiltered list of published mentors sorted by rating.
    * @private

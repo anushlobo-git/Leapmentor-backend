@@ -17,14 +17,14 @@ const ROLE_MENTOR = "mentor";
 const ROLE_MENTEE = "mentee";
 const CLOUDINARY_RESOURCE_TYPE_RAW = "raw";
 
-const createNoteService = (
+const createNoteService = ({
   noteRepository,
   connectRequestRepository,
   cloudinary,
   streamifier,
   getFileType,
   logger,
-) => {
+}) => {
   const _extractErrorMessage = (error) => {
     if (error instanceof Error) return error.message;
     if (typeof error === "object") return JSON.stringify(error);
@@ -115,6 +115,8 @@ const createNoteService = (
         resource_type: CLOUDINARY_RESOURCE_TYPE_RAW,
         use_filename: true,
         unique_filename: true,
+        timeout: 120000,
+        chunk_size: 6000000,
       });
     } catch (cloudinaryError) {
       throw new AppError(

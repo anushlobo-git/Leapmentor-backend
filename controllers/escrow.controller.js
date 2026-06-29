@@ -6,7 +6,7 @@
 
 const catchAsync = require("../utils/catchAsync");
 
-const createEscrowController = (escrowService) => {
+const createEscrowController = ({ escrowService }) => {
   /**
    * Executes token commitments into escrow hold locks.
    * @route   POST /api/v1/escrow/pay

@@ -5,7 +5,7 @@
 
 const express = require("express");
 
-const createNoteRoutes = (noteController, middlewares, validations) => {
+const createNoteRoutes = ({ noteController, middlewares, validations }) => {
   const router = express.Router();
   const { authenticate, upload } = middlewares;
   const {

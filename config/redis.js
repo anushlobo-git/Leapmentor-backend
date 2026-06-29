@@ -1,8 +1,9 @@
 // config/redis.js
 const Redis = require("ioredis");
 const logger = require("./logger");
+const env = require("./env");
 
-const redis = new Redis(process.env.REDIS_URL, {
+const redis = new Redis(env.redisUrl, {
   retryStrategy(times) {
     const delay = Math.min(times * 50, 2000);
     return delay;

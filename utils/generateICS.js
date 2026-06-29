@@ -1,8 +1,18 @@
 // backend/utils/generateICS.js
+const env=require("../config/env");
+const _extractEmail = (fromEmail) => {
+  if (!fromEmail) return env.smtp.user;
+  const start = fromEmail.indexOf("<");
+  const end = fromEmail.indexOf(">");
+  if (start !== -1 && end !== -1 && end > start) {
+    return fromEmail.slice(start + 1, end);
+  }
+  return fromEmail;
+};
 
 const toICSDate = (date, time) => {
-  const datePart = date.replace(/-/g, "");
-  const timePart = time.replace(":", "") + "00";
+  const datePart = date.replaceAll("-", "");
+  const timePart = time.replaceAll(":", "") + "00";
   return `${datePart}T${timePart}`;
 };
 
@@ -11,7 +21,7 @@ const generateUID = (requestId, index = 0) => {
 };
 
 const nowICSDate = () => {
-  return new Date().toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
+  return new Date().toISOString().replaceAll(/[-:]/g, "").split(".")[0] + "Z";
 };
 
 /**
@@ -36,7 +46,7 @@ const generateVEVENT = ({
   const uid = generateUID(requestId, slotIndex);
   const summary = `LeapMentor Session: ${menteeName} with ${mentorName}`;
   const description = message
-    ? `Mentorship session on LeapMentor.\\n\\nMessage from ${menteeName}: ${message}`
+    ? String.raw`Mentorship session on LeapMentor.\n\nMessage from ${menteeName}: ${message}`
     : `Mentorship session on LeapMentor between ${menteeName} and ${mentorName}.`;
 
   return [
@@ -47,7 +57,7 @@ const generateVEVENT = ({
     `DTEND;TZID=${timezone}:${dtEnd}`,
     `SUMMARY:${summary}`,
     `DESCRIPTION:${description}`,
-    `ORGANIZER;CN=LeapMentor:mailto:${process.env.FROM_EMAIL?.match(/<([^>]+)>/)?.[1] || process.env.SMTP_USER}`,
+    `ORGANIZER;CN=LeapMentor:mailto:${_extractEmail(env.smtp.fromEmail)}`,
     `ATTENDEE;CN=${mentorName};ROLE=REQ-PARTICIPANT;RSVP=TRUE:mailto:${mentorEmail}`,
     `ATTENDEE;CN=${menteeName};ROLE=REQ-PARTICIPANT;RSVP=TRUE:mailto:${menteeEmail}`,
     "STATUS:CONFIRMED",

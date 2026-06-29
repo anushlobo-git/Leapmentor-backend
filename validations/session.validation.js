@@ -60,6 +60,7 @@ const addSlotValidation = celebrate({
     connectRequestId: Joi.string().regex(objectIdRegex).required(),
   }),
   [Segments.BODY]: Joi.object({
+    day: Joi.string().trim().required(),
     date: Joi.string().regex(dateRegex).required().messages({
       "string.pattern.base":
         "Date must adhere strictly to the YYYY-MM-DD format constraint.",

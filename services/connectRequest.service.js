@@ -4,12 +4,7 @@
  * and referring interaction requests between mentors and mentees via dependency injection.
  */
 
-const mongoose = require("mongoose");
-const { toConnectRequestDTO } = require("../mappers/connectRequest.mapper");
-const { toMenteeProfileDTO } = require("../mappers/menteeProfile.mapper");
-const { toMentorProfileDTO } = require("../mappers/mentorProfile.mapper");
-
-const createConnectRequestService = (
+const createConnectRequestService = ({
   connectRequestRepository,
   mentorProfileRepository,
   menteeProfileRepository,
@@ -17,17 +12,16 @@ const createConnectRequestService = (
   fireAndForgetEmail,
   emailUtils,
   socketService,
+  toMenteeProfileDTO,
+  toMentorProfileDTO,
+  toConnectRequestDTO,
+  mongoose,
   logger,
-) => {
+}) => {
   const { sendConnectRequestEmail, sendRequestAcceptedEmail } = emailUtils;
 
-  /**
-   * Dispatch a brand-new connection and scheduling session proposition.
-   */
-  const sendConnectRequestService = async (menteeId, body, menteeUser) => {
-    const { mentorId, message, selectedSlots, sessionRate, sessionCount } =
-      body;
-
+  // ── Helper: validates basic fields and self-referral ─────────────────────────
+  const validateConnectRequestInput = (menteeId, mentorId, selectedSlots) => {
     if (!mentorId) {
       throw Object.assign(new Error("mentorId is required"), {
         statusCode: 400,
@@ -43,7 +37,6 @@ const createConnectRequestService = (
         statusCode: 400,
       });
     }
-
     for (const slot of selectedSlots) {
       if (!slot.day || !slot.date || !slot.startTime || !slot.endTime) {
         throw Object.assign(
@@ -52,13 +45,19 @@ const createConnectRequestService = (
         );
       }
     }
-
     if (menteeId.toString() === mentorId) {
       throw Object.assign(new Error("You cannot send a request to yourself"), {
         statusCode: 400,
       });
     }
+  };
 
+  // ── Helper: checks for duplicate pending request and slot conflicts ───────────
+  const checkConnectRequestConflicts = async (
+    menteeId,
+    mentorId,
+    selectedSlots,
+  ) => {
     const existingPending = await connectRequestRepository.findPendingRequest(
       menteeId,
       mentorId,
@@ -69,7 +68,6 @@ const createConnectRequestService = (
         { statusCode: 409 },
       );
     }
-
     for (const slot of selectedSlots) {
       const slotTaken = await connectRequestRepository.findSlotConflict(
         mentorId,
@@ -84,17 +82,161 @@ const createConnectRequestService = (
         );
       }
     }
+  };
+  // ── Helper: backfills session economics on acceptance ─────────────────────────
+  const backfillSessionEconomics = async (request, currentMentorId) => {
+    if (request.sessionRate != null && request.sessionCount != null) return;
 
-    if (sessionRate && Number(sessionRate) < 1) {
-      throw Object.assign(new Error("sessionRate must be at least 1"), {
-        statusCode: 400,
-      });
+    const resolvedSessionCount =
+      request.sessionCount ?? request.selectedSlots?.length ?? null;
+
+    let resolvedSessionRate = request.sessionRate;
+    if (resolvedSessionRate == null) {
+      const mentorProfile =
+        await mentorProfileRepository.findMentorProfile(currentMentorId);
+      resolvedSessionRate = mentorProfile?.hourlyRate ?? null;
     }
-    if (sessionCount && Number(sessionCount) < 1) {
+
+    if (resolvedSessionRate == null) {
+      throw Object.assign(
+        new Error(
+          "Unable to accept request without a valid session rate. Please update the mentor hourly rate.",
+        ),
+        { statusCode: 400 },
+      );
+    }
+    if (!resolvedSessionCount || resolvedSessionCount < 1) {
+      throw Object.assign(
+        new Error("Unable to accept request without a valid session count."),
+        { statusCode: 400 },
+      );
+    }
+
+    request.sessionRate = Number(resolvedSessionRate);
+    request.sessionCount = resolvedSessionCount;
+    request.totalAmount = Number(resolvedSessionRate) * resolvedSessionCount;
+  };
+
+  // ── Helper: handles post-save side-effects for accepted requests ──────────────
+  const handleAcceptanceSideEffects = async (
+    request,
+    currentMenteeId,
+    currentMentorId,
+    confirmedSlot,
+  ) => {
+    await createNotification({
+      recipient: currentMenteeId,
+      type: "connect_request_accepted",
+      title: "Connect Request Accepted! 🎉",
+      message: `${request.mentor.name || "Mentor"} has accepted your connect request. Your session is confirmed on ${confirmedSlot.date} at ${confirmedSlot.startTime}.`,
+      metadata: { requestId: request._id, mentorId: currentMentorId },
+    });
+
+    socketService?.emitToUser?.(
+      currentMenteeId.toString(),
+      "request_accepted",
+      {
+        title: "Request Accepted! 🎉",
+        message: `${request.mentor.name || "Mentor"} accepted your connect request.`,
+        type: "success",
+      },
+    );
+
+    await connectRequestRepository.rejectConflictingSlots(
+      request._id,
+      currentMentorId,
+      confirmedSlot,
+    );
+
+    fireAndForgetEmail(
+      () =>
+        sendRequestAcceptedEmail({
+          menteeName: request.mentee.name,
+          menteeEmail: request.mentee.email,
+          mentorName: request.mentor.name,
+          confirmedSlot,
+          slots: request.selectedSlots,
+        }),
+      "Connection Request Accepted Confirmation",
+    );
+  };
+
+  // ── Helper: handles post-save side-effects for rejected requests ──────────────
+  const handleRejectionSideEffects = async (
+    request,
+    currentMenteeId,
+    currentMentorId,
+  ) => {
+    await createNotification({
+      recipient: currentMenteeId,
+      type: "connect_request_declined",
+      title: "Connect Request Declined",
+      message: `${request.mentor.name || "Mentor"} was unable to accept your connect request at this time.`,
+      metadata: { requestId: request._id, mentorId: currentMentorId },
+    });
+
+    socketService?.emitToUser?.(
+      currentMenteeId.toString(),
+      "request_declined",
+      {
+        title: "Request Declined",
+        message: `${request.mentor.name || "Mentor"} was unable to accept your request at this time.`,
+        type: "warning",
+      },
+    );
+  };
+  // ── Helper: resolves session rate from body or mentor profile ─────────────────
+  const resolveSessionRate = async (sessionRate, selectedSlots, mentorId) => {
+    const resolvedSessionCount = selectedSlots.length;
+    // ✅ Use positive condition instead of negated (sessionRate != null)
+    let resolvedSessionRate = sessionRate == null ? null : Number(sessionRate);
+
+    if (resolvedSessionRate == null) {
+      const mentorProfile =
+        await mentorProfileRepository.findMentorProfile(mentorId);
+      resolvedSessionRate = mentorProfile?.hourlyRate ?? null;
+    }
+
+    if (resolvedSessionRate == null || Number(resolvedSessionRate) < 1) {
+      throw Object.assign(
+        new Error(
+          "sessionRate must be provided or stored on the mentor profile",
+        ),
+        { statusCode: 400 },
+      );
+    }
+    if (resolvedSessionCount < 1) {
       throw Object.assign(new Error("sessionCount must be at least 1"), {
         statusCode: 400,
       });
     }
+
+    return {
+      resolvedSessionRate: Number(resolvedSessionRate),
+      resolvedSessionCount,
+    };
+  };
+
+  /**
+   * Dispatch a brand-new connection and scheduling session proposition.
+   */
+  const sendConnectRequestService = async (menteeId, body, menteeUser) => {
+    const { mentorId, message, selectedSlots, sessionRate, sessionCount } =
+      body;
+
+    validateConnectRequestInput(menteeId, mentorId, selectedSlots);
+
+    await checkConnectRequestConflicts(menteeId, mentorId, selectedSlots);
+
+    const { resolvedSessionRate, resolvedSessionCount } =
+      await resolveSessionRate(sessionRate, selectedSlots, mentorId);
+
+    logger?.info?.("sendConnectRequestService - incoming body", {
+      menteeId: menteeId?.toString?.(),
+      mentorId,
+      sessionRate,
+      sessionCount,
+    });
 
     const request = await connectRequestRepository.createConnectRequest({
       mentee: menteeId,
@@ -102,12 +244,16 @@ const createConnectRequestService = (
       message: message?.trim() || "",
       selectedSlots,
       requestedAt: new Date(),
-      sessionRate: sessionRate ? Number(sessionRate) : null,
-      sessionCount: sessionCount ? Number(sessionCount) : null,
-      totalAmount:
-        sessionRate && sessionCount
-          ? Number(sessionRate) * Number(sessionCount)
-          : null,
+      sessionRate: resolvedSessionRate,
+      sessionCount: resolvedSessionCount,
+      totalAmount: resolvedSessionRate * resolvedSessionCount,
+    });
+
+    logger?.info?.("sendConnectRequestService - created request", {
+      requestId: request._id?.toString?.(),
+      sessionRate: request.sessionRate,
+      sessionCount: request.sessionCount,
+      totalAmount: request.totalAmount,
     });
 
     const populated = await connectRequestRepository.findRequestByIdWithMentor(
@@ -123,17 +269,16 @@ const createConnectRequestService = (
       metadata: { requestId: request._id, menteeId },
     });
 
-    if (socketService?.emitToUser) {
-      socketService.emitToUser(mentorId, "new_connect_request", {
-        title: "New Connect Request 🔔",
-        message: `${menteeUser.name} sent you a connect request.`,
-        type: "info",
-      });
-      socketService.emitToUser(mentorId, "request_status_changed", {
-        requestId: request._id.toString(),
-        status: "pending",
-      });
-    }
+    socketService?.emitToUser?.(mentorId, "new_connect_request", {
+      title: "New Connect Request 🔔",
+      message: `${menteeUser.name} sent you a connect request.`,
+      type: "info",
+    });
+
+    socketService?.emitToUser?.(mentorId, "request_status_changed", {
+      requestId: request._id.toString(),
+      status: "pending",
+    });
 
     fireAndForgetEmail(
       () =>
@@ -271,95 +416,40 @@ const createConnectRequestService = (
 
     request.status = status;
     request.respondedAt = new Date();
-    if (status === "accepted") request.confirmedSlot = confirmedSlot;
+
+    if (status === "accepted") {
+      request.confirmedSlot = confirmedSlot;
+      await backfillSessionEconomics(request, currentMentorId);
+    }
+
     await connectRequestRepository.saveRequest(request);
 
     const currentMenteeId = request.mentee?._id ?? request.mentee;
 
-    if (socketService?.emitToUser) {
-      socketService.emitToUser(
-        currentMenteeId.toString(),
-        "request_status_changed",
-        {
-          requestId: request._id.toString(),
-          status,
-        },
-      );
-      socketService.emitToUser(
-        currentMentorId.toString(),
-        "request_status_changed",
-        {
-          requestId: request._id.toString(),
-          status,
-        },
-      );
-    }
+    [currentMenteeId.toString(), currentMentorId.toString()].forEach((uid) => {
+      socketService?.emitToUser?.(uid, "request_status_changed", {
+        requestId: request._id.toString(),
+        status,
+      });
+    });
 
     if (status === "accepted") {
-      await createNotification({
-        recipient: currentMenteeId,
-        type: "connect_request_accepted",
-        title: "Connect Request Accepted! 🎉",
-        message: `${request.mentor.name || "Mentor"} has accepted your connect request. Your session is confirmed on ${confirmedSlot.date} at ${confirmedSlot.startTime}.`,
-        metadata: { requestId: request._id, mentorId: currentMentorId },
-      });
-
-      if (socketService?.emitToUser) {
-        socketService.emitToUser(
-          currentMenteeId.toString(),
-          "request_accepted",
-          {
-            title: "Request Accepted! 🎉",
-            message: `${request.mentor.name || "Mentor"} accepted your connect request.`,
-            type: "success",
-          },
-        );
-      }
-
-      await connectRequestRepository.rejectConflictingSlots(
-        request._id,
+      await handleAcceptanceSideEffects(
+        request,
+        currentMenteeId,
         currentMentorId,
         confirmedSlot,
       );
-
-      fireAndForgetEmail(
-        () =>
-          sendRequestAcceptedEmail({
-            menteeName: request.mentee.name,
-            menteeEmail: request.mentee.email,
-            mentorName: request.mentor.name,
-            confirmedSlot,
-            slots: request.selectedSlots,
-          }),
-        "Connection Request Accepted Confirmation",
+    } else {
+      await handleRejectionSideEffects(
+        request,
+        currentMenteeId,
+        currentMentorId,
       );
-    }
-
-    if (status === "rejected") {
-      await createNotification({
-        recipient: currentMenteeId,
-        type: "connect_request_declined",
-        title: "Connect Request Declined",
-        message: `${request.mentor.name || "Mentor"} was unable to accept your connect request at this time.`,
-        metadata: { requestId: request._id, mentorId: currentMentorId },
-      });
-
-      if (socketService?.emitToUser) {
-        socketService.emitToUser(
-          currentMenteeId.toString(),
-          "request_declined",
-          {
-            title: "Request Declined",
-            message: `${request.mentor.name || "Mentor"} was unable to accept your request at this time.`,
-            type: "warning",
-          },
-        );
-      }
     }
 
     return toConnectRequestDTO(request);
   };
-
   /**
    * Cleanly terminate a session negotiation before transition periods launch.
    */
@@ -443,6 +533,9 @@ const createConnectRequestService = (
       selectedSlots: request.selectedSlots,
       requestedAt: new Date(),
       referredBy: mentorUserId,
+      sessionRate: request.sessionRate,
+      sessionCount: request.sessionCount,
+      totalAmount: request.totalAmount,
     });
 
     await Promise.all([
@@ -462,30 +555,32 @@ const createConnectRequestService = (
       }),
     ]);
 
-    if (socketService?.emitToUser) {
-      socketService.emitToUser(currentMenteeId.toString(), "request_referred", {
+    socketService?.emitToUser?.(
+      currentMenteeId.toString(),
+      "request_referred",
+      {
         title: "Request Referred",
         message: `${request.mentor.name || "Mentor"} referred your request to another mentor.`,
         type: "info",
-      });
-      socketService.emitToUser(referToMentorId, "new_connect_request", {
-        title: "New Connect Request (Referred) 🔔",
-        message: `${request.mentee.name || "Mentee"} was referred to you by ${request.mentor.name || "Mentor"}.`,
-        type: "info",
-      });
-      socketService.emitToUser(
-        currentMenteeId.toString(),
-        "request_status_changed",
-        {
-          requestId: request._id.toString(),
-          status: "referred",
-        },
-      );
-      socketService.emitToUser(referToMentorId, "request_status_changed", {
-        requestId: newRequest._id.toString(),
-        status: "pending",
-      });
-    }
+      },
+    );
+    socketService?.emitToUser?.(referToMentorId, "new_connect_request", {
+      title: "New Connect Request (Referred) 🔔",
+      message: `${request.mentee.name || "Mentee"} was referred to you by ${request.mentor.name || "Mentor"}.`,
+      type: "info",
+    });
+    socketService?.emitToUser?.(
+      currentMenteeId.toString(),
+      "request_status_changed",
+      {
+        requestId: request._id.toString(),
+        status: "referred",
+      },
+    );
+    socketService?.emitToUser?.(referToMentorId, "request_status_changed", {
+      requestId: newRequest._id.toString(),
+      status: "pending",
+    });
 
     request.status = "referred";
     request.referredTo = referToMentorId;
@@ -575,6 +670,6 @@ const createConnectRequestService = (
     getOngoingConnectsService,
     getConnectDetailService,
   };
-};
+};;
 
 module.exports = createConnectRequestService;

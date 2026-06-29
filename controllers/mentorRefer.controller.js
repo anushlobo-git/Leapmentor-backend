@@ -6,7 +6,7 @@
 
 const catchAsync = require("../utils/catchAsync");
 
-const createMentorReferController = (mentorReferService) => {
+const createMentorReferController = ({ mentorReferService }) => {
   /**
    * Resolves an aggregated list of alternative candidate mentors sharing relative domain strengths.
    * @route   GET /api/v1/connect-requests/:id/similar-mentors

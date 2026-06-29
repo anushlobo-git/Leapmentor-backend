@@ -16,7 +16,7 @@ describe("Mentee Profile Router Unit Tests", () => {
       menteeIdParamValidation: "v3",
     };
 
-    createMenteeProfileRoutes(mockController, mockMiddlewares, mockValidations);
+    createMenteeProfileRoutes({ menteeProfileController: mockController, middlewares: mockMiddlewares, validations: mockValidations });
     expect(mockRouter.get).toHaveBeenCalledWith(
       "/me",
       "auth",

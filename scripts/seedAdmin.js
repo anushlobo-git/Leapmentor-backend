@@ -1,13 +1,10 @@
-// backend/scripts/seedAdmin.js
-// ── Run once to create the first admin ───────────────────────
-// Usage: node backend/scripts/seedAdmin.js
-
 require("dotenv").config();
 const mongoose = require("mongoose");
 const AdminUser = require("../models/AdminUser");
+const env = require("../config/env");
 
 // Validate required environment variables
-if (!process.env.ADMIN_EMAIL || !process.env.ADMIN_PASSWORD) {
+if (!env.admin.email || !env.admin.password) {
   console.error(
     "❌ Error: ADMIN_EMAIL and ADMIN_PASSWORD must be set in .env file",
   );
@@ -15,15 +12,15 @@ if (!process.env.ADMIN_EMAIL || !process.env.ADMIN_PASSWORD) {
 }
 
 const ADMIN = {
-  name: process.env.ADMIN_NAME || "Super Admin",
-  email: process.env.ADMIN_EMAIL,
-  password: process.env.ADMIN_PASSWORD,
+  name: env.admin.name,
+  email: env.admin.email,
+  password: env.admin.password,
   isSuperAdmin: true,
 };
 
 (async () => {
   try {
-    await mongoose.connect(process.env.MONGO_URI);
+    await mongoose.connect(env.mongoUri);
     console.log("✅ MongoDB connected");
 
     const exists = await AdminUser.findOne({ email: ADMIN.email });

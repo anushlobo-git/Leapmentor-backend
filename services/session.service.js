@@ -25,7 +25,19 @@ const DAYS_OF_WEEK = [
 ];
 const DEFAULT_TIMEZONE = "Asia/Kolkata";
 
-const createSessionService = (
+const _computeSlotStats = (selectedSlots) => {
+  const activeSlots = selectedSlots.filter((s) => s.status !== "cancelled");
+  const completedCount = activeSlots.filter(
+    (s) => s.menteeMarked && s.mentorMarked,
+  ).length;
+  const progress =
+    activeSlots.length > 0
+      ? Math.round((completedCount / activeSlots.length) * 100)
+      : 0;
+  return { activeSlots, completedCount, progress };
+};
+
+const createSessionService = ({
   mongoose,
   connectRequestRepo,
   availabilityRepo,
@@ -35,7 +47,7 @@ const createSessionService = (
   emailUtils,
   generateAvailableSlots,
   logger,
-) => {
+}) => {
   const {
     sendSlotCancelledEmail,
     sendSlotRescheduledEmail,
@@ -223,16 +235,9 @@ const createSessionService = (
     allComplete,
     releaseResult,
   ) => {
-    const activeSlots = request.selectedSlots.filter(
-      (s) => s.status !== "cancelled",
+    const { activeSlots, completedCount, progress } = _computeSlotStats(
+      request.selectedSlots,
     );
-    const completedCount = activeSlots.filter(
-      (s) => s.menteeMarked && s.mentorMarked,
-    ).length;
-    const progress =
-      activeSlots.length > 0
-        ? Math.round((completedCount / activeSlots.length) * 100)
-        : 0;
 
     const waitingFor = isMentee ? "mentor" : "mentee";
     let message;
@@ -263,22 +268,16 @@ const createSessionService = (
     if (!request) throw new AppError("Session not found", 404);
     _assertParticipant(request, userId);
 
-    const activeSlots = request.selectedSlots.filter(
-      (s) => s.status !== "cancelled",
+    const { activeSlots, completedCount, progress } = _computeSlotStats(
+      request.selectedSlots,
     );
-    const completedCount = activeSlots.filter(
-      (s) => s.menteeMarked && s.mentorMarked,
-    ).length;
 
     return {
       slots: request.selectedSlots,
       additionalSlots: request.additionalSlots || [],
       totalSlots: activeSlots.length,
       completedSlots: completedCount,
-      progress:
-        activeSlots.length > 0
-          ? Math.round((completedCount / activeSlots.length) * 100)
-          : 0,
+      progress,
     };
   };
 
@@ -308,16 +307,9 @@ const createSessionService = (
     request.markModified("selectedSlots");
     await connectRequestRepo.save(request);
 
-    const activeSlots = request.selectedSlots.filter(
-      (s) => s.status !== "cancelled",
+    const { activeSlots, completedCount, progress } = _computeSlotStats(
+      request.selectedSlots,
     );
-    const completedCount = activeSlots.filter(
-      (s) => s.menteeMarked && s.mentorMarked,
-    ).length;
-    const progress =
-      activeSlots.length > 0
-        ? Math.round((completedCount / activeSlots.length) * 100)
-        : 0;
 
     _emitSlotUpdate(request, {
       connectRequestId,
@@ -354,9 +346,8 @@ const createSessionService = (
       request.markModified("selectedSlots");
       await connectRequestRepo.save(request, mongoSession);
 
-      const activeSlots = request.selectedSlots.filter(
-        (s) => s.status !== "cancelled",
-      );
+      //  First call — only need activeSlots to check allComplete
+      const { activeSlots } = _computeSlotStats(request.selectedSlots);
       const allComplete =
         activeSlots.length > 0 &&
         activeSlots.every((s) => s.menteeMarked && s.mentorMarked);
@@ -367,18 +358,17 @@ const createSessionService = (
 
       await mongoSession.commitTransaction();
 
-      const completedCount = activeSlots.filter(
-        (s) => s.menteeMarked && s.mentorMarked,
-      ).length;
-      const progress =
-        activeSlots.length > 0
-          ? Math.round((completedCount / activeSlots.length) * 100)
-          : 0;
+      //  Second call — need completedCount and progress for the response
+      const {
+        activeSlots: finalSlots,
+        completedCount,
+        progress,
+      } = _computeSlotStats(request.selectedSlots);
 
       _emitSlotUpdate(request, {
         connectRequestId,
         slots: request.selectedSlots,
-        totalSlots: activeSlots.length,
+        totalSlots: finalSlots.length,
         completedSlots: completedCount,
         progress,
         allComplete,
@@ -465,16 +455,9 @@ const createSessionService = (
 
     const savedSlot =
       request.additionalSlots[request.additionalSlots.length - 1];
-    const activeSlots = request.selectedSlots.filter(
-      (s) => s.status !== "cancelled",
+    const { activeSlots, completedCount, progress } = _computeSlotStats(
+      request.selectedSlots,
     );
-    const completedCount = activeSlots.filter(
-      (s) => s.menteeMarked && s.mentorMarked,
-    ).length;
-    const progress =
-      activeSlots.length > 0
-        ? Math.round((completedCount / activeSlots.length) * 100)
-        : 0;
 
     const socketPayload = {
       connectRequestId,
@@ -535,16 +518,9 @@ const createSessionService = (
       }
     }
 
-    const activeSlots = request.selectedSlots.filter(
-      (s) => s.status !== "cancelled",
+    const { activeSlots, completedCount, progress } = _computeSlotStats(
+      request.selectedSlots,
     );
-    const completedCount = activeSlots.filter(
-      (s) => s.menteeMarked && s.mentorMarked,
-    ).length;
-    const progress =
-      activeSlots.length > 0
-        ? Math.round((completedCount / activeSlots.length) * 100)
-        : 0;
 
     const socketPayload = {
       connectRequestId,
@@ -649,16 +625,9 @@ const createSessionService = (
     await connectRequestRepo.save(request);
 
     const newSlotIndex = request.selectedSlots.length - 1;
-    const activeSlots = request.selectedSlots.filter(
-      (s) => s.status !== "cancelled",
+    const { activeSlots, completedCount, progress } = _computeSlotStats(
+      request.selectedSlots,
     );
-    const completedCount = activeSlots.filter(
-      (s) => s.menteeMarked && s.mentorMarked,
-    ).length;
-    const progress =
-      activeSlots.length > 0
-        ? Math.round((completedCount / activeSlots.length) * 100)
-        : 0;
 
     const socketPayload = {
       connectRequestId,

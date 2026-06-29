@@ -36,6 +36,10 @@ const feedbackSchema = new mongoose.Schema(
       maxlength: [1000, "Comment cannot exceed 1000 characters"],
       default: "",
     },
+    slotIndex: {
+      type: Number,
+      default: null,
+    },
   },
   {
     timestamps: true,
@@ -43,7 +47,8 @@ const feedbackSchema = new mongoose.Schema(
 );
 
 // One feedback per user per session
-feedbackSchema.index({ connectRequest: 1, from: 1 }, { unique: true });
+// NEW - allows one feedback per slot per user
+feedbackSchema.index({ connectRequest: 1, from: 1, slotIndex: 1 }, { unique: true });
 
 // Fast lookup for all feedback on a session
 feedbackSchema.index({ connectRequest: 1 });

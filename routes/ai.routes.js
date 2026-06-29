@@ -9,7 +9,7 @@ const {
   chatCompletionBodyValidation,
 } = require("../validations/ai.validation");
 
-const createAiRoutes = (aiController, authenticate) => {
+const createAiRoutes = ({ aiController, authenticate }) => {
   const router = express.Router();
 
   // Enforce validation token verification to insulate the AI infrastructure layer

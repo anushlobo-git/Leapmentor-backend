@@ -8,11 +8,11 @@ const AppError = require("../utils/AppError");
 // Upper-case Domain Constants
 const VALID_PAYMENT_STATUSES = new Set(["paid", "released"]);
 
-const createInvoiceService = (
+const createInvoiceService = ({
   connectRequestRepository,
   adminUserRepository,
   generateInvoice,
-) => {
+}) => {
   /**
    * Validates session context state attributes and compiles binary invoice PDF buffers.
    * @param {Object} params Operational execution configurations.

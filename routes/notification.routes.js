@@ -5,11 +5,7 @@
 
 const express = require("express");
 
-const createNotificationRoutes = (
-  notificationController,
-  authenticate,
-  validations,
-) => {
+const createNotificationRoutes = ({ notificationController, authenticate, validations }) => {
   const router = express.Router();
   const { notificationIdParamValidation } = validations;
 

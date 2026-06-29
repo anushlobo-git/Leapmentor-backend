@@ -9,7 +9,6 @@ const toMenteeProfileDTO = (profile) => {
   return {
     //  Dual-ID Support: Complete frontend backward compatibility
     _id: profile._id,
-   
 
     // Safe extraction fallback paths handle either raw ObjectIds or populated structures completely uniformly
     user: profile.user?._id
@@ -27,6 +26,7 @@ const toMenteeProfileDTO = (profile) => {
     yearsOfExperience: profile.yearsOfExperience || "",
     bio: profile.bio || "",
     profilePicture: profile.profilePicture || "",
+    profilePictureFileName: profile.profilePictureFileName || "",
     linkedInUrl: profile.linkedInUrl || "",
     portfolioUrl: profile.portfolioUrl || "",
     skills: profile.skills || [],

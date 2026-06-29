@@ -30,9 +30,13 @@ const createCacheUtility = (redisClient, logger) => {
         return JSON.parse(cachedData);
       } catch (parseError) {
         logger.error(
-          `⚠️ Cache corruption detected on JSON parsing | Key: ${key}`,
+          `⚠️ Cache corruption detected on JSON parsing | Key: ${key} | Error: ${parseError.message}`,
         );
-        await redisClient.del(key).catch(() => {}); // Clean up bad data silently
+        await redisClient.del(key).catch((delError) => {
+          logger.warn(
+            `⚠️ Failed to evict corrupted cache entry | Key: ${key} | Error: ${delError.message}`,
+          );
+        })
       }
     }
 

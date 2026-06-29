@@ -17,8 +17,13 @@ const uploadVerificationDocsValidation = celebrate({
       "any.required":
         "Phone number configuration is required for verification profiles.",
     }),
+    imageName: Joi.string().trim().min(1).max(150).optional().messages({
+      "string.empty": "Image name cannot be empty if provided.",
+    }),
   }),
 });
+
+
 
 module.exports = {
   uploadVerificationDocsValidation,

@@ -5,7 +5,7 @@
 
 const catchAsync = require("../utils/catchAsync");
 
-const createMenteeProfileController = (menteeProfileService) => {
+const createMenteeProfileController = ({ menteeProfileService }) => {
   const createProfile = catchAsync(async (req, res, next) => {
     const profile = await menteeProfileService.createProfile(
       req.user._id,

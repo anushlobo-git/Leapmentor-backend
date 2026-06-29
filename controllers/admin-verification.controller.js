@@ -10,10 +10,7 @@ const CACHE_TTL_SECONDS = 300; // 5-Minute corporate caching window
 const LIST_CACHE_KEY = "admin:verifications:master-list";
 const DETAIL_CACHE_KEY = "admin:verifications:profile-detail";
 
-const createAdminVerificationController = (
-  adminVerificationService,
-  cacheUtility,
-) => {
+const createAdminVerificationController = ({ adminVerificationService, cacheUtility }) => {
   const getAllMentorVerifications = catchAsync(async (req, res) => {
     const mentors = await cacheUtility.getOrSetCache(
       LIST_CACHE_KEY,

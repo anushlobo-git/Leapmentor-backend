@@ -21,7 +21,7 @@ describe("Mentor Search Router Unit Tests", () => {
     };
     const mockValidations = { searchMentorsValidation: "v_search" };
 
-    createMentorSearchRoutes(mockController, mockMiddlewares, mockValidations);
+    createMentorSearchRoutes({ mentorSearchController: mockController, middlewares: mockMiddlewares, validations: mockValidations });
 
     // Realigned to expect "mentee_guard" exactly as returned by the mock wrapper above
     expect(mockRouter.use).toHaveBeenCalledWith("jwt", "mentee_guard");

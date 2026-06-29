@@ -8,7 +8,7 @@ const catchAsync = require("../utils/catchAsync");
 
 const DEFAULT_DURATION_MINUTES = 60;
 
-const createAvailabilityController = (availabilityService) => {
+const createAvailabilityController = ({ availabilityService }) => {
   /**
    * Fetch the current authenticated user's availability settings.
    * @route   GET /api/v1/availability/me

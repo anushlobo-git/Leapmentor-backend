@@ -6,7 +6,7 @@
 
 const express = require("express");
 
-const createEscrowRoutes = (escrowController, authenticate, validations) => {
+const createEscrowRoutes = ({ escrowController, authenticate, validations }) => {
   const router = express.Router();
 
   const {

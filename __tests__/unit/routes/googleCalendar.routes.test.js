@@ -11,7 +11,7 @@ describe("Google Calendar Router Unit Tests", () => {
       getCalendarIntervalValidation: "v_interval",
     };
 
-    createGoogleCalendarRoutes(mockController, "auth_guard", mockValidations);
+    createGoogleCalendarRoutes({ googleCalendarController: mockController, authenticate: "auth_guard", validations: mockValidations });
 
     expect(mockRouter.get).toHaveBeenCalledWith("/callback", "v_cb", "c_cb");
     expect(mockRouter.use).toHaveBeenCalledWith("auth_guard");

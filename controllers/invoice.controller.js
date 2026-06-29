@@ -5,7 +5,7 @@
 
 const catchAsync = require("../utils/catchAsync");
 
-const createInvoiceController = (invoiceService) => {
+const createInvoiceController = ({ invoiceService }) => {
   /**
    * Handles incoming requests compiling binary transaction confirmation sheets.
    * @route   GET /api/v1/invoices/:connectRequestId

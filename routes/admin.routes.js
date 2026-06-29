@@ -13,11 +13,11 @@ const {
   userIdParamValidation,
 } = require("../validations/admin.validation");
 
-const createAdminRoutes = (
+const createAdminRoutes = ({
   adminController,
   leapRequestController,
   adminAuthenticate,
-) => {
+}) => {
   const router = express.Router();
 
   // --- PUBLIC INITIALIZATION ACCESS PORTS ---

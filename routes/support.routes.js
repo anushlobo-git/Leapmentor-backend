@@ -5,11 +5,7 @@
 
 const express = require("express");
 
-const createSupportRoutes = (
-  supportController,
-  adminAuthenticate,
-  validations,
-) => {
+const createSupportRoutes = ({ supportController, adminAuthenticate, validations }) => {
   const router = express.Router();
   const { createMessageValidation, resolveMessageValidation } = validations;
 

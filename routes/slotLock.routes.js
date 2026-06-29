@@ -5,11 +5,7 @@
 
 const express = require("express");
 
-const createSlotLockRoutes = (
-  slotLockController,
-  authenticate,
-  validations,
-) => {
+const createSlotLockRoutes = ({ slotLockController, authenticate, validations }) => {
   const router = express.Router();
   const {
     lockSlotValidation,

@@ -5,7 +5,7 @@
 
 const catchAsync = require("../utils/catchAsync");
 
-const createSupportController = (supportService) => {
+const createSupportController = ({ supportService }) => {
   /**
    * Registers an outward public user concern report ticket data stream block.
    * @route   POST /api/v1/support/messages

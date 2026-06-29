@@ -22,11 +22,17 @@ const createProfileValidation = celebrate({
       "any.required": "Industry domain specification is required.",
     }),
     company: Joi.string().trim().max(100).allow("").optional(),
+    education: Joi.string().trim().max(200).required().messages({
+      "string.empty": "Educational qualification details are required.",
+      "string.max": "Education details cannot exceed 200 characters.",
+      "any.required": "Educational qualification information is required.",
+    }),
     bio: Joi.string().trim().max(2000).required().messages({
       "string.empty": "Professional summary biography is required.",
       "string.max": "Biography cannot exceed 2000 characters.",
     }),
     profilePicture: Joi.string().trim().uri().allow("").optional(),
+    profilePictureFileName: Joi.string().trim().max(255).allow("").optional(),
     yearsOfExperience: Joi.number().integer().min(0).max(50).optional(),
     hourlyRate: Joi.number().min(0).optional(),
     skills: Joi.array().items(Joi.string().trim()).min(1).required().messages({

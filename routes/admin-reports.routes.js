@@ -15,10 +15,7 @@ const {
   reportIdParamValidation,
 } = require("../validations/admin-reports.validation");
 
-const createAdminReportsRoutes = (
-  adminReportsController,
-  adminAuthenticate,
-) => {
+const createAdminReportsRoutes = ({ adminReportsController, adminAuthenticate }) => {
   const router = express.Router();
 
   // Apply administrative session verification to all report and dispute gateways

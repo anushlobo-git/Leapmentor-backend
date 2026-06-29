@@ -1,9 +1,3 @@
-/**
- * @fileoverview Google Authentication Service Unit Tests
- * @description Validates ID token verification gates, user provisioning fallbacks,
- * signature matching, and edge case exceptions completely offline.
- */
-
 const createGoogleAuthService = require("../../../services/googleAuth.service");
 const AppError = require("../../../utils/AppError");
 
@@ -11,173 +5,208 @@ jest.mock("../../../mappers/user.mapper", () => ({
   toUserDTO: jest.fn((user) => ({ DTO: true, ...user })),
 }));
 
-describe("Google Authentication Service Unit Tests", () => {
-  let mockUserRepo,
-    mockOauthRepo,
-    mockWalletService,
-    mockAuthUtils,
-    mockJwt,
-    mockConfig,
-    mockLogger,
+describe("googleAuth.service", () => {
+  let userRepository,
+    oauthAccountRepository,
+    walletService,
+    authUtils,
+    jwt,
+    config,
+    logger,
     service;
 
+  const makeTicket = (payload) => ({
+    getPayload: jest.fn().mockReturnValue(payload),
+  });
+
+  const defaultPayload = {
+    email: "user@test.com",
+    name: "Test User",
+    sub: "google_sub_123",
+    email_verified: true,
+  };
+
   beforeEach(() => {
-    mockUserRepo = {
-      findUserByEmail: jest.fn(),
-      createUser: jest.fn(),
-    };
-    mockOauthRepo = {
+    userRepository = { findUserByEmail: jest.fn(), createUser: jest.fn() };
+    oauthAccountRepository = {
       findOAuthAccount: jest.fn(),
       createOAuthAccount: jest.fn(),
     };
-    mockWalletService = {
-      createWalletsForRoles: jest.fn(),
+    walletService = { createWalletsForRoles: jest.fn() };
+    authUtils = {
+      googleClient: { verifyIdToken: jest.fn() },
+      validateRoles: jest
+        .fn()
+        .mockReturnValue({ valid: true, uniqueRoles: ["mentee"] }),
+      signAccessToken: jest.fn().mockReturnValue("access_token"),
+      signRefreshToken: jest.fn().mockReturnValue("refresh_token"),
     };
-    mockAuthUtils = {
-      googleClient: {
-        verifyIdToken: jest.fn(),
-      },
-      validateRoles: jest.fn(),
-      signAccessToken: jest.fn().mockReturnValue("mock_access_jwt"),
-      signRefreshToken: jest.fn().mockReturnValue("mock_refresh_jwt"),
-    };
-    mockJwt = {
-      decode: jest.fn().mockReturnValue({ aud: "decoded_mock_client_id" }),
-    };
-    mockConfig = {
-      googleClientId: "real_google_client_id_string",
-    };
-    mockLogger = {
-      info: jest.fn(),
-    };
+    jwt = { decode: jest.fn().mockReturnValue({ aud: "client_id" }) };
+    config = { googleClientId: "real_client_id" };
+    logger = { info: jest.fn() };
 
-    service = createGoogleAuthService(
-      mockUserRepo,
-      mockOauthRepo,
-      mockWalletService,
-      mockAuthUtils,
-      mockJwt,
-      mockConfig,
-      mockLogger,
+    service = createGoogleAuthService({
+      userRepository,
+      oauthAccountRepository,
+      walletService,
+      authUtils,
+      jwt,
+      config,
+      logger,
+    });
+  });
+
+  afterEach(() => jest.clearAllMocks());
+
+  test("throws 400 if credential missing", () =>
+    expect(service.googleAuthUser({ credential: null })).rejects.toMatchObject({
+      statusCode: 400,
+    }));
+
+  test("throws 500 if googleClientId missing", () => {
+    config.googleClientId = undefined;
+    return expect(
+      service.googleAuthUser({ credential: "jwt" }),
+    ).rejects.toMatchObject({ statusCode: 500 });
+  });
+
+  test("throws 401 if verifyIdToken throws", () => {
+    authUtils.googleClient.verifyIdToken.mockRejectedValue(
+      new Error("expired"),
     );
+    return expect(
+      service.googleAuthUser({ credential: "jwt" }),
+    ).rejects.toMatchObject({ statusCode: 401 });
   });
 
-  afterEach(() => {
-    jest.clearAllMocks();
+  test("throws 400 if terms not accepted for new user", () => {
+    authUtils.googleClient.verifyIdToken.mockResolvedValue(
+      makeTicket(defaultPayload),
+    );
+    userRepository.findUserByEmail.mockResolvedValue(null);
+    return expect(
+      service.googleAuthUser({ credential: "jwt", termsAccepted: false }),
+    ).rejects.toMatchObject({ statusCode: 400 });
   });
 
-  test("should authenticate an existing user cleanly without duplicating profile fields", async () => {
-    const mockTicket = {
-      getPayload: jest.fn().mockReturnValue({
-        email: "existing@test.com",
-        name: "John Google",
-        sub: "google_unique_sub_123",
-        email_verified: true,
+  test("throws 400 if validateRoles returns invalid", () => {
+    authUtils.googleClient.verifyIdToken.mockResolvedValue(
+      makeTicket(defaultPayload),
+    );
+    userRepository.findUserByEmail.mockResolvedValue(null);
+    authUtils.validateRoles.mockReturnValue({
+      valid: false,
+      message: "bad role",
+    });
+    return expect(
+      service.googleAuthUser({
+        credential: "jwt",
+        termsAccepted: true,
+        roles: ["bad"],
       }),
-    };
-    mockAuthUtils.googleClient.verifyIdToken.mockResolvedValue(mockTicket);
+    ).rejects.toMatchObject({ statusCode: 400 });
+  });
 
-    const mockUserInstance = {
-      _id: "user_uuid_555",
-      email: "existing@test.com",
-      roles: ["mentee"],
-    };
-    mockUserRepo.findUserByEmail.mockResolvedValue(mockUserInstance);
-    mockOauthRepo.findOAuthAccount.mockResolvedValue({ _id: "oauth_link_id" });
+  test("creates user with default role when roles array omitted", async () => {
+    authUtils.googleClient.verifyIdToken.mockResolvedValue(
+      makeTicket(defaultPayload),
+    );
+    userRepository.findUserByEmail.mockResolvedValue(null);
+    userRepository.createUser.mockResolvedValue({
+      _id: "new1",
+      email: "user@test.com",
+    });
+    oauthAccountRepository.findOAuthAccount.mockResolvedValue(null);
 
     const result = await service.googleAuthUser({
-      credential: "mock_raw_jwt_credential",
-    });
-
-    expect(mockAuthUtils.googleClient.verifyIdToken).toHaveBeenCalled();
-    expect(mockUserRepo.createUser).not.toHaveBeenCalled();
-    expect(mockOauthRepo.createOAuthAccount).not.toHaveBeenCalled();
-    expect(result).toEqual({
-      accessToken: "mock_access_jwt",
-      refreshToken: "mock_refresh_jwt",
-      user: expect.objectContaining({ DTO: true, _id: "user_uuid_555" }),
-      isNewUser: false,
-    });
-  });
-
-  test("should trigger onboarding and wallet creation pipelines for a verified first-time sign-up", async () => {
-    const mockTicket = {
-      getPayload: jest.fn().mockReturnValue({
-        email: "newuser@test.com",
-        name: "Newbie",
-        sub: "google_sub_999",
-        email_verified: true,
-      }),
-    };
-    mockAuthUtils.googleClient.verifyIdToken.mockResolvedValue(mockTicket);
-    mockUserRepo.findUserByEmail.mockResolvedValue(null);
-    mockAuthUtils.validateRoles.mockReturnValue({
-      valid: true,
-      uniqueRoles: ["mentee"],
-    });
-    mockOauthRepo.findOAuthAccount.mockResolvedValue(null);
-
-    const mockCreatedUser = { _id: "brand_new_id", email: "newuser@test.com" };
-    mockUserRepo.createUser.mockResolvedValue(mockCreatedUser);
-
-    const result = await service.googleAuthUser({
-      credential: "mock_raw_jwt_credential",
-      roles: ["mentee"],
+      credential: "jwt",
       termsAccepted: true,
     });
+    expect(authUtils.validateRoles).toHaveBeenCalledWith(["mentee"]);
+    expect(result.isNewUser).toBe(true);
+  });
 
-    expect(mockUserRepo.createUser).toHaveBeenCalled();
-    expect(mockWalletService.createWalletsForRoles).toHaveBeenCalledWith(
-      "brand_new_id",
-      ["mentee"],
+  test("creates user with isEmailVerified false when payload flag is false", async () => {
+    authUtils.googleClient.verifyIdToken.mockResolvedValue(
+      makeTicket({ ...defaultPayload, email_verified: false }),
     );
-    expect(mockOauthRepo.createOAuthAccount).toHaveBeenCalledWith({
-      user: "brand_new_id",
+    userRepository.findUserByEmail.mockResolvedValue(null);
+    userRepository.createUser.mockResolvedValue({
+      _id: "new2",
+      email: "user@test.com",
+    });
+    oauthAccountRepository.findOAuthAccount.mockResolvedValue(null);
+
+    await service.googleAuthUser({
+      credential: "jwt",
+      termsAccepted: true,
+      roles: ["mentee"],
+    });
+    expect(userRepository.createUser).toHaveBeenCalledWith(
+      expect.objectContaining({ isEmailVerified: false }),
+    );
+  });
+
+  test("registers new user: wallet + oauth created, isNewUser true", async () => {
+    authUtils.googleClient.verifyIdToken.mockResolvedValue(
+      makeTicket(defaultPayload),
+    );
+    userRepository.findUserByEmail.mockResolvedValue(null);
+    userRepository.createUser.mockResolvedValue({
+      _id: "new3",
+      email: "user@test.com",
+    });
+    oauthAccountRepository.findOAuthAccount.mockResolvedValue(null);
+
+    const result = await service.googleAuthUser({
+      credential: "jwt",
+      termsAccepted: true,
+      roles: ["mentee"],
+    });
+    expect(walletService.createWalletsForRoles).toHaveBeenCalledWith("new3", [
+      "mentee",
+    ]);
+    expect(oauthAccountRepository.createOAuthAccount).toHaveBeenCalledWith({
+      user: "new3",
       provider: "google",
-      providerId: "google_sub_999",
+      providerId: "google_sub_123",
     });
     expect(result.isNewUser).toBe(true);
   });
 
-  test("should throw a 400 Bad Request error if the raw credential parameter argument is omitted", async () => {
-    await expect(service.googleAuthUser({ credential: null })).rejects.toThrow(
-      new AppError("Missing Google credential", 400),
+  test("authenticates existing user without creating account or wallet", async () => {
+    authUtils.googleClient.verifyIdToken.mockResolvedValue(
+      makeTicket(defaultPayload),
     );
+    userRepository.findUserByEmail.mockResolvedValue({
+      _id: "u1",
+      email: "user@test.com",
+    });
+    oauthAccountRepository.findOAuthAccount.mockResolvedValue({
+      _id: "oauth1",
+    });
+
+    const result = await service.googleAuthUser({ credential: "jwt" });
+    expect(userRepository.createUser).not.toHaveBeenCalled();
+    expect(result.isNewUser).toBe(false);
+    expect(result.user).toMatchObject({ DTO: true, _id: "u1" });
   });
 
-  test("should throw a 500 error if system environments are missing structural Client Identification keys", async () => {
-    mockConfig.googleClientId = undefined;
-    await expect(service.googleAuthUser({ credential: "jwt" })).rejects.toThrow(
-      new AppError(
-        "GOOGLE_CLIENT_ID is undefined in system configuration environments",
-        500,
-      ),
+  test("creates oauth link for existing user if not linked yet", async () => {
+    authUtils.googleClient.verifyIdToken.mockResolvedValue(
+      makeTicket(defaultPayload),
     );
-  });
+    userRepository.findUserByEmail.mockResolvedValue({
+      _id: "u2",
+      email: "user@test.com",
+    });
+    oauthAccountRepository.findOAuthAccount.mockResolvedValue(null);
 
-  test("should capture credential translation failures and return a 401 Unauthorized signature exception", async () => {
-    mockAuthUtils.googleClient.verifyIdToken.mockRejectedValue(
-      new Error("Token expired"),
-    );
-
-    await expect(
-      service.googleAuthUser({ credential: "bad_jwt" }),
-    ).rejects.toThrow(
-      new AppError("Google identity verification failed: Token expired", 401),
-    );
-  });
-
-  test("should reject signup requests with a 400 error if legal consent checkboxes remain unchecked", async () => {
-    const mockTicket = {
-      getPayload: jest
-        .fn()
-        .mockReturnValue({ email: "test@test.com", sub: "123" }),
-    };
-    mockAuthUtils.googleClient.verifyIdToken.mockResolvedValue(mockTicket);
-    mockUserRepo.findUserByEmail.mockResolvedValue(null);
-
-    await expect(
-      service.googleAuthUser({ credential: "jwt", termsAccepted: false }),
-    ).rejects.toThrow(new AppError("TERMS_NOT_ACCEPTED", 400));
+    await service.googleAuthUser({ credential: "jwt" });
+    expect(oauthAccountRepository.createOAuthAccount).toHaveBeenCalledWith({
+      user: "u2",
+      provider: "google",
+      providerId: "google_sub_123",
+    });
   });
 });
