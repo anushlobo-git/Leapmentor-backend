@@ -5,6 +5,7 @@
  */
 
 const catchAsync = require("../utils/catchAsync");
+const { sendSuccess, STATUS } = require("../utils/apiResponse");
 
 const createLeapRequestController = ({ leapRequestService }) => {
   /**
@@ -15,10 +16,7 @@ const createLeapRequestController = ({ leapRequestService }) => {
   const getMyRequest = catchAsync(async (req, res) => {
     const request = await leapRequestService.getMyPendingRequest(req.user._id);
 
-    res.status(200).json({
-      success: true,
-      data: request || null,
-    });
+    sendSuccess(res, request || null, "Pending leap request retrieved");
   });
 
   /**
@@ -28,10 +26,7 @@ const createLeapRequestController = ({ leapRequestService }) => {
    */
   const createRequest = catchAsync(async (req, res) => {
     const request = await leapRequestService.createLeapRequest(req.user._id);
-    res.status(201).json({
-      message: "Request submitted successfully.",
-      request,
-    });
+    sendSuccess(res, { request }, "Request submitted successfully.", STATUS.CREATED);
   });
 
   /**
@@ -43,7 +38,7 @@ const createLeapRequestController = ({ leapRequestService }) => {
     const requests = await leapRequestService.getAllLeapRequests(
       req.query.status,
     );
-    res.status(200).json({ requests });
+    sendSuccess(res, { requests }, "Leap requests retrieved");
   });
 
   /**
@@ -53,7 +48,7 @@ const createLeapRequestController = ({ leapRequestService }) => {
    */
   const getPendingCount = catchAsync(async (req, res) => {
     const count = await leapRequestService.getPendingCount();
-    res.status(200).json({ count });
+    sendSuccess(res, { count }, "Pending request count retrieved");
   });
 
   /**
@@ -66,11 +61,7 @@ const createLeapRequestController = ({ leapRequestService }) => {
       req.params.id,
       req.admin?._id,
     );
-    res.status(200).json({
-      message: "500 LP added successfully.",
-      newBalance,
-      request,
-    });
+    sendSuccess(res, { newBalance, request }, "500 LP added successfully.");
   });
 
   /**
@@ -83,7 +74,7 @@ const createLeapRequestController = ({ leapRequestService }) => {
       req.params.id,
       req.admin?._id,
     );
-    res.status(200).json({ message: "Request rejected.", request });
+    sendSuccess(res, { request }, "Request rejected.");
   });
 
   return {

@@ -4,6 +4,7 @@
  */
 
 const catchAsync = require("../utils/catchAsync");
+const { sendSuccess, STATUS } = require("../utils/apiResponse");
 
 const createSupportController = ({ supportService }) => {
   /**
@@ -13,7 +14,7 @@ const createSupportController = ({ supportService }) => {
    */
   const createMessage = catchAsync(async (req, res, next) => {
     const supportTicket = await supportService.submitTicket(req.body);
-    return res.status(201).json(supportTicket);
+    return sendSuccess(res, supportTicket, "Support ticket submitted", STATUS.CREATED);
   });
 
   /**
@@ -23,7 +24,7 @@ const createSupportController = ({ supportService }) => {
    */
   const getMessages = catchAsync(async (req, res, next) => {
     const supportTickets = await supportService.fetchAllTickets();
-    return res.status(200).json(supportTickets);
+    return sendSuccess(res, supportTickets, "Support tickets retrieved");
   });
 
   /**
@@ -33,7 +34,7 @@ const createSupportController = ({ supportService }) => {
    */
   const resolveMessage = catchAsync(async (req, res, next) => {
     const resolvedTicket = await supportService.resolveTicket(req.params.id);
-    return res.status(200).json(resolvedTicket);
+    return sendSuccess(res, resolvedTicket, "Support ticket resolved");
   });
 
   return {

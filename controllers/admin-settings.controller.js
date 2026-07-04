@@ -5,6 +5,7 @@
  */
 
 const catchAsync = require("../utils/catchAsync");
+const { sendSuccess, STATUS } = require("../utils/apiResponse");
 
 const OVERVIEW_CACHE_KEY = "admin:settings:dashboard-overview";
 const CACHE_TTL_SECONDS = 300; // 5-Minute Cache Window
@@ -16,7 +17,7 @@ const createAdminSettingsController = ({adminSettingsService, cacheUtility}) => 
       CACHE_TTL_SECONDS,
       () => adminSettingsService.getOverviewService(),
     );
-    res.status(200).json({ success: true, ...data });
+    sendSuccess(res, data, "Settings overview retrieved");
   });
 
   const changePassword = catchAsync(async (req, res) => {
@@ -24,9 +25,7 @@ const createAdminSettingsController = ({adminSettingsService, cacheUtility}) => 
       req.admin._id,
       req.body,
     );
-    res
-      .status(200)
-      .json({ success: true, message: "Password changed successfully." });
+    sendSuccess(res, null, "Password changed successfully.");
   });
 
   const addAdmin = catchAsync(async (req, res) => {
@@ -34,18 +33,19 @@ const createAdminSettingsController = ({adminSettingsService, cacheUtility}) => 
     // Evict statistics overview to preserve system data integrity across modifications
     await cacheUtility.evictCache?.(OVERVIEW_CACHE_KEY);
 
-    res.status(201).json({
-      success: true,
-      message: `Admin account created for ${req.body.email}.`,
-      ...result,
-    });
+    sendSuccess(
+      res,
+      result,
+      `Admin account created for ${req.body.email}.`,
+      STATUS.CREATED,
+    );
   });
 
   const getCommission = catchAsync(async (req, res) => {
     const commissionRate = await adminSettingsService.getCommissionService(
       req.admin._id,
     );
-    res.status(200).json({ success: true, commissionRate });
+    sendSuccess(res, { commissionRate }, "Commission rate retrieved");
   });
 
   const updateCommission = catchAsync(async (req, res) => {
@@ -53,11 +53,11 @@ const createAdminSettingsController = ({adminSettingsService, cacheUtility}) => 
       req.admin._id,
       req.body.commissionRate,
     );
-    res.status(200).json({
-      success: true,
-      message: `Commission rate updated to ${rate}%`,
-      commissionRate: rate,
-    });
+    sendSuccess(
+      res,
+      { commissionRate: rate },
+      `Commission rate updated to ${rate}%`,
+    );
   });
 
   return {

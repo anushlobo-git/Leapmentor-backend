@@ -5,6 +5,7 @@
  */
 
 const catchAsync = require("../utils/catchAsync");
+const { sendSuccess } = require("../utils/apiResponse");
 
 const CACHE_TTL_SECONDS = 300; // 5-Minute corporate caching window
 const LIST_CACHE_KEY = "admin:verifications:master-list";
@@ -17,7 +18,7 @@ const createAdminVerificationController = ({ adminVerificationService, cacheUtil
       CACHE_TTL_SECONDS,
       () => adminVerificationService.getAllMentorVerificationsService(),
     );
-    res.status(200).json({ success: true, mentors, total: mentors.length });
+    sendSuccess(res, { mentors, total: mentors.length }, "Mentor verifications retrieved");
   });
 
   const getMentorVerificationById = catchAsync(async (req, res) => {
@@ -30,7 +31,7 @@ const createAdminVerificationController = ({ adminVerificationService, cacheUtil
           mentorProfileId,
         ),
     );
-    res.status(200).json({ success: true, ...data });
+    sendSuccess(res, data, "Mentor verification details retrieved");
   });
 
   const verifyMentor = catchAsync(async (req, res) => {
@@ -42,12 +43,14 @@ const createAdminVerificationController = ({ adminVerificationService, cacheUtil
     await cacheUtility.evictCache?.(LIST_CACHE_KEY);
     await cacheUtility.evictCache?.(`${DETAIL_CACHE_KEY}:${mentorProfileId}`);
 
-    res.status(200).json({
-      success: true,
-      message: `${result.mentorName || "Mentor"} has been verified successfully`,
-      mentorProfileId: result.mentorProfileId,
-      verificationStatus: result.verificationStatus,
-    });
+    sendSuccess(
+      res,
+      {
+        mentorProfileId: result.mentorProfileId,
+        verificationStatus: result.verificationStatus,
+      },
+      `${result.mentorName || "Mentor"} has been verified successfully`,
+    );
   });
 
   const revokeMentorVerification = catchAsync(async (req, res) => {
@@ -61,12 +64,14 @@ const createAdminVerificationController = ({ adminVerificationService, cacheUtil
     await cacheUtility.evictCache?.(LIST_CACHE_KEY);
     await cacheUtility.evictCache?.(`${DETAIL_CACHE_KEY}:${mentorProfileId}`);
 
-    res.status(200).json({
-      success: true,
-      message: `Verification revoked for ${result.mentorName || "mentor"}`,
-      mentorProfileId: result.mentorProfileId,
-      verificationStatus: result.verificationStatus,
-    });
+    sendSuccess(
+      res,
+      {
+        mentorProfileId: result.mentorProfileId,
+        verificationStatus: result.verificationStatus,
+      },
+      `Verification revoked for ${result.mentorName || "mentor"}`,
+    );
   });
 
   return {

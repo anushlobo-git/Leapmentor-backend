@@ -6,6 +6,7 @@
 
 const catchAsync = require("../utils/catchAsync");
 const AppError = require("../utils/AppError");
+const { sendSuccess } = require("../utils/apiResponse");
 
 const createRefreshController = ({ authUtils, jwt, config }) => {
   /**
@@ -34,10 +35,7 @@ const createRefreshController = ({ authUtils, jwt, config }) => {
 
     const accessToken = authUtils.signAccessToken(decoded.id);
 
-    res.status(200).json({
-      success: true,
-      accessToken,
-    });
+    sendSuccess(res, { accessToken }, "Access token refreshed");
   });
 
   return { refreshToken };

@@ -5,6 +5,7 @@
  */
 
 const catchAsync = require("../utils/catchAsync");
+const { sendSuccess } = require("../utils/apiResponse");
 
 const createLoginController = ({ authService, cookieUtils }) => {
   /**
@@ -18,12 +19,11 @@ const createLoginController = ({ authService, cookieUtils }) => {
     const role = result.user?.roles?.[0] || null;
     cookieUtils.setAuthCookies(res, result.refreshToken, role);
 
-    res.status(200).json({
-      success: true,
-      message: "Login successful",
-      user: result.user,
-      accessToken: result.accessToken,
-    });
+    sendSuccess(
+      res,
+      { user: result.user, accessToken: result.accessToken },
+      "Login successful",
+    );
   });
 
   return { login };

@@ -5,6 +5,7 @@
  */
 
 const catchAsync = require("../utils/catchAsync");
+const { sendSuccess, sendError, STATUS } = require("../utils/apiResponse");
 
 const createSocialAuthController = ({ socialAuthService, cookieUtils, logger }) => {
   /**
@@ -20,19 +21,24 @@ const createSocialAuthController = ({ socialAuthService, cookieUtils, logger }) 
       const role = result.user?.roles?.[0] || null;
       cookieUtils.setAuthCookies(res, result.refreshToken, role);
 
-      return res.status(200).json({
-        message: "Social login successful",
-        user: result.user,
-        accessToken: result.accessToken,
-        isNewUser: result.isNewUser,
-      });
+      return sendSuccess(
+        res,
+        {
+          user: result.user,
+          accessToken: result.accessToken,
+          isNewUser: result.isNewUser,
+        },
+        "Social login successful",
+      );
     } catch (err) {
       logger.warn("Social auth failed", { error: err.message });
 
       if (err.message === "TERMS_NOT_ACCEPTED") {
-        return res
-          .status(400)
-          .json({ message: "You must accept terms to continue" });
+        return sendError(
+          res,
+          "You must accept terms to continue",
+          STATUS.BAD_REQUEST,
+        );
       }
 
       // Forward unmapped or general operational exceptions directly to the main system error matrix

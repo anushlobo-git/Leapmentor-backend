@@ -4,6 +4,7 @@
  */
 
 const catchAsync = require("../utils/catchAsync");
+const { sendSuccess, STATUS } = require("../utils/apiResponse");
 
 const createGoalController = ({ goalService }) => {
   const createGoal = catchAsync(async (req, res, next) => {
@@ -15,7 +16,7 @@ const createGoalController = ({ goalService }) => {
       endDate: req.body.endDate,
       userId: req.user._id,
     });
-    return res.status(201).json({ success: true, goal });
+    return sendSuccess(res, { goal }, "Goal created", STATUS.CREATED);
   });
 
   const getGoal = catchAsync(async (req, res, next) => {
@@ -23,7 +24,7 @@ const createGoalController = ({ goalService }) => {
       req.params.connectRequestId,
       req.user._id,
     );
-    return res.status(200).json({ success: true, ...result });
+    return sendSuccess(res, result, "Goal retrieved");
   });
 
   const updateGoal = catchAsync(async (req, res, next) => {
@@ -36,7 +37,7 @@ const createGoalController = ({ goalService }) => {
       status: req.body.status,
       userId: req.user._id,
     });
-    return res.status(200).json({ success: true, goal });
+    return sendSuccess(res, { goal }, "Goal updated");
   });
 
   const createMilestone = catchAsync(async (req, res, next) => {
@@ -47,7 +48,7 @@ const createGoalController = ({ goalService }) => {
       dueDate: req.body.dueDate,
       userId: req.user._id,
     });
-    return res.status(201).json({ success: true, milestone });
+    return sendSuccess(res, { milestone }, "Milestone created", STATUS.CREATED);
   });
 
   const updateMilestone = catchAsync(async (req, res, next) => {
@@ -58,7 +59,7 @@ const createGoalController = ({ goalService }) => {
       isCompleted: req.body.isCompleted,
       userId: req.user._id,
     });
-    return res.status(200).json({ success: true, milestone });
+    return sendSuccess(res, { milestone }, "Milestone updated");
   });
 
   const deleteMilestone = catchAsync(async (req, res, next) => {
@@ -66,9 +67,7 @@ const createGoalController = ({ goalService }) => {
       req.params.milestoneId,
       req.user._id,
     );
-    return res
-      .status(200)
-      .json({ success: true, message: "Milestone deleted", milestoneId });
+    return sendSuccess(res, { milestoneId }, "Milestone deleted");
   });
 
   return {

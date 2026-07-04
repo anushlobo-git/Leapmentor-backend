@@ -5,6 +5,7 @@
  */
 
 const catchAsync = require("../utils/catchAsync");
+const { sendSuccess } = require("../utils/apiResponse");
 
 const createGoogleAuthController = ({ googleAuthService, cookieUtils }) => {
   /**
@@ -22,12 +23,15 @@ const createGoogleAuthController = ({ googleAuthService, cookieUtils }) => {
     const primaryRole = result.user?.roles?.[0] || null;
     cookieUtils.setAuthCookies(res, result.refreshToken, primaryRole);
 
-    res.status(200).json({
-      message: "Google login successful",
-      user: result.user,
-      accessToken: result.accessToken,
-      isNewUser: result.isNewUser,
-    });
+    sendSuccess(
+      res,
+      {
+        user: result.user,
+        accessToken: result.accessToken,
+        isNewUser: result.isNewUser,
+      },
+      "Google login successful",
+    );
   });
 
   return { googleAuth };

@@ -4,6 +4,7 @@
  */
 
 const catchAsync = require("../utils/catchAsync");
+const { sendSuccess } = require("../utils/apiResponse");
 
 const createSlotLockController = ({ slotLockService }) => {
   const lockSlot = catchAsync(async (req, res, next) => {
@@ -11,20 +12,17 @@ const createSlotLockController = ({ slotLockService }) => {
       req.user._id,
       req.body,
     );
-    return res.status(200).json({
-      message: "Slot locked successfully",
-      ...result,
-    });
+    return sendSuccess(res, result, "Slot locked successfully");
   });
 
   const unlockSlot = catchAsync(async (req, res, next) => {
     await slotLockService.releaseSlotLock(req.user._id, req.body);
-    return res.status(200).json({ message: "Slot unlocked successfully" });
+    return sendSuccess(res, null, "Slot unlocked successfully");
   });
 
   const unlockAllByMentee = catchAsync(async (req, res, next) => {
     await slotLockService.releaseAllUserLocks(req.user._id, req.body.mentorId);
-    return res.status(200).json({ message: "All locks released successfully" });
+    return sendSuccess(res, null, "All locks released successfully");
   });
 
   const getActiveLocks = catchAsync(async (req, res, next) => {
@@ -32,7 +30,7 @@ const createSlotLockController = ({ slotLockService }) => {
       req.params.mentorId,
       req.user._id,
     );
-    return res.status(200).json(result);
+    return sendSuccess(res, result, "Active slot locks retrieved");
   });
 
   return {

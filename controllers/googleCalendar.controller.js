@@ -4,6 +4,7 @@
  */
 
 const catchAsync = require("../utils/catchAsync");
+const { sendSuccess } = require("../utils/apiResponse");
 
 const createGoogleCalendarController = ({ googleCalendarService }) => {
   /**
@@ -13,7 +14,7 @@ const createGoogleCalendarController = ({ googleCalendarService }) => {
    */
   const getAuthUrl = catchAsync(async (req, res, next) => {
     const url = await googleCalendarService.generateAuthUrl(req.user._id);
-    return res.status(200).json({ url });
+    return sendSuccess(res, { url }, "Google Calendar auth URL generated");
   });
 
   /**
@@ -59,7 +60,7 @@ const createGoogleCalendarController = ({ googleCalendarService }) => {
    */
   const disconnect = catchAsync(async (req, res, next) => {
     await googleCalendarService.disconnectCalendar(req.user._id);
-    return res.status(200).json({ message: "Google Calendar disconnected" });
+    return sendSuccess(res, null, "Google Calendar disconnected");
   });
 
   /**
@@ -73,7 +74,7 @@ const createGoogleCalendarController = ({ googleCalendarService }) => {
       startDate: req.query.startDate,
       endDate: req.query.endDate,
     });
-    return res.status(200).json({ busy });
+    return sendSuccess(res, { busy }, "Busy slots retrieved");
   });
 
   /**
@@ -87,7 +88,7 @@ const createGoogleCalendarController = ({ googleCalendarService }) => {
       startDate: req.query.startDate,
       endDate: req.query.endDate,
     });
-    return res.status(200).json({ events });
+    return sendSuccess(res, { events }, "Calendar events retrieved");
   });
 
   return {

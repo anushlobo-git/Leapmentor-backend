@@ -13,7 +13,9 @@ const errorHandler = (err, req, res, next) => {
 
   res.status(statusCode).json({
     success: false,
+    data: null,
     message,
+    error: err.isOperational ? (err.error || null) :  null,
     ...(env.nodeEnv === "development" && { stack: err.stack }),
   });
 };

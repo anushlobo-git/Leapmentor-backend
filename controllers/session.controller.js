@@ -4,6 +4,7 @@
  */
 
 const catchAsync = require("../utils/catchAsync");
+const { sendSuccess, STATUS } = require("../utils/apiResponse");
 
 const createSessionController = ({ sessionService }) => {
   const getSlots = catchAsync(async (req, res, next) => {
@@ -11,7 +12,7 @@ const createSessionController = ({ sessionService }) => {
       req.params.connectRequestId,
       req.user._id,
     );
-    return res.status(200).json({ success: true, ...result });
+    return sendSuccess(res, result, "Session slots retrieved");
   });
 
   const setMeetingLink = catchAsync(async (req, res, next) => {
@@ -21,9 +22,7 @@ const createSessionController = ({ sessionService }) => {
       meetingLink: req.body.meetingLink,
       userId: req.user._id,
     });
-    return res
-      .status(200)
-      .json({ success: true, message: "Meeting link updated", ...result });
+    return sendSuccess(res, result, "Meeting link updated");
   });
 
   const markSlotComplete = catchAsync(async (req, res, next) => {
@@ -32,7 +31,7 @@ const createSessionController = ({ sessionService }) => {
       slotIndex: req.params.slotIndex,
       userId: req.user._id,
     });
-    return res.status(200).json(result);
+    return sendSuccess(res, result, "Slot marked complete");
   });
 
   const addSlot = catchAsync(async (req, res, next) => {
@@ -43,11 +42,12 @@ const createSessionController = ({ sessionService }) => {
       endTime: req.body.endTime,
       userId: req.user._id,
     });
-    return res.status(201).json({
-      success: true,
-      message: "Additional session slot added successfully",
-      ...result,
-    });
+    return sendSuccess(
+      res,
+      result,
+      "Additional session slot added successfully",
+      STATUS.CREATED,
+    );
   });
 
   const cancelSlot = catchAsync(async (req, res, next) => {
@@ -57,13 +57,7 @@ const createSessionController = ({ sessionService }) => {
       reason: req.body.reason,
       userId: req.user._id,
     });
-    return res
-      .status(200)
-      .json({
-        success: true,
-        message: "Slot cancelled successfully",
-        ...result,
-      });
+    return sendSuccess(res, result, "Slot cancelled successfully");
   });
 
   const rescheduleSlot = catchAsync(async (req, res, next) => {
@@ -75,13 +69,7 @@ const createSessionController = ({ sessionService }) => {
       endTime: req.body.endTime,
       userId: req.user._id,
     });
-    return res
-      .status(200)
-      .json({
-        success: true,
-        message: "Slot rescheduled successfully",
-        ...result,
-      });
+    return sendSuccess(res, result, "Slot rescheduled successfully");
   });
 
   const getMentorAvailability = catchAsync(async (req, res, next) => {
@@ -91,7 +79,7 @@ const createSessionController = ({ sessionService }) => {
       duration,
       req.user._id,
     );
-    return res.status(200).json({ success: true, ...result });
+    return sendSuccess(res, result, "Mentor availability retrieved");
   });
 
   return {

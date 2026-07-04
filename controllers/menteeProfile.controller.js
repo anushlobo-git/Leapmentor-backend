@@ -4,6 +4,7 @@
  */
 
 const catchAsync = require("../utils/catchAsync");
+const { sendSuccess, STATUS } = require("../utils/apiResponse");
 
 const createMenteeProfileController = ({ menteeProfileService }) => {
   const createProfile = catchAsync(async (req, res, next) => {
@@ -11,15 +12,17 @@ const createMenteeProfileController = ({ menteeProfileService }) => {
       req.user._id,
       req.body,
     );
-    return res.status(201).json({
-      message: "Mentee profile created successfully",
-      profile,
-    });
+    return sendSuccess(
+      res,
+      { profile },
+      "Mentee profile created successfully",
+      STATUS.CREATED,
+    );
   });
 
   const getMyProfile = catchAsync(async (req, res, next) => {
     const profile = await menteeProfileService.getMyProfile(req.user._id);
-    return res.status(200).json(profile);
+    return sendSuccess(res, profile, "Mentee profile retrieved");
   });
 
   const updateProfile = catchAsync(async (req, res, next) => {
@@ -27,15 +30,12 @@ const createMenteeProfileController = ({ menteeProfileService }) => {
       req.user._id,
       req.body,
     );
-    return res.status(200).json({
-      message: "Profile updated successfully",
-      profile,
-    });
+    return sendSuccess(res, { profile }, "Profile updated successfully");
   });
 
   const getPublicProfile = catchAsync(async (req, res, next) => {
     const profile = await menteeProfileService.getPublicProfile(req.params.id);
-    return res.status(200).json(profile);
+    return sendSuccess(res, profile, "Mentee profile retrieved");
   });
 
   return {

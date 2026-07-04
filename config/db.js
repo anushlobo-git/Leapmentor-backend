@@ -10,6 +10,19 @@ const { retryWithBackoff } = require("../utils/retryWithBackoff");
 const transporter = require("../utils/mailer");
 const env = require("./env");
 
+const mongoOptions = {
+  autoIndex: true,
+  serverSelectionTimeoutMS: 10_000, // fail fast after 10s instead of Mongoose's 30s default
+};
+
+const closeDatabaseConnections = async () => {
+  const connections = mongoose.connections.filter(
+    (connection) => connection.readyState !== 0,
+  );
+
+  await Promise.allSettled(connections.map((connection) => connection.close()));
+};
+
 /**
  * Establishes MongoDB, verifies Cloudinary, and verifies SMTP — all as one
  * atomic startup gate with retry and exponential backoff.
@@ -23,13 +36,24 @@ const connectDatabase = () => {
   return retryWithBackoff(
     async () => {
       // ── 1. MongoDB ────────────────────────────────────────────
-      const conn = await mongoose.connect(env.mongoUri, {
-        autoIndex: true,
-        serverSelectionTimeoutMS: 10_000, // fail fast after 10s instead of Mongoose's 30s default
-      });
-      logger.info(
-        `🟢 MongoDB Connected | Host: ${conn.connection.host} | DB: ${conn.connection.name}`,
+      const primaryConnection = await mongoose.connect(
+        env.mongoUri,
+        mongoOptions,
       );
+      logger.info(
+        `🟢 MongoDB Connected | Host: ${primaryConnection.connection.host} | DB: ${primaryConnection.connection.name}`,
+      );
+
+      if (env.mongoSecondaryUri) {
+        const secondaryConnection = mongoose.createConnection(
+          env.mongoSecondaryUri,
+          mongoOptions,
+        );
+        await secondaryConnection.asPromise();
+        logger.info(
+          `🟢 Secondary MongoDB Connected | Host: ${secondaryConnection.host} | DB: ${secondaryConnection.name}`,
+        );
+      }
 
       // ── 2. Cloudinary ─────────────────────────────────────────
       await verifyConnection();
@@ -56,5 +80,7 @@ const connectDatabase = () => {
     },
   );
 };
+
+connectDatabase.closeDatabaseConnections = closeDatabaseConnections;
 
 module.exports = connectDatabase;

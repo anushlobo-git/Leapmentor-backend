@@ -5,6 +5,7 @@
  */
 
 const catchAsync = require("../utils/catchAsync");
+const { sendSuccess } = require("../utils/apiResponse");
 
 const CACHE_TTL_SECONDS = 300; // 5 Minutes
 const STATS_CACHE_KEY = "admin:payments:telemetry-stats";
@@ -22,7 +23,7 @@ const createAdminPaymentsController = ({adminPaymentsService, cacheUtility}) => 
       CACHE_TTL_SECONDS,
       () => adminPaymentsService.getPaymentStatsService(adminId),
     );
-    res.status(200).json({ success: true, data });
+    sendSuccess(res, data, "Payment stats retrieved");
   });
 
   /**
@@ -35,7 +36,7 @@ const createAdminPaymentsController = ({adminPaymentsService, cacheUtility}) => 
       CACHE_TTL_SECONDS,
       () => adminPaymentsService.getRevenueChartService(),
     );
-    res.status(200).json({ success: true, data });
+    sendSuccess(res, data, "Revenue chart retrieved");
   });
 
   /**
@@ -44,7 +45,7 @@ const createAdminPaymentsController = ({adminPaymentsService, cacheUtility}) => 
    */
   const getTransactions = catchAsync(async (req, res) => {
     const result = await adminPaymentsService.getTransactionsService(req.query);
-    res.status(200).json({ success: true, ...result });
+    sendSuccess(res, result, "Transactions retrieved");
   });
 
   return {

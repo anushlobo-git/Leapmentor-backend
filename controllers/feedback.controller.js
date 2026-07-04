@@ -4,6 +4,7 @@
  */
 
 const catchAsync = require("../utils/catchAsync");
+const { sendSuccess, STATUS } = require("../utils/apiResponse");
 
 const createFeedbackController = ({ feedbackService }) => {
   /**
@@ -19,11 +20,12 @@ const createFeedbackController = ({ feedbackService }) => {
       userId: req.user._id,
     });
 
-    return res.status(201).json({
-      success: true,
-      message: "Feedback submitted successfully.",
-      feedback: result,
-    });
+    return sendSuccess(
+      res,
+      { feedback: result },
+      "Feedback submitted successfully.",
+      STATUS.CREATED,
+    );
   });
 
   /**
@@ -36,10 +38,7 @@ const createFeedbackController = ({ feedbackService }) => {
       req.user._id,
     );
 
-    return res.status(200).json({
-      success: true,
-      ...result,
-    });
+    return sendSuccess(res, result, "Feedback retrieved");
   });
 
   return {

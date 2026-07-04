@@ -5,6 +5,7 @@
  */
 
 const catchAsync = require("../utils/catchAsync");
+const { sendSuccess } = require("../utils/apiResponse");
 
 const createEscrowController = ({ escrowService }) => {
   /**
@@ -20,10 +21,11 @@ const createEscrowController = ({ escrowService }) => {
       menteeId: req.user._id,
     });
 
-    return res.status(200).json({
-      message: "Payment successful. Tokens locked in escrow.",
-      ...result,
-    });
+    return sendSuccess(
+      res,
+      result,
+      "Payment successful. Tokens locked in escrow.",
+    );
   });
 
   /**
@@ -39,11 +41,11 @@ const createEscrowController = ({ escrowService }) => {
       menteeId: req.user._id,
     });
 
-    return res.status(200).json({
-      message:
-        "Additional session payment successful. Tokens locked in escrow.",
-      ...result,
-    });
+    return sendSuccess(
+      res,
+      result,
+      "Additional session payment successful. Tokens locked in escrow.",
+    );
   });
 
   /**
@@ -57,10 +59,11 @@ const createEscrowController = ({ escrowService }) => {
       menteeId: req.user._id,
     });
 
-    return res.status(200).json({
-      message: "Session marked complete. Tokens released to mentor.",
-      ...result,
-    });
+    return sendSuccess(
+      res,
+      result,
+      "Session marked complete. Tokens released to mentor.",
+    );
   });
 
   /**
@@ -74,10 +77,11 @@ const createEscrowController = ({ escrowService }) => {
       userId: req.user._id,
     });
 
-    return res.status(200).json({
-      message: "Escrow refunded successfully. Tokens returned to mentee.",
-      ...result,
-    });
+    return sendSuccess(
+      res,
+      result,
+      "Escrow refunded successfully. Tokens returned to mentee.",
+    );
   });
 
   /**
@@ -91,7 +95,7 @@ const createEscrowController = ({ escrowService }) => {
       userId: req.user._id,
     });
 
-    return res.status(200).json(result);
+    return sendSuccess(res, result, "Escrow status retrieved");
   });
 
   /**
@@ -101,7 +105,7 @@ const createEscrowController = ({ escrowService }) => {
    */
   const getMyWallet = catchAsync(async (req, res, next) => {
     const result = await escrowService.getMyWallet(req.user._id);
-    return res.status(200).json(result);
+    return sendSuccess(res, result, "Wallet retrieved");
   });
 
   /**
@@ -111,7 +115,7 @@ const createEscrowController = ({ escrowService }) => {
    */
   const getCommissionRate = catchAsync(async (req, res, next) => {
     const rate = await escrowService.getCommissionRate();
-    return res.status(200).json({ commissionRate: rate });
+    return sendSuccess(res, { commissionRate: rate }, "Commission rate retrieved");
   });
 
   return {

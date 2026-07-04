@@ -5,6 +5,7 @@
  */
 
 const catchAsync = require("../utils/catchAsync");
+const { sendSuccess, STATUS } = require("../utils/apiResponse");
 
 const createRegisterController = ({ authService, cookieUtils }) => {
   /**
@@ -18,13 +19,16 @@ const createRegisterController = ({ authService, cookieUtils }) => {
     const role = result.user?.roles?.[0] || null;
     cookieUtils.setAuthCookies(res, result.refreshToken, role);
 
-    res.status(201).json({
-      success: true,
-      message: "Registered successfully",
-      user: result.user,
-      isNewUser: result.isNewUser,
-      accessToken: result.accessToken,
-    });
+    sendSuccess(
+      res,
+      {
+        user: result.user,
+        isNewUser: result.isNewUser,
+        accessToken: result.accessToken,
+      },
+      "Registered successfully",
+      STATUS.CREATED,
+    );
   });
 
   return { register };
