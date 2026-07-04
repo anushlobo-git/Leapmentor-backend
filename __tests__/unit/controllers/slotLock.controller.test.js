@@ -3,6 +3,7 @@
  */
 
 const createSlotLockController = require("../../../controllers/slotLock.controller");
+const { successEnvelope } = require("../../helpers/apiResponse");
 
 describe("SlotLock Controller Unit Tests", () => {
   let mockService, controller, mockReq, mockRes, mockNext;
@@ -17,7 +18,10 @@ describe("SlotLock Controller Unit Tests", () => {
     };
     controller = createSlotLockController({ slotLockService: mockService });
     mockReq = { user: { _id: "u1" }, body: {}, params: {} };
-    mockRes = { status: jest.fn().mockReturnThis(), json: jest.fn().mockReturnThis() };
+    mockRes = {
+      status: jest.fn().mockReturnThis(),
+      json: jest.fn().mockReturnThis(),
+    };
     mockNext = jest.fn();
   });
 
@@ -28,9 +32,14 @@ describe("SlotLock Controller Unit Tests", () => {
     await controller.lockSlot(mockReq, mockRes, mockNext);
     await flushPromises();
 
-    expect(mockService.acquireSlotLock).toHaveBeenCalledWith("u1", mockReq.body);
+    expect(mockService.acquireSlotLock).toHaveBeenCalledWith(
+      "u1",
+      mockReq.body,
+    );
     expect(mockRes.status).toHaveBeenCalledWith(200);
-    expect(mockRes.json).toHaveBeenCalledWith({ message: "Slot locked successfully", lockId: "lock_1" });
+    expect(mockRes.json).toHaveBeenCalledWith(
+      successEnvelope({ lockId: "lock_1" }, "Slot locked successfully"),
+    );
   });
 
   test("lockSlot should route error to next()", async () => {
@@ -47,9 +56,14 @@ describe("SlotLock Controller Unit Tests", () => {
     await controller.unlockSlot(mockReq, mockRes, mockNext);
     await flushPromises();
 
-    expect(mockService.releaseSlotLock).toHaveBeenCalledWith("u1", mockReq.body);
+    expect(mockService.releaseSlotLock).toHaveBeenCalledWith(
+      "u1",
+      mockReq.body,
+    );
     expect(mockRes.status).toHaveBeenCalledWith(200);
-    expect(mockRes.json).toHaveBeenCalledWith({ message: "Slot unlocked successfully" });
+    expect(mockRes.json).toHaveBeenCalledWith(
+      successEnvelope(null, "Slot unlocked successfully"),
+    );
   });
 
   test("unlockSlot should route error to next()", async () => {
@@ -68,11 +82,15 @@ describe("SlotLock Controller Unit Tests", () => {
 
     expect(mockService.releaseAllUserLocks).toHaveBeenCalledWith("u1", "m1");
     expect(mockRes.status).toHaveBeenCalledWith(200);
-    expect(mockRes.json).toHaveBeenCalledWith({ message: "All locks released successfully" });
+    expect(mockRes.json).toHaveBeenCalledWith(
+      successEnvelope(null, "All locks released successfully"),
+    );
   });
 
   test("unlockAllByMentee should route error to next()", async () => {
-    mockService.releaseAllUserLocks.mockRejectedValue(new Error("Release failed"));
+    mockService.releaseAllUserLocks.mockRejectedValue(
+      new Error("Release failed"),
+    );
     await controller.unlockAllByMentee(mockReq, mockRes, mockNext);
     await flushPromises();
     expect(mockNext).toHaveBeenCalled();
@@ -85,13 +103,20 @@ describe("SlotLock Controller Unit Tests", () => {
     await controller.getActiveLocks(mockReq, mockRes, mockNext);
     await flushPromises();
 
-    expect(mockService.getMentorActiveLocksList).toHaveBeenCalledWith("m1", "u1");
+    expect(mockService.getMentorActiveLocksList).toHaveBeenCalledWith(
+      "m1",
+      "u1",
+    );
     expect(mockRes.status).toHaveBeenCalledWith(200);
-    expect(mockRes.json).toHaveBeenCalledWith([{ lockId: "l1" }]);
+    expect(mockRes.json).toHaveBeenCalledWith(
+      successEnvelope([{ lockId: "l1" }], "Active slot locks retrieved"),
+    );
   });
 
   test("getActiveLocks should route error to next()", async () => {
-    mockService.getMentorActiveLocksList.mockRejectedValue(new Error("Fetch failed"));
+    mockService.getMentorActiveLocksList.mockRejectedValue(
+      new Error("Fetch failed"),
+    );
     await controller.getActiveLocks(mockReq, mockRes, mockNext);
     await flushPromises();
     expect(mockNext).toHaveBeenCalled();

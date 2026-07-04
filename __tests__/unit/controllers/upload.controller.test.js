@@ -3,6 +3,7 @@
  */
 
 const createUploadController = require("../../../controllers/upload.controller");
+const { successEnvelope } = require("../../helpers/apiResponse");
 
 describe("Upload Controller Unit Tests", () => {
   let mockService, controller, mockReq, mockRes, mockNext;
@@ -20,36 +21,56 @@ describe("Upload Controller Unit Tests", () => {
       file: null,
       files: [],
     };
-    mockRes = { status: jest.fn().mockReturnThis(), json: jest.fn().mockReturnThis() };
+    mockRes = {
+      status: jest.fn().mockReturnThis(),
+      json: jest.fn().mockReturnThis(),
+    };
     mockNext = jest.fn();
   });
 
   test("uploadProfilePicture should return 200 with upload result", async () => {
     mockReq.file = { originalname: "avatar.png" };
     mockReq.body = { imageName: "profile_pic" };
-    mockService.processProfilePicture.mockResolvedValue({ url: "https://cdn.example.com/avatar.png" });
+    mockService.processProfilePicture.mockResolvedValue({
+      url: "https://cdn.example.com/avatar.png",
+    });
 
     await controller.uploadProfilePicture(mockReq, mockRes, mockNext);
     await flushPromises();
 
-    expect(mockService.processProfilePicture).toHaveBeenCalledWith(mockReq.file, "profile_pic");
+    expect(mockService.processProfilePicture).toHaveBeenCalledWith(
+      mockReq.file,
+      "profile_pic",
+    );
     expect(mockRes.status).toHaveBeenCalledWith(200);
-    expect(mockRes.json).toHaveBeenCalledWith({ success: true, url: "https://cdn.example.com/avatar.png" });
+    expect(mockRes.json).toHaveBeenCalledWith(
+      successEnvelope(
+        { url: "https://cdn.example.com/avatar.png" },
+        "Profile picture uploaded",
+      ),
+    );
   });
 
   test("uploadProfilePicture should handle undefined imageName", async () => {
     mockReq.file = { originalname: "avatar.png" };
     mockReq.body = {};
-    mockService.processProfilePicture.mockResolvedValue({ url: "https://cdn.example.com/avatar.png" });
+    mockService.processProfilePicture.mockResolvedValue({
+      url: "https://cdn.example.com/avatar.png",
+    });
 
     await controller.uploadProfilePicture(mockReq, mockRes, mockNext);
     await flushPromises();
 
-    expect(mockService.processProfilePicture).toHaveBeenCalledWith(mockReq.file, undefined);
+    expect(mockService.processProfilePicture).toHaveBeenCalledWith(
+      mockReq.file,
+      undefined,
+    );
   });
 
   test("uploadProfilePicture should route error to next()", async () => {
-    mockService.processProfilePicture.mockRejectedValue(new Error("Upload failed"));
+    mockService.processProfilePicture.mockRejectedValue(
+      new Error("Upload failed"),
+    );
     await controller.uploadProfilePicture(mockReq, mockRes, mockNext);
     await flushPromises();
     expect(mockNext).toHaveBeenCalled();
@@ -58,7 +79,9 @@ describe("Upload Controller Unit Tests", () => {
   test("uploadVerificationDocuments should return 200 with result", async () => {
     mockReq.files = [{ originalname: "doc.pdf" }];
     mockReq.body = { documentType: "id_proof" };
-    mockService.processVerificationDocuments.mockResolvedValue({ uploaded: true });
+    mockService.processVerificationDocuments.mockResolvedValue({
+      uploaded: true,
+    });
 
     await controller.uploadVerificationDocuments(mockReq, mockRes, mockNext);
     await flushPromises();
@@ -66,14 +89,18 @@ describe("Upload Controller Unit Tests", () => {
     expect(mockService.processVerificationDocuments).toHaveBeenCalledWith(
       expect.objectContaining({ _id: "u1" }),
       mockReq.body,
-      mockReq.files
+      mockReq.files,
     );
     expect(mockRes.status).toHaveBeenCalledWith(200);
-    expect(mockRes.json).toHaveBeenCalledWith({ success: true, uploaded: true });
+    expect(mockRes.json).toHaveBeenCalledWith(
+      successEnvelope({ uploaded: true }, "Verification documents uploaded"),
+    );
   });
 
   test("uploadVerificationDocuments should route error to next()", async () => {
-    mockService.processVerificationDocuments.mockRejectedValue(new Error("Upload failed"));
+    mockService.processVerificationDocuments.mockRejectedValue(
+      new Error("Upload failed"),
+    );
     await controller.uploadVerificationDocuments(mockReq, mockRes, mockNext);
     await flushPromises();
     expect(mockNext).toHaveBeenCalled();

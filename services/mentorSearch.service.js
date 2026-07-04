@@ -11,8 +11,13 @@ const ATLAS_SEARCH_INDEX = "mentor_search";
 const DEFAULT_PAGE_MINIMUM = 1;
 const CONFIG_MAX_LIMIT = 20;
 const CONFIG_DEFAULT_LIMIT = 6;
-const ATLAS_PIPELINE_CAP = 200;
 const EXTRA_NAME_MATCH_SCORE = 2;
+
+/** Profiles visible in search: complete and not explicitly unpublished. */
+const SEARCHABLE_FILTER = {
+  isProfileComplete: true,
+  isProfilePublished: { $ne: false },
+};
 
 const createMentorSearchService = ({
   mentorSearchRepository,
@@ -21,31 +26,49 @@ const createMentorSearchService = ({
   logger,
 }) => {
   /**
+   * Builds a standardized pagination payload for search responses.
+   * @private
+   */
+  const _buildPaginationResponse = (
+    pageNum,
+    limitNum,
+    skip,
+    totalCount,
+    mentors,
+  ) => ({
+    mentors,
+    pagination: {
+      page: pageNum,
+      limit: limitNum,
+      totalCount,
+      totalPages: Math.ceil(totalCount / limitNum),
+      currentPage: pageNum,
+      hasMore: skip + mentors.length < totalCount,
+    },
+  });
+
+  /**
    * Retrieves a simple, unfiltered list of published mentors sorted by rating.
    * @private
    */
   const _getPlainList = async (pageNum, limitNum, skip) => {
-    const filter = { isProfilePublished: true, isProfileComplete: true };
     const [totalCount, mentors] = await Promise.all([
-      mentorSearchRepository.countMentorProfiles(filter),
+      mentorSearchRepository.countMentorProfiles(SEARCHABLE_FILTER),
       mentorSearchRepository.findMentorsWithUserPopulation(
-        filter,
+        SEARCHABLE_FILTER,
         { avgRating: -1 },
         skip,
         limitNum,
       ),
     ]);
 
-    const totalPages = Math.ceil(totalCount / limitNum);
-    return {
-      mentors: mentors.map(toMentorProfileDTO),
-      pagination: {
-        totalCount,
-        totalPages,
-        currentPage: pageNum,
-        hasMore: pageNum < totalPages,
-      },
-    };
+    return _buildPaginationResponse(
+      pageNum,
+      limitNum,
+      skip,
+      totalCount,
+      mentors.map(toMentorProfileDTO),
+    );
   };
 
   /**
@@ -76,7 +99,7 @@ const createMentorSearchService = ({
     );
     const skip = (pageNum - 1) * limitNum;
 
-    const filter = { isProfilePublished: true, isProfileComplete: true };
+    const filter = { ...SEARCHABLE_FILTER };
     const queryToken = skill.trim() || name.trim();
 
     if (queryToken) {
@@ -123,15 +146,13 @@ const createMentorSearchService = ({
       ),
     ]);
 
-    return {
-      mentors: mentors.map(toMentorProfileDTO),
-      pagination: {
-        totalCount,
-        totalPages: Math.ceil(totalCount / limitNum),
-        currentPage: pageNum,
-        hasMore: pageNum < Math.ceil(totalCount / limitNum),
-      },
-    };
+    return _buildPaginationResponse(
+      pageNum,
+      limitNum,
+      skip,
+      totalCount,
+      mentors.map(toMentorProfileDTO),
+    );
   };
 
   /**
@@ -172,7 +193,6 @@ const createMentorSearchService = ({
     minRating,
   ) => {
     const filterClauses = [
-      { equals: { path: "isProfilePublished", value: true } },
       { equals: { path: "isProfileComplete", value: true } },
     ];
     const mustClauses = [];
@@ -238,7 +258,10 @@ const createMentorSearchService = ({
       });
     }
 
-    const compound = { filter: filterClauses };
+    const compound = {
+      filter: filterClauses,
+      mustNot: [{ equals: { path: "isProfilePublished", value: false } }],
+    };
     if (mustClauses.length > 0) compound.must = mustClauses;
     if (shouldClauses.length > 0) {
       compound.should = shouldClauses;
@@ -246,7 +269,7 @@ const createMentorSearchService = ({
     }
 
     if (mustClauses.length === 0 && shouldClauses.length === 0) {
-      compound.must = [{ exists: { path: "isProfilePublished" } }];
+      compound.must = [{ equals: { path: "isProfileComplete", value: true } }];
     }
 
     return compound;
@@ -276,43 +299,152 @@ const createMentorSearchService = ({
   };
 
   /**
-   * Merges name-matched mentor profiles into Atlas Search results.
+   * Shared Atlas pipeline stages before lookup/facet branching.
    * @private
    */
-  const _mergeNameMatches = async (
+  const _buildAtlasPreLookupStages = (compound, expMatch, skill) => [
+    { $search: { index: ATLAS_SEARCH_INDEX, compound } },
+    { $addFields: { searchScore: { $meta: "searchScore" } } },
+    ...(Object.keys(expMatch).length > 0 ? [{ $match: expMatch }] : []),
+    { $match: _buildScoreMatchStage(skill) },
+  ];
+
+  /**
+   * Projection stage for mentor search result documents.
+   * @private
+   */
+  const _buildResultProjection = () => ({
+    $project: {
+      _id: 1,
+      currentRole: 1,
+      industry: 1,
+      company: 1,
+      skills: 1,
+      hourlyRate: 1,
+      avgRating: 1,
+      profilePicture: 1,
+      linkedInUrl: 1,
+      portfolioUrl: 1,
+      searchScore: 1,
+      yearsOfExperience: 1,
+      bio: 1,
+      verificationStatus: 1,
+      user: {
+        _id: "$userDoc._id",
+        name: "$userDoc.name",
+        email: "$userDoc.email",
+      },
+    },
+  });
+
+  /**
+   * Fetches mentor profiles for name matches absent from Atlas results.
+   * @private
+   */
+  const _fetchNameOnlyProfiles = async (
+    missingIds,
+    expMatch,
+    limit = CONFIG_MAX_LIMIT,
+  ) => {
+    if (missingIds.length === 0) return [];
+
+    const extraFilter = {
+      user: { $in: missingIds },
+      ...SEARCHABLE_FILTER,
+      ...expMatch,
+    };
+
+    return mentorSearchRepository.findMentorsWithUserPopulation(
+      extraFilter,
+      { avgRating: -1 },
+      0,
+      limit,
+    );
+  };
+
+  /**
+   * Resolves name-only extras and Atlas pagination offsets when name is provided.
+   * @private
+   */
+  const _resolveNameMergeContext = async ({
+    nameMatchedProfileUserIds,
+    compound,
+    expMatch,
+    skill,
+    pageNum,
+    limitNum,
+  }) => {
+    if (!nameMatchedProfileUserIds || nameMatchedProfileUserIds.size === 0) {
+      return {
+        extraProfiles: [],
+        extrasOnFirstPage: 0,
+        atlasSkip: (pageNum - 1) * limitNum,
+        atlasLimit: limitNum,
+        extraCount: 0,
+      };
+    }
+
+    const atlasUserDocs = await mentorSearchRepository.aggregateMentorProfiles([
+      ..._buildAtlasPreLookupStages(compound, expMatch, skill),
+      { $project: { user: 1 } },
+    ]);
+    const atlasUserIds = new Set(
+      atlasUserDocs.map((doc) => doc.user.toString()),
+    );
+
+    const missingIds = [...nameMatchedProfileUserIds].filter(
+      (id) => !atlasUserIds.has(id),
+    );
+    const extraProfiles = await _fetchNameOnlyProfiles(missingIds, expMatch);
+    const extraCount = extraProfiles.length;
+
+    if (!skill.trim()) {
+      return {
+        extraProfiles,
+        extrasOnFirstPage: 0,
+        atlasSkip: (pageNum - 1) * limitNum,
+        atlasLimit: limitNum,
+        extraCount,
+        nameOnly: true,
+      };
+    }
+
+    const extrasOnFirstPage = Math.min(extraCount, limitNum);
+    const atlasSkip =
+      pageNum === 1 ? 0 : (pageNum - 1) * limitNum - extrasOnFirstPage;
+    const atlasLimit =
+      pageNum === 1 ? Math.max(0, limitNum - extrasOnFirstPage) : limitNum;
+
+    return {
+      extraProfiles,
+      extrasOnFirstPage,
+      atlasSkip: Math.max(0, atlasSkip),
+      atlasLimit,
+      extraCount,
+      nameOnly: false,
+    };
+  };
+
+  /**
+   * Merges name-matched mentor profiles into Atlas Search results for the current page.
+   * @private
+   */
+  const _mergeNameMatchesForPage = (
     results,
+    extraProfiles,
     nameMatchedProfileUserIds,
     skill,
-    expMatch,
+    pageNum,
+    extrasOnFirstPage,
   ) => {
     if (!nameMatchedProfileUserIds || nameMatchedProfileUserIds.size === 0) {
       return results;
     }
 
-    const atlasResultUserIds = new Set(
-      results.map((r) => r.user._id.toString()),
-    );
-    const missingIds = [...nameMatchedProfileUserIds].filter(
-      (id) => !atlasResultUserIds.has(id),
-    );
-
     let merged = results;
 
-    if (missingIds.length > 0) {
-      const extraFilter = {
-        user: { $in: missingIds },
-        isProfilePublished: true,
-        isProfileComplete: true,
-        ...expMatch,
-      };
-      const extraProfiles =
-        await mentorSearchRepository.findMentorsWithUserPopulation(
-          extraFilter,
-          { avgRating: -1 },
-          0,
-          ATLAS_PIPELINE_CAP,
-        );
-      const withScore = extraProfiles.map((p) => ({
+    if (skill.trim() && pageNum === 1 && extraProfiles.length > 0) {
+      const withScore = extraProfiles.slice(0, extrasOnFirstPage).map((p) => ({
         ...p,
         searchScore: EXTRA_NAME_MATCH_SCORE,
         user: { _id: p.user._id, name: p.user.name, email: p.user.email },
@@ -385,10 +517,17 @@ const createMentorSearchService = ({
       );
       const expMatch = _buildExperienceMatch(minExperience, maxExperience);
 
+      const nameMergeContext = await _resolveNameMergeContext({
+        nameMatchedProfileUserIds,
+        compound,
+        expMatch,
+        skill,
+        pageNum,
+        limitNum,
+      });
+
       const pipeline = [
-        { $search: { index: ATLAS_SEARCH_INDEX, compound } },
-        { $addFields: { searchScore: { $meta: "searchScore" } } },
-        ...(Object.keys(expMatch).length > 0 ? [{ $match: expMatch }] : []),
+        ..._buildAtlasPreLookupStages(compound, expMatch, skill),
         {
           $lookup: {
             from: "users",
@@ -398,36 +537,14 @@ const createMentorSearchService = ({
           },
         },
         { $unwind: { path: "$userDoc", preserveNullAndEmptyArrays: false } },
-        { $match: _buildScoreMatchStage(skill) },
         {
           $facet: {
+            metadata: [{ $count: "total" }],
             results: [
               { $sort: { searchScore: -1, avgRating: -1 } },
-              { $skip: 0 },
-              { $limit: ATLAS_PIPELINE_CAP },
-              {
-                $project: {
-                  _id: 1,
-                  currentRole: 1,
-                  industry: 1,
-                  company: 1,
-                  skills: 1,
-                  hourlyRate: 1,
-                  avgRating: 1,
-                  profilePicture: 1,
-                  linkedInUrl: 1,
-                  portfolioUrl: 1,
-                  searchScore: 1,
-                  yearsOfExperience: 1,
-                  bio: 1,
-                  verificationStatus: 1,
-                  user: {
-                    _id: "$userDoc._id",
-                    name: "$userDoc.name",
-                    email: "$userDoc.email",
-                  },
-                },
-              },
+              { $skip: nameMergeContext.atlasSkip },
+              { $limit: nameMergeContext.atlasLimit },
+              _buildResultProjection(),
             ],
           },
         },
@@ -435,13 +552,16 @@ const createMentorSearchService = ({
 
       const [facetResult] =
         await mentorSearchRepository.aggregateMentorProfiles(pipeline);
+      const atlasTotalCount = facetResult?.metadata?.[0]?.total ?? 0;
       let results = facetResult?.results || [];
 
-      results = await _mergeNameMatches(
+      results = _mergeNameMatchesForPage(
         results,
+        nameMergeContext.extraProfiles,
         nameMatchedProfileUserIds,
         skill,
-        expMatch,
+        pageNum,
+        nameMergeContext.extrasOnFirstPage,
       );
 
       if (results.length === 0) {
@@ -451,22 +571,31 @@ const createMentorSearchService = ({
         return executeFallbackSearch(queryParams);
       }
 
-      const totalCount = results.length;
-      const totalPages = Math.ceil(totalCount / limitNum);
-      const paginated = results.slice(skip, skip + limitNum);
+      let totalCount = atlasTotalCount;
+      if (nameMatchedProfileUserIds && nameMatchedProfileUserIds.size > 0) {
+        if (!skill.trim()) {
+          totalCount = await mentorSearchRepository.countMentorProfiles({
+            user: { $in: [...nameMatchedProfileUserIds] },
+            ...SEARCHABLE_FILTER,
+            ...expMatch,
+          });
+        } else {
+          totalCount = atlasTotalCount + nameMergeContext.extraCount;
+        }
+      }
 
-      return {
-        mentors: paginated.map((m) => ({
+      const paginated = results.slice(0, limitNum);
+
+      return _buildPaginationResponse(
+        pageNum,
+        limitNum,
+        skip,
+        totalCount,
+        paginated.map((m) => ({
           ...toMentorProfileDTO(m),
           searchScore: m.searchScore,
         })),
-        pagination: {
-          totalCount,
-          totalPages,
-          currentPage: pageNum,
-          hasMore: pageNum < totalPages,
-        },
-      };
+      );
     } catch (error) {
       if (
         error.message?.includes("$search") ||

@@ -1,4 +1,5 @@
 const createNotificationController = require("../../../controllers/notification.controller");
+const { successEnvelope } = require("../../helpers/apiResponse");
 
 describe("Notification Controller Unit Tests", () => {
   let mockService, controller, mockReq, mockRes, mockNext;
@@ -13,7 +14,9 @@ describe("Notification Controller Unit Tests", () => {
       removeNotificationRecord: jest.fn(),
       clearAllUserNotifications: jest.fn(),
     };
-    controller = createNotificationController({ notificationService: mockService });
+    controller = createNotificationController({
+      notificationService: mockService,
+    });
     mockReq = { user: { _id: "recipient_id" }, params: {}, query: {} };
     mockRes = {
       status: jest.fn().mockReturnThis(),
@@ -29,9 +32,13 @@ describe("Notification Controller Unit Tests", () => {
     await controller.getNotifications(mockReq, mockRes, mockNext);
     await flushPromises();
 
-    expect(mockService.getRecipientNotifications).toHaveBeenCalledWith("recipient_id");
+    expect(mockService.getRecipientNotifications).toHaveBeenCalledWith(
+      "recipient_id",
+    );
     expect(mockRes.status).toHaveBeenCalledWith(200);
-    expect(mockRes.json).toHaveBeenCalledWith({ notifications: mockList });
+    expect(mockRes.json).toHaveBeenCalledWith(
+      successEnvelope({ notifications: mockList }, "Notifications retrieved"),
+    );
   });
 
   test("getNotifications should route error to next()", async () => {
@@ -49,11 +56,13 @@ describe("Notification Controller Unit Tests", () => {
     await controller.markAllRead(mockReq, mockRes, mockNext);
     await flushPromises();
 
-    expect(mockService.markAllNotificationsAsRead).toHaveBeenCalledWith("recipient_id");
+    expect(mockService.markAllNotificationsAsRead).toHaveBeenCalledWith(
+      "recipient_id",
+    );
     expect(mockRes.status).toHaveBeenCalledWith(200);
-    expect(mockRes.json).toHaveBeenCalledWith({
-      message: "All notifications marked as read",
-    });
+    expect(mockRes.json).toHaveBeenCalledWith(
+      successEnvelope(null, "All notifications marked as read"),
+    );
   });
 
   test("markAllRead should route error to next()", async () => {
@@ -72,11 +81,14 @@ describe("Notification Controller Unit Tests", () => {
     await controller.markOneRead(mockReq, mockRes, mockNext);
     await flushPromises();
 
-    expect(mockService.markOneNotificationAsRead).toHaveBeenCalledWith("n1", "recipient_id");
+    expect(mockService.markOneNotificationAsRead).toHaveBeenCalledWith(
+      "n1",
+      "recipient_id",
+    );
     expect(mockRes.status).toHaveBeenCalledWith(200);
-    expect(mockRes.json).toHaveBeenCalledWith({
-      message: "Notification marked as read",
-    });
+    expect(mockRes.json).toHaveBeenCalledWith(
+      successEnvelope(null, "Notification marked as read"),
+    );
   });
 
   test("markOneRead should route error to next()", async () => {
@@ -95,11 +107,14 @@ describe("Notification Controller Unit Tests", () => {
     await controller.deleteNotification(mockReq, mockRes, mockNext);
     await flushPromises();
 
-    expect(mockService.removeNotificationRecord).toHaveBeenCalledWith("n1", "recipient_id");
+    expect(mockService.removeNotificationRecord).toHaveBeenCalledWith(
+      "n1",
+      "recipient_id",
+    );
     expect(mockRes.status).toHaveBeenCalledWith(200);
-    expect(mockRes.json).toHaveBeenCalledWith({
-      message: "Notification deleted",
-    });
+    expect(mockRes.json).toHaveBeenCalledWith(
+      successEnvelope(null, "Notification deleted"),
+    );
   });
 
   test("deleteNotification should route error to next()", async () => {
@@ -117,11 +132,13 @@ describe("Notification Controller Unit Tests", () => {
     await controller.clearAll(mockReq, mockRes, mockNext);
     await flushPromises();
 
-    expect(mockService.clearAllUserNotifications).toHaveBeenCalledWith("recipient_id");
+    expect(mockService.clearAllUserNotifications).toHaveBeenCalledWith(
+      "recipient_id",
+    );
     expect(mockRes.status).toHaveBeenCalledWith(200);
-    expect(mockRes.json).toHaveBeenCalledWith({
-      message: "All notifications cleared",
-    });
+    expect(mockRes.json).toHaveBeenCalledWith(
+      successEnvelope(null, "All notifications cleared"),
+    );
   });
 
   test("clearAll should route error to next()", async () => {

@@ -11,6 +11,7 @@ jest.mock("../../../utils/catchAsync", () => {
 });
 
 const createFeedbackController = require("../../../controllers/feedback.controller");
+const { successEnvelope } = require("../../helpers/apiResponse");
 
 describe("FeedbackController", () => {
   let mockFeedbackService;
@@ -86,11 +87,12 @@ describe("FeedbackController", () => {
         userId: "user_variant_mentee_888",
       });
       expect(res.status).toHaveBeenCalledWith(201);
-      expect(res.json).toHaveBeenCalledWith({
-        success: true,
-        message: "Feedback submitted successfully.",
-        feedback: dynamicResult,
-      });
+      expect(res.json).toHaveBeenCalledWith(
+        successEnvelope(
+          { feedback: dynamicResult },
+          "Feedback submitted successfully.",
+        ),
+      );
       expect(next).not.toHaveBeenCalled();
     });
 
@@ -128,11 +130,15 @@ describe("FeedbackController", () => {
         "user_variant_mentor_111",
       );
       expect(res.status).toHaveBeenCalledWith(200);
-      expect(res.json).toHaveBeenCalledWith({
-        success: true,
-        items: [mockFeedbackRecord],
-        averageRating: 5,
-      });
+      expect(res.json).toHaveBeenCalledWith(
+        successEnvelope(
+          {
+            items: [mockFeedbackRecord],
+            averageRating: 5,
+          },
+          "Feedback retrieved",
+        ),
+      );
       expect(next).not.toHaveBeenCalled();
     });
 

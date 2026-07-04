@@ -3,6 +3,7 @@
  */
 
 const createVerificationController = require("../../../controllers/verification.controller");
+const { successEnvelope } = require("../../helpers/apiResponse");
 
 describe("Verification Controller Unit Tests", () => {
   let mockService, controller, mockReq, mockRes, mockNext;
@@ -14,9 +15,14 @@ describe("Verification Controller Unit Tests", () => {
       processOtpVerification: jest.fn(),
       processLinkVerification: jest.fn(),
     };
-    controller = createVerificationController({ verificationService: mockService });
+    controller = createVerificationController({
+      verificationService: mockService,
+    });
     mockReq = { body: {}, params: {}, query: {} };
-    mockRes = { status: jest.fn().mockReturnThis(), json: jest.fn().mockReturnThis() };
+    mockRes = {
+      status: jest.fn().mockReturnThis(),
+      json: jest.fn().mockReturnThis(),
+    };
     mockNext = jest.fn();
   });
 
@@ -27,13 +33,19 @@ describe("Verification Controller Unit Tests", () => {
     await controller.sendVerification(mockReq, mockRes, mockNext);
     await flushPromises();
 
-    expect(mockService.initiateVerification).toHaveBeenCalledWith("user@test.com");
+    expect(mockService.initiateVerification).toHaveBeenCalledWith(
+      "user@test.com",
+    );
     expect(mockRes.status).toHaveBeenCalledWith(200);
-    expect(mockRes.json).toHaveBeenCalledWith({ message: "Verification email sent (OTP + magic link)" });
+    expect(mockRes.json).toHaveBeenCalledWith(
+      successEnvelope(null, "Verification email sent (OTP + magic link)"),
+    );
   });
 
   test("sendVerification should route error to next()", async () => {
-    mockService.initiateVerification.mockRejectedValue(new Error("Send failed"));
+    mockService.initiateVerification.mockRejectedValue(
+      new Error("Send failed"),
+    );
     await controller.sendVerification(mockReq, mockRes, mockNext);
     await flushPromises();
     expect(mockNext).toHaveBeenCalled();
@@ -46,13 +58,20 @@ describe("Verification Controller Unit Tests", () => {
     await controller.resendVerification(mockReq, mockRes, mockNext);
     await flushPromises();
 
-    expect(mockService.initiateVerification).toHaveBeenCalledWith("user@test.com", " (Resend)");
+    expect(mockService.initiateVerification).toHaveBeenCalledWith(
+      "user@test.com",
+      " (Resend)",
+    );
     expect(mockRes.status).toHaveBeenCalledWith(200);
-    expect(mockRes.json).toHaveBeenCalledWith({ message: "Verification email resent (OTP + magic link)" });
+    expect(mockRes.json).toHaveBeenCalledWith(
+      successEnvelope(null, "Verification email resent (OTP + magic link)"),
+    );
   });
 
   test("resendVerification should route error to next()", async () => {
-    mockService.initiateVerification.mockRejectedValue(new Error("Resend failed"));
+    mockService.initiateVerification.mockRejectedValue(
+      new Error("Resend failed"),
+    );
     await controller.resendVerification(mockReq, mockRes, mockNext);
     await flushPromises();
     expect(mockNext).toHaveBeenCalled();
@@ -65,13 +84,20 @@ describe("Verification Controller Unit Tests", () => {
     await controller.verifyOtp(mockReq, mockRes, mockNext);
     await flushPromises();
 
-    expect(mockService.processOtpVerification).toHaveBeenCalledWith("user@test.com", "123456");
+    expect(mockService.processOtpVerification).toHaveBeenCalledWith(
+      "user@test.com",
+      "123456",
+    );
     expect(mockRes.status).toHaveBeenCalledWith(200);
-    expect(mockRes.json).toHaveBeenCalledWith({ message: "Email verified successfully" });
+    expect(mockRes.json).toHaveBeenCalledWith(
+      successEnvelope(null, "Email verified successfully"),
+    );
   });
 
   test("verifyOtp should route error to next()", async () => {
-    mockService.processOtpVerification.mockRejectedValue(new Error("OTP invalid"));
+    mockService.processOtpVerification.mockRejectedValue(
+      new Error("OTP invalid"),
+    );
     await controller.verifyOtp(mockReq, mockRes, mockNext);
     await flushPromises();
     expect(mockNext).toHaveBeenCalled();
@@ -85,13 +111,20 @@ describe("Verification Controller Unit Tests", () => {
     await controller.verifyLink(mockReq, mockRes, mockNext);
     await flushPromises();
 
-    expect(mockService.processLinkVerification).toHaveBeenCalledWith("token_abc", "user@test.com");
+    expect(mockService.processLinkVerification).toHaveBeenCalledWith(
+      "token_abc",
+      "user@test.com",
+    );
     expect(mockRes.status).toHaveBeenCalledWith(200);
-    expect(mockRes.json).toHaveBeenCalledWith({ message: "Email verified successfully", role: "mentee" });
+    expect(mockRes.json).toHaveBeenCalledWith(
+      successEnvelope({ role: "mentee" }, "Email verified successfully"),
+    );
   });
 
   test("verifyLink should route error to next()", async () => {
-    mockService.processLinkVerification.mockRejectedValue(new Error("Link expired"));
+    mockService.processLinkVerification.mockRejectedValue(
+      new Error("Link expired"),
+    );
     await controller.verifyLink(mockReq, mockRes, mockNext);
     await flushPromises();
     expect(mockNext).toHaveBeenCalled();

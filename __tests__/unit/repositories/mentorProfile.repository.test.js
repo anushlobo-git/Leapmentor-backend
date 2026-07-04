@@ -250,7 +250,7 @@ describe("MentorProfile Repository", () => {
 
       expect(mockMentorProfileModel.findOne).toHaveBeenCalledWith({
         user: "user777",
-        isProfilePublished: true,
+        isProfilePublished: { $ne: false },
       });
       expect(mockChain.populate).toHaveBeenCalledWith("user", "name email");
     });
@@ -267,7 +267,7 @@ describe("MentorProfile Repository", () => {
 
       expect(mockMentorProfileModel.find).toHaveBeenCalledWith({
         user: { $ne: "user777" },
-        isProfilePublished: true,
+        isProfilePublished: { $ne: false },
         isProfileComplete: true,
         skills: { $in: ["System Design"] },
       });

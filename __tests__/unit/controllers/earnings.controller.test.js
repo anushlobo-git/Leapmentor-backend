@@ -11,6 +11,7 @@ jest.mock("../../../utils/catchAsync", () => {
 });
 
 const createEarningsController = require("../../../controllers/earnings.controller");
+const { successEnvelope } = require("../../helpers/apiResponse");
 
 describe("EarningsController", () => {
   let mockEarningsService;
@@ -80,12 +81,9 @@ describe("EarningsController", () => {
         mockEarningsService.getEarningsSummaryService,
       ).toHaveBeenCalledWith("mentor_alpha_123");
       expect(res.status).toHaveBeenCalledWith(200);
-      expect(res.json).toHaveBeenCalledWith({
-        success: true,
-        balance: 2500,
-        escrowBalance: 400,
-        totalWithdrawn: 1200,
-      });
+      expect(res.json).toHaveBeenCalledWith(
+        successEnvelope(mockSummaryData, "Earnings summary retrieved"),
+      );
       expect(next).not.toHaveBeenCalled();
     });
 
@@ -116,11 +114,9 @@ describe("EarningsController", () => {
         "weekly",
       );
       expect(res.status).toHaveBeenCalledWith(200);
-      expect(res.json).toHaveBeenCalledWith({
-        success: true,
-        labels: ["Jan", "Feb"],
-        datasets: [1000, 1500],
-      });
+      expect(res.json).toHaveBeenCalledWith(
+        successEnvelope(mockChartData, "Earnings chart retrieved"),
+      );
       expect(next).not.toHaveBeenCalled();
     });
 
@@ -171,11 +167,9 @@ describe("EarningsController", () => {
         },
       );
       expect(res.status).toHaveBeenCalledWith(200);
-      expect(res.json).toHaveBeenCalledWith({
-        success: true,
-        payouts: [{ _id: "po_999", amount: 500, status: "completed" }],
-        total: 1,
-      });
+      expect(res.json).toHaveBeenCalledWith(
+        successEnvelope(mockPayoutResult, "Payout history retrieved"),
+      );
       expect(next).not.toHaveBeenCalled();
     });
 
@@ -204,12 +198,12 @@ describe("EarningsController", () => {
         "mentor_epsilon_888",
       );
       expect(res.status).toHaveBeenCalledWith(200);
-      expect(res.json).toHaveBeenCalledWith({
-        success: true,
-        message: "Withdrawal request submitted successfully",
-        transactionId: "tx_with_777",
-        estimatedArrival: "2026-07-02",
-      });
+      expect(res.json).toHaveBeenCalledWith(
+        successEnvelope(
+          mockWithdrawalResult,
+          "Withdrawal request submitted successfully",
+        ),
+      );
       expect(next).not.toHaveBeenCalled();
     });
 

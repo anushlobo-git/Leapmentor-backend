@@ -11,6 +11,7 @@ jest.mock("../../../utils/catchAsync", () => {
 });
 
 const createAdminController = require("../../../controllers/admin.controller");
+const { successEnvelope } = require("../../helpers/apiResponse");
 
 describe("AdminController", () => {
   let mockAdminAuthService;
@@ -110,10 +111,9 @@ describe("AdminController", () => {
         expect.any(Object),
       );
       expect(res.status).toHaveBeenCalledWith(200);
-      expect(res.json).toHaveBeenCalledWith({
-        success: true,
-        admin: mockAdminData,
-      });
+      expect(res.json).toHaveBeenCalledWith(
+        successEnvelope({ admin: mockAdminData }, "Admin login successful"),
+      );
       expect(next).not.toHaveBeenCalled();
     });
 
@@ -135,10 +135,9 @@ describe("AdminController", () => {
         expect.any(Object),
       );
       expect(res.status).toHaveBeenCalledWith(200);
-      expect(res.json).toHaveBeenCalledWith({
-        success: true,
-        message: "Logged out.",
-      });
+      expect(res.json).toHaveBeenCalledWith(
+        successEnvelope(null, "Logged out."),
+      );
     });
 
     test("should return 200 and serialize current profile data matching req.admin", async () => {
@@ -147,7 +146,9 @@ describe("AdminController", () => {
       await controller.adminMe(req, res, next);
 
       expect(res.status).toHaveBeenCalledWith(200);
-      expect(res.json).toHaveBeenCalledWith({ admin: req.admin });
+      expect(res.json).toHaveBeenCalledWith(
+        successEnvelope({ admin: req.admin }, "Admin profile retrieved"),
+      );
       expect(next).not.toHaveBeenCalled();
     });
   });
@@ -167,7 +168,9 @@ describe("AdminController", () => {
         expect.any(Function),
       );
       expect(res.status).toHaveBeenCalledWith(200);
-      expect(res.json).toHaveBeenCalledWith(mockTelemetryStats);
+      expect(res.json).toHaveBeenCalledWith(
+        successEnvelope(mockTelemetryStats, "Platform stats retrieved"),
+      );
       expect(next).not.toHaveBeenCalled();
     });
 
@@ -194,7 +197,9 @@ describe("AdminController", () => {
         expect.any(Function),
       );
       expect(res.status).toHaveBeenCalledWith(200);
-      expect(res.json).toHaveBeenCalledWith(mockGrowthData);
+      expect(res.json).toHaveBeenCalledWith(
+        successEnvelope(mockGrowthData, "User growth data retrieved"),
+      );
       expect(next).not.toHaveBeenCalled();
     });
 
@@ -221,7 +226,9 @@ describe("AdminController", () => {
         expect.any(Function),
       );
       expect(res.status).toHaveBeenCalledWith(200);
-      expect(res.json).toHaveBeenCalledWith(mockIndustryStats);
+      expect(res.json).toHaveBeenCalledWith(
+        successEnvelope(mockIndustryStats, "Mentor industry stats retrieved"),
+      );
       expect(next).not.toHaveBeenCalled();
     });
 
@@ -253,7 +260,9 @@ describe("AdminController", () => {
         limit: "10",
       });
       expect(res.status).toHaveBeenCalledWith(200);
-      expect(res.json).toHaveBeenCalledWith(mockUsersCollection);
+      expect(res.json).toHaveBeenCalledWith(
+        successEnvelope(mockUsersCollection, "Users retrieved"),
+      );
       expect(next).not.toHaveBeenCalled();
     });
 
@@ -278,7 +287,9 @@ describe("AdminController", () => {
         "usr_target999",
       );
       expect(res.status).toHaveBeenCalledWith(200);
-      expect(res.json).toHaveBeenCalledWith(targetDetail);
+      expect(res.json).toHaveBeenCalledWith(
+        successEnvelope(targetDetail, "User details retrieved"),
+      );
       expect(next).not.toHaveBeenCalled();
     });
 
@@ -306,10 +317,12 @@ describe("AdminController", () => {
         "usr_drop_777",
       );
       expect(res.status).toHaveBeenCalledWith(200);
-      expect(res.json).toHaveBeenCalledWith({
-        success: true,
-        message: "User Bob Dev (bob@test.com) has been permanently deleted.",
-      });
+      expect(res.json).toHaveBeenCalledWith(
+        successEnvelope(
+          null,
+          "User Bob Dev (bob@test.com) has been permanently deleted.",
+        ),
+      );
       expect(next).not.toHaveBeenCalled();
     });
 
@@ -336,10 +349,9 @@ describe("AdminController", () => {
         "usr_block_456",
       );
       expect(res.status).toHaveBeenCalledWith(200);
-      expect(res.json).toHaveBeenCalledWith({
-        success: true,
-        message: "User Charlie has been blocked.",
-      });
+      expect(res.json).toHaveBeenCalledWith(
+        successEnvelope(null, "User Charlie has been blocked."),
+      );
       expect(next).not.toHaveBeenCalled();
     });
 
@@ -366,10 +378,9 @@ describe("AdminController", () => {
         "usr_restore_123",
       );
       expect(res.status).toHaveBeenCalledWith(200);
-      expect(res.json).toHaveBeenCalledWith({
-        success: true,
-        message: "User David has been restored.",
-      });
+      expect(res.json).toHaveBeenCalledWith(
+        successEnvelope(null, "User David has been restored."),
+      );
       expect(next).not.toHaveBeenCalled();
     });
 
@@ -401,7 +412,9 @@ describe("AdminController", () => {
         expect.any(Function),
       );
       expect(res.status).toHaveBeenCalledWith(200);
-      expect(res.json).toHaveBeenCalledWith(mockEngagementStats);
+      expect(res.json).toHaveBeenCalledWith(
+        successEnvelope(mockEngagementStats, "Engagement stats retrieved"),
+      );
       expect(next).not.toHaveBeenCalled();
     });
 
@@ -430,7 +443,9 @@ describe("AdminController", () => {
         mockAdminEngagementService.getEngagementsService,
       ).toHaveBeenCalledWith({ page: "3", status: "ongoing" });
       expect(res.status).toHaveBeenCalledWith(200);
-      expect(res.json).toHaveBeenCalledWith(mockEngagementsResult);
+      expect(res.json).toHaveBeenCalledWith(
+        successEnvelope(mockEngagementsResult, "Engagements retrieved"),
+      );
       expect(next).not.toHaveBeenCalled();
     });
 

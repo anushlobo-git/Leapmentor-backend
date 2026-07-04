@@ -147,7 +147,7 @@ const mentorProfileSchema = new mongoose.Schema(
 
     isProfilePublished: {
       type: Boolean,
-      default: false,
+      default: true,
     },
 
     emailNotifications: {

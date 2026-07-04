@@ -95,7 +95,7 @@ const createMentorProfileRepository = (MentorProfile) => {
   const findPublishedByUserId = (userId) =>
     MentorProfile.findOne({
       user: userId,
-      isProfilePublished: true,
+      isProfilePublished: { $ne: false },
     }).populate("user", "name email");
 
   /**
@@ -186,7 +186,7 @@ const createMentorProfileRepository = (MentorProfile) => {
   const findSimilarPublishedMentors = (excludeUserId, skills, limit) => {
     return MentorProfile.find({
       user: { $ne: excludeUserId },
-      isProfilePublished: true,
+      isProfilePublished: { $ne: false },
       isProfileComplete: true,
       skills: { $in: skills },
     })

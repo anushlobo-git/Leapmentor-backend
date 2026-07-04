@@ -6,6 +6,7 @@
 
 const createRefreshController = require("../../../controllers/refresh.controller");
 const AppError = require("../../../utils/AppError");
+const { successEnvelope } = require("../../helpers/apiResponse");
 
 describe("Session Token Refresh Controller Unit Tests", () => {
   let mockAuthUtils;
@@ -68,10 +69,12 @@ describe("Session Token Refresh Controller Unit Tests", () => {
       "user_account_id_555",
     );
     expect(mockRes.status).toHaveBeenCalledWith(200);
-    expect(mockRes.json).toHaveBeenCalledWith({
-      success: true,
-      accessToken: "newly_minted_access_jwt",
-    });
+    expect(mockRes.json).toHaveBeenCalledWith(
+      successEnvelope(
+        { accessToken: "newly_minted_access_jwt" },
+        "Access token refreshed",
+      ),
+    );
   });
 
   test("should forward a 401 Unauthorized error to next() if the refreshToken cookie is missing", async () => {

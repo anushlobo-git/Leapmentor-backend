@@ -6,6 +6,7 @@
 
 const createLinkedinAuthController = require("../../../controllers/linkedinAuth.controller");
 const AppError = require("../../../utils/AppError");
+const { successEnvelope } = require("../../helpers/apiResponse");
 
 describe("LinkedIn OAuth Controller Unit Tests", () => {
   let mockLinkedinAuthService,
@@ -150,12 +151,16 @@ describe("LinkedIn OAuth Controller Unit Tests", () => {
         "mentor",
       );
       expect(mockRes.status).toHaveBeenCalledWith(200);
-      expect(mockRes.json).toHaveBeenCalledWith({
-        message: "LinkedIn login successful",
-        user: mockResult.user,
-        accessToken: "acc_jwt",
-        isNewUser: false,
-      });
+      expect(mockRes.json).toHaveBeenCalledWith(
+        successEnvelope(
+          {
+            user: mockResult.user,
+            accessToken: "acc_jwt",
+            isNewUser: false,
+          },
+          "LinkedIn login successful",
+        ),
+      );
     });
 
     test("should support user response with no roles array or empty roles array", async () => {

@@ -11,6 +11,7 @@ jest.mock("../../../utils/catchAsync", () => {
 });
 
 const createAiController = require("../../../controllers/ai.controller");
+const { successEnvelope } = require("../../helpers/apiResponse");
 
 describe("AiController", () => {
   let mockAiService;
@@ -64,14 +65,19 @@ describe("AiController", () => {
         req.body.systemPrompt,
       );
       expect(res.status).toHaveBeenCalledWith(200);
-      expect(res.json).toHaveBeenCalledWith({
-        content: [
+      expect(res.json).toHaveBeenCalledWith(
+        successEnvelope(
           {
-            type: "text",
-            text: "Clean code is reading code that is easy to understand.",
+            content: [
+              {
+                type: "text",
+                text: "Clean code is reading code that is easy to understand.",
+              },
+            ],
           },
-        ],
-      });
+          "Chat response generated",
+        ),
+      );
       expect(next).not.toHaveBeenCalled();
     });
 
@@ -93,14 +99,19 @@ describe("AiController", () => {
         req.body.systemPrompt,
       );
       expect(res.status).toHaveBeenCalledWith(200);
-      expect(res.json).toHaveBeenCalledWith({
-        content: [
+      expect(res.json).toHaveBeenCalledWith(
+        successEnvelope(
           {
-            type: "text",
-            text: "It allows execution to proceed without blocking.",
+            content: [
+              {
+                type: "text",
+                text: "It allows execution to proceed without blocking.",
+              },
+            ],
           },
-        ],
-      });
+          "Chat response generated",
+        ),
+      );
       expect(next).not.toHaveBeenCalled();
     });
 

@@ -3,6 +3,7 @@
  */
 
 const createSupportController = require("../../../controllers/support.controller");
+const { successEnvelope } = require("../../helpers/apiResponse");
 
 describe("Support Controller Unit Tests", () => {
   let mockService, controller, mockReq, mockRes, mockNext;
@@ -16,7 +17,10 @@ describe("Support Controller Unit Tests", () => {
     };
     controller = createSupportController({ supportService: mockService });
     mockReq = { body: {}, params: {} };
-    mockRes = { status: jest.fn().mockReturnThis(), json: jest.fn().mockReturnThis() };
+    mockRes = {
+      status: jest.fn().mockReturnThis(),
+      json: jest.fn().mockReturnThis(),
+    };
     mockNext = jest.fn();
   });
 
@@ -30,7 +34,9 @@ describe("Support Controller Unit Tests", () => {
 
     expect(mockService.submitTicket).toHaveBeenCalledWith(mockReq.body);
     expect(mockRes.status).toHaveBeenCalledWith(201);
-    expect(mockRes.json).toHaveBeenCalledWith(mockTicket);
+    expect(mockRes.json).toHaveBeenCalledWith(
+      successEnvelope(mockTicket, "Support ticket submitted"),
+    );
   });
 
   test("createMessage should route error to next()", async () => {
@@ -49,7 +55,9 @@ describe("Support Controller Unit Tests", () => {
 
     expect(mockService.fetchAllTickets).toHaveBeenCalled();
     expect(mockRes.status).toHaveBeenCalledWith(200);
-    expect(mockRes.json).toHaveBeenCalledWith(mockTickets);
+    expect(mockRes.json).toHaveBeenCalledWith(
+      successEnvelope(mockTickets, "Support tickets retrieved"),
+    );
   });
 
   test("getMessages should route error to next()", async () => {
@@ -69,7 +77,9 @@ describe("Support Controller Unit Tests", () => {
 
     expect(mockService.resolveTicket).toHaveBeenCalledWith("t1");
     expect(mockRes.status).toHaveBeenCalledWith(200);
-    expect(mockRes.json).toHaveBeenCalledWith(mockResolved);
+    expect(mockRes.json).toHaveBeenCalledWith(
+      successEnvelope(mockResolved, "Support ticket resolved"),
+    );
   });
 
   test("resolveMessage should route error to next()", async () => {

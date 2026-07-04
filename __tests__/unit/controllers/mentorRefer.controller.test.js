@@ -5,6 +5,7 @@
  */
 
 const createMentorReferController = require("../../../controllers/mentorRefer.controller");
+const { successEnvelope } = require("../../helpers/apiResponse");
 
 describe("Mentor Referral Controller Unit Tests", () => {
   let mockMentorReferService, controller, mockReq, mockRes, mockNext;
@@ -16,7 +17,9 @@ describe("Mentor Referral Controller Unit Tests", () => {
       getSimilarMentorsList: jest.fn(),
     };
 
-    controller = createMentorReferController({ mentorReferService: mockMentorReferService });
+    controller = createMentorReferController({
+      mentorReferService: mockMentorReferService,
+    });
 
     mockReq = {
       user: { _id: "mentor_origin_uuid_101" },
@@ -52,11 +55,15 @@ describe("Mentor Referral Controller Unit Tests", () => {
       "mentor_origin_uuid_101",
     );
     expect(mockRes.status).toHaveBeenCalledWith(200);
-    expect(mockRes.json).toHaveBeenCalledWith({
-      success: true,
-      mySkills: ["Node.js", "MongoDB"],
-      mentors: [{ name: "Peer Mentor", matchCount: 2 }],
-    });
+    expect(mockRes.json).toHaveBeenCalledWith(
+      successEnvelope(
+        {
+          mySkills: ["Node.js", "MongoDB"],
+          mentors: [{ name: "Peer Mentor", matchCount: 2 }],
+        },
+        "Similar mentors retrieved",
+      ),
+    );
   });
 
   test("should intercept thrown operational errors and route them directly down to next() middleware", async () => {

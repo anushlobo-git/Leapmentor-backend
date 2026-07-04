@@ -5,6 +5,7 @@
  */
 
 const createForgotPasswordController = require("../../../controllers/forgotPassword.controller");
+const { successEnvelope } = require("../../helpers/apiResponse");
 
 describe("ForgotPasswordController", () => {
   let mockForgotPasswordService;
@@ -64,10 +65,15 @@ describe("ForgotPasswordController", () => {
         mockForgotPasswordService.sendForgotPasswordOtp,
       ).toHaveBeenCalledWith("user_alpha@leapmentor.com");
       expect(res.status).toHaveBeenCalledWith(200);
-      expect(res.json).toHaveBeenCalledWith({
-        success: true,
-        message: "OTP sent successfully to user_alpha@leapmentor.com",
-      });
+      expect(res.json).toHaveBeenCalledWith(
+        successEnvelope(
+          {
+            success: true,
+            message: "OTP sent successfully to user_alpha@leapmentor.com",
+          },
+          "Password reset OTP sent",
+        ),
+      );
       expect(next).not.toHaveBeenCalled();
     });
 
@@ -99,7 +105,9 @@ describe("ForgotPasswordController", () => {
         "123456",
       );
       expect(res.status).toHaveBeenCalledWith(200);
-      expect(res.json).toHaveBeenCalledWith(mockSuccessResult);
+      expect(res.json).toHaveBeenCalledWith(
+        successEnvelope(mockSuccessResult, "Reset OTP verified"),
+      );
       expect(next).not.toHaveBeenCalled();
     });
 
@@ -138,7 +146,9 @@ describe("ForgotPasswordController", () => {
         newPassword: "SecurePassword2026!",
       });
       expect(res.status).toHaveBeenCalledWith(200);
-      expect(res.json).toHaveBeenCalledWith(mockSuccessResult);
+      expect(res.json).toHaveBeenCalledWith(
+        successEnvelope(mockSuccessResult, "Password reset successfully"),
+      );
       expect(next).not.toHaveBeenCalled();
     });
 

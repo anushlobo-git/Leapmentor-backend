@@ -3,6 +3,7 @@
  */
 
 const createRegisterController = require("../../../controllers/register.controller");
+const { successEnvelope } = require("../../helpers/apiResponse");
 
 describe("User Account Registration Controller Unit Tests", () => {
   let mockAuthService, mockCookieUtils, controller, mockReq, mockRes, mockNext;
@@ -11,7 +12,10 @@ describe("User Account Registration Controller Unit Tests", () => {
   beforeEach(() => {
     mockAuthService = { registerUser: jest.fn() };
     mockCookieUtils = { setAuthCookies: jest.fn() };
-    controller = createRegisterController({ authService: mockAuthService, cookieUtils: mockCookieUtils });
+    controller = createRegisterController({
+      authService: mockAuthService,
+      cookieUtils: mockCookieUtils,
+    });
     mockReq = {
       body: {
         name: "Jane Doe",
@@ -21,11 +25,16 @@ describe("User Account Registration Controller Unit Tests", () => {
         termsAccepted: true,
       },
     };
-    mockRes = { status: jest.fn().mockReturnThis(), json: jest.fn().mockReturnThis() };
+    mockRes = {
+      status: jest.fn().mockReturnThis(),
+      json: jest.fn().mockReturnThis(),
+    };
     mockNext = jest.fn();
   });
 
-  afterEach(() => { jest.clearAllMocks(); });
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
 
   test("should return a 201 status code and establish auth cookies upon valid payload registration", async () => {
     const mockServicePayload = {
@@ -40,15 +49,22 @@ describe("User Account Registration Controller Unit Tests", () => {
     await flushPromises();
 
     expect(mockAuthService.registerUser).toHaveBeenCalledWith(mockReq.body);
-    expect(mockCookieUtils.setAuthCookies).toHaveBeenCalledWith(mockRes, "mocked_refresh_jwt_string", "mentee");
+    expect(mockCookieUtils.setAuthCookies).toHaveBeenCalledWith(
+      mockRes,
+      "mocked_refresh_jwt_string",
+      "mentee",
+    );
     expect(mockRes.status).toHaveBeenCalledWith(201);
-    expect(mockRes.json).toHaveBeenCalledWith({
-      success: true,
-      message: "Registered successfully",
-      user: mockServicePayload.user,
-      isNewUser: true,
-      accessToken: "mocked_access_jwt_string",
-    });
+    expect(mockRes.json).toHaveBeenCalledWith(
+      successEnvelope(
+        {
+          user: mockServicePayload.user,
+          isNewUser: true,
+          accessToken: "mocked_access_jwt_string",
+        },
+        "Registered successfully",
+      ),
+    );
   });
 
   test("should handle user with no roles and set null role in cookie", async () => {
@@ -63,11 +79,17 @@ describe("User Account Registration Controller Unit Tests", () => {
     await controller.register(mockReq, mockRes, mockNext);
     await flushPromises();
 
-    expect(mockCookieUtils.setAuthCookies).toHaveBeenCalledWith(mockRes, "mocked_refresh_jwt_string", null);
+    expect(mockCookieUtils.setAuthCookies).toHaveBeenCalledWith(
+      mockRes,
+      "mocked_refresh_jwt_string",
+      null,
+    );
   });
 
   test("should capture service exceptions and delegate them to next() for global catching middleware", async () => {
-    const mockException = new Error("An account with this email already exists.");
+    const mockException = new Error(
+      "An account with this email already exists.",
+    );
     mockAuthService.registerUser.mockRejectedValue(mockException);
 
     await controller.register(mockReq, mockRes, mockNext);

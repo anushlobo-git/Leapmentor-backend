@@ -1,4 +1,5 @@
 const createPrivateNoteController = require("../../../controllers/privateNote.controller");
+const { successEnvelope } = require("../../helpers/apiResponse");
 
 describe("Private Note Controller Unit Tests", () => {
   let mockService, controller, mockReq, mockRes, mockNext;
@@ -12,7 +13,9 @@ describe("Private Note Controller Unit Tests", () => {
       updatePrivateNote: jest.fn(),
       removePrivateNote: jest.fn(),
     };
-    controller = createPrivateNoteController({ privateNoteService: mockService });
+    controller = createPrivateNoteController({
+      privateNoteService: mockService,
+    });
     mockReq = { user: { _id: "u_1" }, body: {}, params: {} };
     mockRes = {
       status: jest.fn().mockReturnThis(),
@@ -28,12 +31,14 @@ describe("Private Note Controller Unit Tests", () => {
     await controller.createNote(mockReq, mockRes, mockNext);
     await flushPromises();
 
-    expect(mockService.createPrivateNote).toHaveBeenCalledWith("u_1", mockReq.body);
+    expect(mockService.createPrivateNote).toHaveBeenCalledWith(
+      "u_1",
+      mockReq.body,
+    );
     expect(mockRes.status).toHaveBeenCalledWith(201);
-    expect(mockRes.json).toHaveBeenCalledWith({
-      success: true,
-      note: { id: "note_1" },
-    });
+    expect(mockRes.json).toHaveBeenCalledWith(
+      successEnvelope({ note: { id: "note_1" } }, "Private note created"),
+    );
   });
 
   test("createNote should route error to next()", async () => {
@@ -54,10 +59,9 @@ describe("Private Note Controller Unit Tests", () => {
 
     expect(mockService.getPrivateNotesList).toHaveBeenCalledWith("s_1", "u_1");
     expect(mockRes.status).toHaveBeenCalledWith(200);
-    expect(mockRes.json).toHaveBeenCalledWith({
-      success: true,
-      notes: [{ id: "note_1" }],
-    });
+    expect(mockRes.json).toHaveBeenCalledWith(
+      successEnvelope({ notes: [{ id: "note_1" }] }, "Private notes retrieved"),
+    );
   });
 
   test("getNotes should route error to next()", async () => {
@@ -72,17 +76,26 @@ describe("Private Note Controller Unit Tests", () => {
   test("updateNote should return 200 and updated note", async () => {
     mockReq.params.id = "note_1";
     mockReq.body = { title: "Updated Title" };
-    mockService.updatePrivateNote.mockResolvedValue({ id: "note_1", title: "Updated Title" });
+    mockService.updatePrivateNote.mockResolvedValue({
+      id: "note_1",
+      title: "Updated Title",
+    });
 
     await controller.updateNote(mockReq, mockRes, mockNext);
     await flushPromises();
 
-    expect(mockService.updatePrivateNote).toHaveBeenCalledWith("note_1", "u_1", mockReq.body);
+    expect(mockService.updatePrivateNote).toHaveBeenCalledWith(
+      "note_1",
+      "u_1",
+      mockReq.body,
+    );
     expect(mockRes.status).toHaveBeenCalledWith(200);
-    expect(mockRes.json).toHaveBeenCalledWith({
-      success: true,
-      note: { id: "note_1", title: "Updated Title" },
-    });
+    expect(mockRes.json).toHaveBeenCalledWith(
+      successEnvelope(
+        { note: { id: "note_1", title: "Updated Title" } },
+        "Private note updated",
+      ),
+    );
   });
 
   test("updateNote should route error to next()", async () => {
@@ -103,10 +116,9 @@ describe("Private Note Controller Unit Tests", () => {
 
     expect(mockService.removePrivateNote).toHaveBeenCalledWith("note_1", "u_1");
     expect(mockRes.status).toHaveBeenCalledWith(200);
-    expect(mockRes.json).toHaveBeenCalledWith({
-      success: true,
-      message: "Note deleted successfully",
-    });
+    expect(mockRes.json).toHaveBeenCalledWith(
+      successEnvelope(null, "Note deleted successfully"),
+    );
   });
 
   test("deleteNote should route error to next()", async () => {
