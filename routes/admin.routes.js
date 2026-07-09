@@ -24,6 +24,9 @@ const createAdminRoutes = ({
   // @route   POST /api/v1/admin/auth/login
   router.post("/auth/login", adminLoginValidation, adminController.adminLogin);
 
+  // @route   POST /api/v1/admin/auth/refresh
+  router.post("/auth/refresh", adminController.adminRefresh);
+
   // @route   POST /api/v1/admin/auth/logout
   router.post("/auth/logout", adminController.adminLogout);
 
@@ -89,6 +92,6 @@ const createAdminRoutes = ({
   );
 
   return router;
-};
+};;
 
 module.exports = createAdminRoutes;

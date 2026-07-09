@@ -34,6 +34,7 @@ describe("Admin Routes Configuration Matrix", () => {
   beforeEach(() => {
     mockAdminController = {
       adminLogin: jest.fn(),
+      adminRefresh: jest.fn(),
       adminLogout: jest.fn(),
       adminMe: jest.fn(),
       getStats: jest.fn(),
@@ -79,6 +80,13 @@ describe("Admin Routes Configuration Matrix", () => {
       expect(mockRouter.post).toHaveBeenCalledWith(
         "/auth/logout",
         mockAdminController.adminLogout,
+      );
+    });
+
+    test("should bind refresh token rotation to the post auth refresh path", () => {
+      expect(mockRouter.post).toHaveBeenCalledWith(
+        "/auth/refresh",
+        mockAdminController.adminRefresh,
       );
     });
 

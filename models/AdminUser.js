@@ -52,6 +52,11 @@ const adminUserSchema = new mongoose.Schema(
       default: 0,
       min: 0,
     },
+    
+    tokenVersion: {
+      type: Number,
+      default: 0,
+    },
   },
   {
     timestamps: true,

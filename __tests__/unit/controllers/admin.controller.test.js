@@ -36,7 +36,11 @@ describe("AdminController", () => {
 
   beforeEach(() => {
     // ── MOCK DEPENDENCIES
-    mockAdminAuthService = { adminLoginService: jest.fn() };
+    mockAdminAuthService = {
+      adminLoginService: jest.fn(),
+      refreshAdminTokenService: jest.fn(),
+      adminLogoutService: jest.fn(),
+    };
     mockAdminStatsService = {
       getStatsService: jest.fn(),
       getUserGrowthService: jest.fn(),
@@ -96,7 +100,8 @@ describe("AdminController", () => {
     test("should set cookie and return 200 with admin profile on successful login", async () => {
       req.body = { email: "admin@test.com", password: "password" };
       mockAdminAuthService.adminLoginService.mockResolvedValue({
-        token: "jwt_token_xyz",
+        accessToken: "jwt_token_xyz",
+        refreshToken: "refresh_token_xyz",
         admin: mockAdminData,
       });
 
@@ -105,9 +110,16 @@ describe("AdminController", () => {
       expect(mockAdminAuthService.adminLoginService).toHaveBeenCalledWith(
         req.body,
       );
-      expect(res.cookie).toHaveBeenCalledWith(
+      expect(res.cookie).toHaveBeenNthCalledWith(
+        1,
         "adminToken",
         "jwt_token_xyz",
+        expect.any(Object),
+      );
+      expect(res.cookie).toHaveBeenNthCalledWith(
+        2,
+        "adminRefreshToken",
+        "refresh_token_xyz",
         expect.any(Object),
       );
       expect(res.status).toHaveBeenCalledWith(200);
@@ -127,9 +139,13 @@ describe("AdminController", () => {
       expect(res.status).not.toHaveBeenCalled();
     });
 
-    test("should clear adminToken token cookie and return 200 on logout", () => {
-      controller.adminLogout(req, res);
+    test("should clear adminToken token cookie and return 200 on logout", async () => {
+      req.cookies = { adminRefreshToken: "some-refresh-token" };
+      await controller.adminLogout(req, res, next);
 
+      expect(mockAdminAuthService.adminLogoutService).toHaveBeenCalledWith(
+        "some-refresh-token",
+      );
       expect(res.clearCookie).toHaveBeenCalledWith(
         "adminToken",
         expect.any(Object),
@@ -150,6 +166,79 @@ describe("AdminController", () => {
         successEnvelope({ admin: req.admin }, "Admin profile retrieved"),
       );
       expect(next).not.toHaveBeenCalled();
+    });
+
+    test("should rotate access and refresh tokens on adminRefresh when service succeeds", async () => {
+      req.cookies = { adminRefreshToken: "old-refresh-token" };
+      mockAdminAuthService.refreshAdminTokenService = jest
+        .fn()
+        .mockResolvedValue({
+          accessToken: "new-access-token-xyz",
+          refreshToken: "new-refresh-token-xyz",
+        });
+
+      await controller.adminRefresh(req, res, next);
+
+      expect(mockAdminAuthService.refreshAdminTokenService).toHaveBeenCalledWith(
+        "old-refresh-token",
+      );
+      expect(res.cookie).toHaveBeenCalledWith(
+        "adminToken",
+        "new-access-token-xyz",
+        expect.any(Object),
+      );
+      expect(res.cookie).toHaveBeenCalledWith(
+        "adminRefreshToken",
+        "new-refresh-token-xyz",
+        expect.any(Object),
+      );
+      expect(res.status).toHaveBeenCalledWith(200);
+      expect(res.json).toHaveBeenCalledWith(
+        successEnvelope(null, "Session refreshed"),
+      );
+      expect(next).not.toHaveBeenCalled();
+    });
+
+    test("should call next(err) when refresh service fails (e.g., invalid/expired token)", async () => {
+      req.cookies = { adminRefreshToken: "expired-token" };
+      const error = new Error("Invalid or expired refresh token");
+      mockAdminAuthService.refreshAdminTokenService = jest
+        .fn()
+        .mockRejectedValue(error);
+
+      await controller.adminRefresh(req, res, next);
+
+      expect(mockAdminAuthService.refreshAdminTokenService).toHaveBeenCalledWith(
+        "expired-token",
+      );
+      expect(next).toHaveBeenCalledWith(error);
+      expect(res.status).not.toHaveBeenCalled();
+    });
+
+    test("should handle refresh when no cookie is present (treat as missing token)", async () => {
+      req.cookies = {};
+      const error = new Error("No refresh token provided");
+      mockAdminAuthService.refreshAdminTokenService = jest
+        .fn()
+        .mockRejectedValue(error);
+
+      await controller.adminRefresh(req, res, next);
+
+      expect(mockAdminAuthService.refreshAdminTokenService).toHaveBeenCalledWith(
+        undefined,
+      );
+      expect(next).toHaveBeenCalledWith(error);
+    });
+
+    test("should also clear adminRefreshToken cookie on logout", async () => {
+      req.cookies = { adminRefreshToken: "some-refresh-token" };
+      await controller.adminLogout(req, res, next);
+
+      expect(res.clearCookie).toHaveBeenNthCalledWith(
+        2,
+        "adminRefreshToken",
+        expect.any(Object),
+      );
     });
   });
 

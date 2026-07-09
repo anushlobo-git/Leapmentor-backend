@@ -207,4 +207,64 @@ describe("AdminUser Repository", () => {
       expect(result).toEqual({ commissionRate: 20 });
     });
   });
-});
+  // ── findAdminByIdFull ──────────────────────────────────────────────────
+  describe("findAdminByIdFull", () => {
+    test("should fetch complete admin document including tokenVersion and isActive fields", async () => {
+      mockAdminModel.findById.mockResolvedValue(mockAdminRecord);
+
+      const result = await adminUserRepository.findAdminByIdFull("admin789");
+
+      expect(mockAdminModel.findById).toHaveBeenCalledWith("admin789");
+      expect(result).toEqual(mockAdminRecord);
+    });
+
+    test("should return null if admin does not exist", async () => {
+      mockAdminModel.findById.mockResolvedValue(null);
+
+      const result = await adminUserRepository.findAdminByIdFull(
+        "nonexistent-admin",
+      );
+
+      expect(mockAdminModel.findById).toHaveBeenCalledWith("nonexistent-admin");
+      expect(result).toBeNull();
+    });
+  });
+
+  // ── incrementTokenVersion ──────────────────────────────────────────────
+  describe("incrementTokenVersion", () => {
+    test("should atomically increment tokenVersion to revoke existing sessions", async () => {
+      mockAdminModel.findByIdAndUpdate.mockResolvedValue(mockAdminRecord);
+
+      const result = await adminUserRepository.incrementTokenVersion(
+        "admin789",
+      );
+
+      expect(mockAdminModel.findByIdAndUpdate).toHaveBeenCalledWith(
+        "admin789",
+        { $inc: { tokenVersion: 1 } },
+        { new: true },
+      );
+      expect(result).toEqual(mockAdminRecord);
+    });
+
+    test("should return the updated admin document with new tokenVersion", async () => {
+      const updatedRecord = { ...mockAdminRecord, tokenVersion: 1 };
+      mockAdminModel.findByIdAndUpdate.mockResolvedValue(updatedRecord);
+
+      const result = await adminUserRepository.incrementTokenVersion(
+        "admin789",
+      );
+
+      expect(result.tokenVersion).toBe(1);
+    });
+
+    test("should return null if admin is not found", async () => {
+      mockAdminModel.findByIdAndUpdate.mockResolvedValue(null);
+
+      const result = await adminUserRepository.incrementTokenVersion(
+        "nonexistent-admin",
+      );
+
+      expect(result).toBeNull();
+    });
+  });});

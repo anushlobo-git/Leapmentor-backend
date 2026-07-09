@@ -6,16 +6,34 @@
 
 const catchAsync = require("../utils/catchAsync");
 const { sendSuccess } = require("../utils/apiResponse");
-const env=require("../config/env");
-// Configured tracking constants
-const MAX_COOKIE_AGE_HOURS = 8;
+const env = require("../config/env");
+
 const CACHE_TTL_SECONDS = 300; // 5-Minute corporate caching standard window
-const ADMIN_COOKIE_OPTIONS = {
+
+// 15 minutes — matches ACCESS_TOKEN_EXPIRES_IN in admin.service.js
+const ACCESS_COOKIE_MAX_AGE_MS = 15 * 60 * 1000;
+// 7 days — matches REFRESH_TOKEN_EXPIRES_IN in admin.service.js
+const REFRESH_COOKIE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+
+const BASE_COOKIE_OPTIONS = {
   httpOnly: true,
   secure: env.nodeEnv === "production",
-  sameSite: "lax",
-  maxAge: MAX_COOKIE_AGE_HOURS * 60 * 60 * 1000,
+  sameSite: "strict",
 };
+
+const ACCESS_COOKIE_OPTIONS = {
+  ...BASE_COOKIE_OPTIONS,
+  maxAge: ACCESS_COOKIE_MAX_AGE_MS,
+};
+
+// Scoped so the refresh token is only ever sent to auth endpoints, not
+// attached to every /admin/* request the browser makes.
+const REFRESH_COOKIE_OPTIONS = {
+  ...BASE_COOKIE_OPTIONS,
+  maxAge: REFRESH_COOKIE_MAX_AGE_MS,
+  path: "/api/v1/admin/auth",
+};
+
 /**
  * Factory function that initializes the Admin controller with its required service dependencies.
  * Uses dependency injection to enable decoupling and unit testing.
@@ -33,52 +51,74 @@ const createAdminController = ({
   adminStatsService,
   adminUserService,
   adminEngagementService,
-  cacheUtility
+  cacheUtility,
 }) => {
   // ── AUTHENTICATION HANDLERS ─────────────────────────────────
 
   /**
-   * Authenticates administrative credentials and drops an httpOnly session cookie.
-   * * @route   POST /api/v1/admin/auth/login
+   * Authenticates administrative credentials and drops httpOnly access +
+   * refresh session cookies.
+   * @route   POST /api/v1/admin/auth/login
    * @access  Public
    * @param {import('express').Request} req - Express request object containing req.body.email and req.body.password.
    * @param {import('express').Response} res - Express response object used to set session cookies.
    * @returns {Promise<void>} Resolves after success envelope is sent.
    */
-
   const adminLogin = catchAsync(async (req, res) => {
-    const { token, admin } = await adminAuthService.adminLoginService(req.body);
-    res.cookie("adminToken", token, ADMIN_COOKIE_OPTIONS);
+    const { accessToken, refreshToken, admin } =
+      await adminAuthService.adminLoginService(req.body);
+    res.cookie("adminToken", accessToken, ACCESS_COOKIE_OPTIONS);
+    res.cookie("adminRefreshToken", refreshToken, REFRESH_COOKIE_OPTIONS);
     sendSuccess(res, { admin }, "Admin login successful");
   });
 
   /**
-   * Destroys the administrative httpOnly authorization session cookie.
-   * * @route   POST /api/v1/admin/auth/logout
-   * @access  Private (Admin)
+   * Silently rotates the access token (and refresh token) using the
+   * long-lived adminRefreshToken cookie, without requiring the admin to
+   * re-enter credentials.
+   * @route   POST /api/v1/admin/auth/refresh
+   * @access  Public (requires a valid adminRefreshToken cookie)
+   * @param {import('express').Request} req - Express request object.
+   * @param {import('express').Response} res - Express response object used to set rotated session cookies.
+   * @returns {Promise<void>} Resolves after success envelope is sent.
+   */
+  const adminRefresh = catchAsync(async (req, res) => {
+    const { accessToken, refreshToken } =
+      await adminAuthService.refreshAdminTokenService(
+        req.cookies?.adminRefreshToken,
+      );
+    res.cookie("adminToken", accessToken, ACCESS_COOKIE_OPTIONS);
+    res.cookie("adminRefreshToken", refreshToken, REFRESH_COOKIE_OPTIONS);
+    sendSuccess(res, null, "Session refreshed");
+  });
+
+  /**
+   * Revokes the admin's current session (bumps tokenVersion server-side,
+   * invalidating the refresh token immediately) and clears both cookies.
+   * @route   POST /api/v1/admin/auth/logout
+   * @access  Public
    * @param {import('express').Request} req - Express request object.
    * @param {import('express').Response} res - Express response object used to clear session cookies.
-   * @returns {void} Sends success envelope immediately.
+   * @returns {Promise<void>} Resolves after success envelope is sent.
    */
-
-  const adminLogout = (req, res) => {
-    res.clearCookie("adminToken", {
-      httpOnly: true,
-      secure: env.nodeEnv === "production",
-      sameSite: "lax",
+  const adminLogout = catchAsync(async (req, res) => {
+    await adminAuthService.adminLogoutService(req.cookies?.adminRefreshToken);
+    res.clearCookie("adminToken", BASE_COOKIE_OPTIONS);
+    res.clearCookie("adminRefreshToken", {
+      ...BASE_COOKIE_OPTIONS,
+      path: "/api/v1/admin/auth",
     });
     sendSuccess(res, null, "Logged out.");
-  };
-  
+  });
+
   /**
    * Retrieves the current verified administrator session state context.
-   * * @route   GET /api/v1/admin/auth/me
+   * @route   GET /api/v1/admin/auth/me
    * @access  Private (Admin)
    * @param {import('express').Request & { admin: Object }} req - Express request attached with authenticated administrator meta object.
    * @param {import('express').Response} res - Express response object.
    * @returns {Promise<void>} Resolves after payload delivery.
    */
-  
   const adminMe = catchAsync(async (req, res) => {
     sendSuccess(res, { admin: req.admin }, "Admin profile retrieved");
   });
@@ -86,13 +126,9 @@ const createAdminController = ({
   // ── TELEMETRY STATS HANDLERS ────────────────────────────────
   /**
    * Fetches high-level system telemetry counts with a 5-minute caching lifecycle layout.
-   * * @route   GET /api/v1/admin/stats
+   * @route   GET /api/v1/admin/stats
    * @access  Private (Admin)
-   * @param {import('express').Request} req - Express request object.
-   * @param {import('express').Response} res - Express response object.
-   * @returns {Promise<void>} Resolves with unified counter payloads.
    */
-
   const getStats = catchAsync(async (req, res) => {
     const data = await cacheUtility.getOrSetCache(
       "admin:telemetry:stats",
@@ -104,13 +140,9 @@ const createAdminController = ({
 
   /**
    * Compiles chronological user registration volume scales for growth timelines.
-   * * @route   GET /api/v1/admin/user-growth
+   * @route   GET /api/v1/admin/user-growth
    * @access  Private (Admin)
-   * @param {import('express').Request} req - Express request object.
-   * @param {import('express').Response} res - Express response object.
-   * @returns {Promise<void>} Resolves with timeseries historical datasets.
    */
-
   const getUserGrowth = catchAsync(async (req, res) => {
     const data = await cacheUtility.getOrSetCache(
       "admin:telemetry:growth",
@@ -122,13 +154,9 @@ const createAdminController = ({
 
   /**
    * Captures segmented distributions of active mentors mapped against market industrial verticals.
-   * * @route   GET /api/v1/admin/stats/mentor-industries
+   * @route   GET /api/v1/admin/stats/mentor-industries
    * @access  Private (Admin)
-   * @param {import('express').Request} req - Express request object.
-   * @param {import('express').Response} res - Express response object.
-   * @returns {Promise<void>} Resolves with classification metric sets.
    */
-
   const getMentorIndustryStats = catchAsync(async (req, res) => {
     const data = await cacheUtility.getOrSetCache(
       "admin:telemetry:industries",
@@ -142,13 +170,9 @@ const createAdminController = ({
 
   /**
    * Gathers a searchable, filters-compliant list of registered platform user documents.
-   * * @route   GET /api/v1/admin/users
+   * @route   GET /api/v1/admin/users
    * @access  Private (Admin)
-   * @param {import('express').Request} req - Express request containing filtering/sorting parameters inside req.query.
-   * @param {import('express').Response} res - Express response object.
-   * @returns {Promise<void>} Resolves with paginated user records.
    */
-
   const getUsers = catchAsync(async (req, res) => {
     const result = await adminUserService.getUsersService(req.query);
     sendSuccess(res, result, "Users retrieved");
@@ -156,13 +180,9 @@ const createAdminController = ({
 
   /**
    * Locates detailed biographical, status, and role metadata regarding an isolated user record.
-   * * @route   GET /api/v1/admin/users/:userId
+   * @route   GET /api/v1/admin/users/:userId
    * @access  Private (Admin)
-   * @param {import('express').Request} req - Express request requiring parameter validation context inside req.params.userId.
-   * @param {import('express').Response} res - Express response object.
-   * @returns {Promise<void>} Resolves with a single compiled profile document payload.
    */
-
   const getUserDetail = catchAsync(async (req, res) => {
     const result = await adminUserService.getUserDetailService(
       req.params.userId,
@@ -172,13 +192,9 @@ const createAdminController = ({
 
   /**
    * Destructively and permanently wipes out a target user profile file.
-   * * @route   DELETE /api/v1/admin/users/:userId
+   * @route   DELETE /api/v1/admin/users/:userId
    * @access  Private (Admin)
-   * @param {import('express').Request} req - Express request containing target profile key inside req.params.userId.
-   * @param {import('express').Response} res - Express response object.
-   * @returns {Promise<void>} Resolves with zero payload upon completing purge operations.
    */
-
   const deleteUser = catchAsync(async (req, res) => {
     const { name, email } = await adminUserService.deleteUserService(
       req.params.userId,
@@ -190,15 +206,11 @@ const createAdminController = ({
     );
   });
 
-   /**
+  /**
    * Revokes workspace accessibility clearances by flag-modifying a profile as blocked.
-   * * @route   PATCH /api/v1/admin/users/:userId/block
+   * @route   PATCH /api/v1/admin/users/:userId/block
    * @access  Private (Admin)
-   * @param {import('express').Request} req - Express request containing reference target inside req.params.userId.
-   * @param {import('express').Response} res - Express response object.
-   * @returns {Promise<void>} Resolves indicating constraint application.
    */
-
   const blockUser = catchAsync(async (req, res) => {
     const { name } = await adminUserService.blockUserService(req.params.userId);
     sendSuccess(res, null, `User ${name} has been blocked.`);
@@ -206,13 +218,9 @@ const createAdminController = ({
 
   /**
    * Re-authorizes clearance boundaries on a blocked workspace document profile.
-   * * @route   PATCH /api/v1/admin/users/:userId/unblock
+   * @route   PATCH /api/v1/admin/users/:userId/unblock
    * @access  Private (Admin)
-   * @param {import('express').Request} req - Express request targeting specific reference inside req.params.userId.
-   * @param {import('express').Response} res - Express response object.
-   * @returns {Promise<void>} Resolves indicating status restoration completes.
    */
-
   const unblockUser = catchAsync(async (req, res) => {
     const { name } = await adminUserService.unblockUserService(
       req.params.userId,
@@ -224,13 +232,9 @@ const createAdminController = ({
 
   /**
    * Aggregates global processing operational statuses for engagement connection contracts.
-   * * @route   GET /api/v1/admin/engagements/stats
+   * @route   GET /api/v1/admin/engagements/stats
    * @access  Private (Admin)
-   * @param {import('express').Request} req - Express request object.
-   * @param {import('express').Response} res - Express response object.
-   * @returns {Promise<void>} Resolves delivering active engagement overview charts.
    */
-
   const getEngagementStats = catchAsync(async (req, res) => {
     const data = await cacheUtility.getOrSetCache(
       "admin:telemetry:engagements",
@@ -242,13 +246,9 @@ const createAdminController = ({
 
   /**
    * Evaluates active, historical, or transactional workspace contracts across cross-functional bounds.
-   * * @route   GET /api/v1/admin/engagements
+   * @route   GET /api/v1/admin/engagements
    * @access  Private (Admin)
-   * @param {import('express').Request} req - Express request tracking query filter profiles inside req.query.
-   * @param {import('express').Response} res - Express response object.
-   * @returns {Promise<void>} Resolves with list tracking summaries.
    */
-
   const getEngagements = catchAsync(async (req, res) => {
     const result = await adminEngagementService.getEngagementsService(
       req.query,
@@ -258,6 +258,7 @@ const createAdminController = ({
 
   return {
     adminLogin,
+    adminRefresh,
     adminLogout,
     adminMe,
     getStats,
