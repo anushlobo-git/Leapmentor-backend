@@ -221,9 +221,8 @@ describe("AdminUser Repository", () => {
     test("should return null if admin does not exist", async () => {
       mockAdminModel.findById.mockResolvedValue(null);
 
-      const result = await adminUserRepository.findAdminByIdFull(
-        "nonexistent-admin",
-      );
+      const result =
+        await adminUserRepository.findAdminByIdFull("nonexistent-admin");
 
       expect(mockAdminModel.findById).toHaveBeenCalledWith("nonexistent-admin");
       expect(result).toBeNull();
@@ -235,9 +234,8 @@ describe("AdminUser Repository", () => {
     test("should atomically increment tokenVersion to revoke existing sessions", async () => {
       mockAdminModel.findByIdAndUpdate.mockResolvedValue(mockAdminRecord);
 
-      const result = await adminUserRepository.incrementTokenVersion(
-        "admin789",
-      );
+      const result =
+        await adminUserRepository.incrementTokenVersion("admin789");
 
       expect(mockAdminModel.findByIdAndUpdate).toHaveBeenCalledWith(
         "admin789",
@@ -251,9 +249,8 @@ describe("AdminUser Repository", () => {
       const updatedRecord = { ...mockAdminRecord, tokenVersion: 1 };
       mockAdminModel.findByIdAndUpdate.mockResolvedValue(updatedRecord);
 
-      const result = await adminUserRepository.incrementTokenVersion(
-        "admin789",
-      );
+      const result =
+        await adminUserRepository.incrementTokenVersion("admin789");
 
       expect(result.tokenVersion).toBe(1);
     });
@@ -261,10 +258,10 @@ describe("AdminUser Repository", () => {
     test("should return null if admin is not found", async () => {
       mockAdminModel.findByIdAndUpdate.mockResolvedValue(null);
 
-      const result = await adminUserRepository.incrementTokenVersion(
-        "nonexistent-admin",
-      );
+      const result =
+        await adminUserRepository.incrementTokenVersion("nonexistent-admin");
 
       expect(result).toBeNull();
     });
-  });});
+  });
+});

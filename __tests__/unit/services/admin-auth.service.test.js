@@ -87,13 +87,23 @@ describe("AdminAuth Service", () => {
       // JWT signed twice — once for access token (15m), once for refresh token (7d)
       expect(mockJwt.sign).toHaveBeenNthCalledWith(
         1,
-        { id: "admin123", role: "admin", type: "access", tokenVersion: undefined },
+        {
+          id: "admin123",
+          role: "admin",
+          type: "access",
+          tokenVersion: undefined,
+        },
         expect.anything(),
         { expiresIn: "15m" },
       );
       expect(mockJwt.sign).toHaveBeenNthCalledWith(
         2,
-        { id: "admin123", role: "admin", type: "refresh", tokenVersion: undefined },
+        {
+          id: "admin123",
+          role: "admin",
+          type: "refresh",
+          tokenVersion: undefined,
+        },
         expect.anything(),
         { expiresIn: "7d" },
       );
@@ -223,9 +233,9 @@ describe("AdminAuth Service", () => {
     });
 
     test("should throw unauthorized error (401) when refresh token is null or empty", async () => {
-      await expect(
-        authService.refreshAdminTokenService(null),
-      ).rejects.toThrow(AppError);
+      await expect(authService.refreshAdminTokenService(null)).rejects.toThrow(
+        AppError,
+      );
 
       await expect(
         authService.refreshAdminTokenService(null),
@@ -389,16 +399,18 @@ describe("AdminAuth Service", () => {
         refreshToken,
         expect.anything(),
       );
-      expect(mockAdminUserRepository.incrementTokenVersion).toHaveBeenCalledWith(
-        "admin123",
-      );
+      expect(
+        mockAdminUserRepository.incrementTokenVersion,
+      ).toHaveBeenCalledWith("admin123");
     });
 
     test("should silently exit if no refresh token is provided", async () => {
       await authService.adminLogoutService(null);
 
       expect(mockJwt.verify).not.toHaveBeenCalled();
-      expect(mockAdminUserRepository.incrementTokenVersion).not.toHaveBeenCalled();
+      expect(
+        mockAdminUserRepository.incrementTokenVersion,
+      ).not.toHaveBeenCalled();
     });
 
     test("should silently catch token verification errors without throwing", async () => {
@@ -412,7 +424,9 @@ describe("AdminAuth Service", () => {
         authService.adminLogoutService(invalidToken),
       ).resolves.toBeUndefined();
 
-      expect(mockAdminUserRepository.incrementTokenVersion).not.toHaveBeenCalled();
+      expect(
+        mockAdminUserRepository.incrementTokenVersion,
+      ).not.toHaveBeenCalled();
     });
   });
 });

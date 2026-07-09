@@ -179,9 +179,9 @@ describe("AdminController", () => {
 
       await controller.adminRefresh(req, res, next);
 
-      expect(mockAdminAuthService.refreshAdminTokenService).toHaveBeenCalledWith(
-        "old-refresh-token",
-      );
+      expect(
+        mockAdminAuthService.refreshAdminTokenService,
+      ).toHaveBeenCalledWith("old-refresh-token");
       expect(res.cookie).toHaveBeenCalledWith(
         "adminToken",
         "new-access-token-xyz",
@@ -208,9 +208,9 @@ describe("AdminController", () => {
 
       await controller.adminRefresh(req, res, next);
 
-      expect(mockAdminAuthService.refreshAdminTokenService).toHaveBeenCalledWith(
-        "expired-token",
-      );
+      expect(
+        mockAdminAuthService.refreshAdminTokenService,
+      ).toHaveBeenCalledWith("expired-token");
       expect(next).toHaveBeenCalledWith(error);
       expect(res.status).not.toHaveBeenCalled();
     });
@@ -224,9 +224,9 @@ describe("AdminController", () => {
 
       await controller.adminRefresh(req, res, next);
 
-      expect(mockAdminAuthService.refreshAdminTokenService).toHaveBeenCalledWith(
-        undefined,
-      );
+      expect(
+        mockAdminAuthService.refreshAdminTokenService,
+      ).toHaveBeenCalledWith(undefined);
       expect(next).toHaveBeenCalledWith(error);
     });
 
