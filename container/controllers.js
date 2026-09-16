@@ -48,6 +48,10 @@ const {
 } = require("./infrastructure");
 
 const {
+  userRepository,
+} = require("./repositories");
+
+const {
   walletService,
   socialAuthService,
   linkedinAuthService,
@@ -146,6 +150,7 @@ const refreshController = createRefreshController({
   authUtils,
   jwt,
   config: authConfig,
+  userRepository,
 });
 const aiController = createAiController({ aiService });
 const leapRequestController = createLeapRequestController({

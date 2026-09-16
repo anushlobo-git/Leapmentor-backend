@@ -30,6 +30,18 @@
       "controllers/**/*.js",
       "repositories/**/*.js",
       "routes/**/*.js",
+      "middleware/**/*.js",
+      "utils/**/*.js",
+      "!mappers/**/*.js",
+      "!middleware/auth.middleware.js",
+      "!middleware/rateLimiter.js",
+      "!utils/emailHelpers.js",
+      "!utils/sendNotificationEmail.js",
+      "!utils/sendInvoiceEmail.js",
+      "!utils/sendCalendarInvite.js",
+      "!utils/generateInvoice.js",
+      "!utils/generateICS.js",
+      "!utils/releaseEscrow.js",
       "!**/node_modules/**"
     ],
     "coverageReporters": [

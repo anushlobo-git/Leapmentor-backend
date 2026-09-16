@@ -254,6 +254,22 @@ describe("Availability Management Service Unit Tests", () => {
       });
     });
 
+    test("should handle requests with neither selectedSlots nor selectedSlot safely", async () => {
+      mockAvailabilityRepo.findAvailabilityByMentor.mockResolvedValue({
+        timezone: "UTC",
+        sessionDurations: [30],
+        specificDates: [],
+        weeklyHours: [],
+      });
+      mockConnectRequestRepo.findBookedRequestsByMentor.mockResolvedValue([
+        {}, // request with no selectedSlots and no selectedSlot
+      ]);
+      mockSlotLockRepo.findActiveLocksByMentor.mockResolvedValue([]);
+
+      const result = await service.getAvailableSlots("m5", 30, "u1");
+      expect(result.slots).toEqual([{ date: "2026-06-24", slots: [] }]);
+    });
+
     test("should handle the selectedSlot singular fallback branch when selectedSlots is absent", async () => {
       mockAvailabilityRepo.findAvailabilityByMentor.mockResolvedValue({
         timezone: "UTC",

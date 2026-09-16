@@ -42,7 +42,7 @@ const createVerificationService = ({
    * Generates validation signatures, secures entries in the database, and dispatches automated mail options.
    * @private
    */
-  const _sendVerificationEmail = async (user, subjectSuffix = "") => {
+  const _sendVerificationEmail = async (user, subjectSuffix) => {
     await verificationTokenRepository.deleteTokensByUserId(user._id);
 
     const expiresAt = new Date(Date.now() + TOKEN_LIFETIME_MS);

@@ -50,6 +50,29 @@ describe("Slot Lock Service Unit Tests", () => {
       );
     });
 
+    test("should gracefully treat malformed booking records lacking any slot fields as having zero booked slots", async () => {
+      const malformedBooking = [
+        {
+          // neither selectedSlots nor selectedSlot present
+        },
+      ];
+      mockConnectRepo.findBookedRequestsByMentor.mockResolvedValue(
+        malformedBooking,
+      );
+      mockLockRepo.findActiveLocksByMentorAndDate.mockResolvedValue([]);
+
+      const fields = {
+        mentorId: mockMentorId,
+        date: targetDate,
+        startTime: "09:00",
+        endTime: "10:00",
+      };
+      const result = await service.acquireSlotLock(mockMenteeId, fields);
+
+      expect(mockLockRepo.upsertSlotLock).toHaveBeenCalled();
+      expect(result.lockedFor).toBe(10);
+    });
+
     test("should skip evaluation logic if permanent booking entries map to completely different dates", async () => {
       const distinctDateBooking = [
         {

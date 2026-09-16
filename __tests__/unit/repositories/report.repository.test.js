@@ -43,6 +43,8 @@ describe("Report Repository", () => {
       countDocuments: jest.fn(),
       find: jest.fn(),
       findById: jest.fn(),
+      findOne: jest.fn(),
+      create: jest.fn(),
     };
     reportRepository = createReportRepository(mockReportModel);
   });
@@ -184,6 +186,53 @@ describe("Report Repository", () => {
 
       expect(mockInstance.save).toHaveBeenCalled();
       expect(result).toEqual(mockReportRecord);
+    });
+
+    test("create should persist a new report document via the model's create method", async () => {
+      mockReportModel.create.mockResolvedValue(mockReportRecord);
+      const reportData = {
+        reportedBy: "userA",
+        reportedUser: "userB",
+        connectRequest: "req777",
+        reason: "Inappropriate behavior during live session",
+      };
+
+      const result = await reportRepository.create(reportData);
+
+      expect(mockReportModel.create).toHaveBeenCalledWith(reportData);
+      expect(result).toEqual(mockReportRecord);
+    });
+  });
+
+  // ── DUPLICATE-SUBMISSION GUARDS ─────────────────────────────────────────
+  describe("Duplicate-Submission Guards", () => {
+    test("findReportByConnectAndReporter should look up an existing report by connectRequest and reportedBy", async () => {
+      const mockChain = makeChain(mockReportRecord);
+      mockReportModel.findOne.mockReturnValue(mockChain);
+
+      const result = await reportRepository.findReportByConnectAndReporter(
+        "req777",
+        "userA",
+      );
+
+      expect(mockReportModel.findOne).toHaveBeenCalledWith({
+        connectRequest: "req777",
+        reportedBy: "userA",
+      });
+      expect(mockChain.lean).toHaveBeenCalled();
+      expect(result).toEqual(mockReportRecord);
+    });
+
+    test("findReportByConnectAndReporter should resolve to null when no prior report exists", async () => {
+      const mockChain = makeChain(null);
+      mockReportModel.findOne.mockReturnValue(mockChain);
+
+      const result = await reportRepository.findReportByConnectAndReporter(
+        "req777",
+        "userA",
+      );
+
+      expect(result).toBeNull();
     });
   });
 });

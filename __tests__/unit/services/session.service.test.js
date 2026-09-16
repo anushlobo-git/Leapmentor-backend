@@ -535,4 +535,472 @@ describe("Session Service Core Pipelines — 100% Full Coverage", () => {
       ).resolves.toBeDefined();
     });
   });
+
+  // ── Additional real-gap branch coverage ──────────────────────────────────
+  describe("Additional branch coverage — status guards, catch paths, and combos", () => {
+    test("_isValidMeetingLink: malformed URL string is caught and rejected", async () => {
+      const req = buildBaseRequest();
+      req.selectedSlots = [{ meetingLink: "" }];
+      mockConnectRepo.findByIdRaw.mockResolvedValue(req);
+
+      await expect(
+        service.setMeetingLink({
+          connectRequestId: "id",
+          slotIndex: "0",
+          meetingLink: "not a valid url at all",
+          userId: "m_id",
+        }),
+      ).rejects.toThrow(AppError);
+    });
+
+    test("markSlotComplete: rejects when session status is not ongoing", async () => {
+      const req = buildBaseRequest();
+      req.status = "completed";
+      req.selectedSlots = [
+        { status: "booked", menteeMarked: false, mentorMarked: false },
+      ];
+      mockConnectRepo.findByIdRaw.mockResolvedValue(req);
+
+      await expect(
+        service.markSlotComplete({
+          connectRequestId: "id",
+          slotIndex: "0",
+          userId: "u_id",
+        }),
+      ).rejects.toThrow(new AppError("Session is not active", 400));
+    });
+
+    test("markSlotComplete: bothMarked true but allComplete false when other active slots remain incomplete", async () => {
+      const req = buildBaseRequest();
+      req.selectedSlots = [
+        { status: "booked", menteeMarked: true, mentorMarked: false },
+        { status: "booked", menteeMarked: false, mentorMarked: false },
+      ];
+      mockConnectRepo.findByIdRaw.mockResolvedValue(req);
+
+      const res = await service.markSlotComplete({
+        connectRequestId: "id",
+        slotIndex: "0",
+        userId: "m_id",
+      });
+
+      expect(res.bothMarked).toBe(true);
+      expect(res.allComplete).toBe(false);
+      expect(res.message).toBe("Session marked complete by both parties.");
+      expect(mockReleaseEscrow).not.toHaveBeenCalled();
+    });
+
+    test("addSlot: rejects when session status is not ongoing", async () => {
+      const req = buildBaseRequest();
+      req.status = "completed";
+      mockConnectRepo.findByIdRaw.mockResolvedValue(req);
+
+      await expect(
+        service.addSlot({
+          connectRequestId: "id",
+          date: "2026-07-05",
+          startTime: "10:00",
+          endTime: "11:00",
+          userId: "m_id",
+        }),
+      ).rejects.toThrow(
+        new AppError("Can only add slots to an ongoing session", 400),
+      );
+    });
+
+    test("cancelSlot: rejects when session status is not ongoing", async () => {
+      const req = buildBaseRequest();
+      req.status = "completed";
+      req.selectedSlots = [{ status: "booked" }];
+      mockConnectRepo.findByIdRaw.mockResolvedValue(req);
+
+      await expect(
+        service.cancelSlot({
+          connectRequestId: "id",
+          slotIndex: "0",
+          reason: "x",
+          userId: "m_id",
+        }),
+      ).rejects.toThrow(new AppError("Session is not active", 400));
+    });
+
+    test("rescheduleSlot: rejects when caller is not the mentee", async () => {
+      const req = buildBaseRequest();
+      req.selectedSlots = [
+        {
+          date: "2026-07-01",
+          startTime: "10:00",
+          endTime: "11:00",
+          status: "booked",
+        },
+      ];
+      mockConnectRepo.findByIdRaw.mockResolvedValue(req);
+
+      await expect(
+        service.rescheduleSlot({
+          connectRequestId: "id",
+          slotIndex: "0",
+          date: "2026-07-08",
+          startTime: "10:00",
+          endTime: "11:00",
+          userId: "m_id", // mentor, not mentee
+        }),
+      ).rejects.toThrow(
+        new AppError("Only the mentee can reschedule slots", 403),
+      );
+    });
+
+    test("rescheduleSlot: rejects when session status is not ongoing", async () => {
+      const req = buildBaseRequest();
+      req.status = "completed";
+      req.selectedSlots = [
+        {
+          date: "2026-07-01",
+          startTime: "10:00",
+          endTime: "11:00",
+          status: "booked",
+        },
+      ];
+      mockConnectRepo.findByIdRaw.mockResolvedValue(req);
+
+      await expect(
+        service.rescheduleSlot({
+          connectRequestId: "id",
+          slotIndex: "0",
+          date: "2026-07-08",
+          startTime: "10:00",
+          endTime: "11:00",
+          userId: "u_id",
+        }),
+      ).rejects.toThrow(new AppError("Session is not active", 400));
+    });
+
+    test("rescheduleSlot: rejects when the old slot is already cancelled", async () => {
+      const req = buildBaseRequest();
+      req.selectedSlots = [
+        {
+          date: "2026-07-01",
+          startTime: "10:00",
+          endTime: "11:00",
+          status: "cancelled",
+        },
+      ];
+      mockConnectRepo.findByIdRaw.mockResolvedValue(req);
+
+      await expect(
+        service.rescheduleSlot({
+          connectRequestId: "id",
+          slotIndex: "0",
+          date: "2026-07-08",
+          startTime: "10:00",
+          endTime: "11:00",
+          userId: "u_id",
+        }),
+      ).rejects.toThrow(new AppError("This slot is already cancelled", 400));
+    });
+
+    test("rescheduleSlot: rejects when the old slot is already completed by both parties", async () => {
+      const req = buildBaseRequest();
+      req.selectedSlots = [
+        {
+          date: "2026-07-01",
+          startTime: "10:00",
+          endTime: "11:00",
+          status: "booked",
+          menteeMarked: true,
+          mentorMarked: true,
+        },
+      ];
+      mockConnectRepo.findByIdRaw.mockResolvedValue(req);
+
+      await expect(
+        service.rescheduleSlot({
+          connectRequestId: "id",
+          slotIndex: "0",
+          date: "2026-07-08",
+          startTime: "10:00",
+          endTime: "11:00",
+          userId: "u_id",
+        }),
+      ).rejects.toThrow(
+        new AppError("Cannot reschedule a completed slot", 400),
+      );
+    });
+
+    test("rescheduleSlot: triggers reschedule email successfully on the happy path", async () => {
+      const req = buildBaseRequest();
+      req.selectedSlots = [
+        {
+          date: "2026-07-01",
+          startTime: "10:00",
+          endTime: "11:00",
+          status: "booked",
+        },
+      ];
+      mockConnectRepo.findByIdRaw.mockResolvedValue(req);
+
+      await service.rescheduleSlot({
+        connectRequestId: "id",
+        slotIndex: "0",
+        date: "2026-07-08",
+        startTime: "11:00",
+        endTime: "12:00",
+        userId: "u_id",
+      });
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(mockEmailUtils.sendSlotRescheduledEmail).toHaveBeenCalled();
+    });
+
+    test("getMentorAvailability: maps real selected and additional slots into bookedSlots", async () => {
+      const req = buildBaseRequest();
+      req.selectedSlots = [
+        {
+          date: "2026-07-10",
+          startTime: "09:00",
+          endTime: "10:00",
+          status: "booked",
+        },
+        {
+          date: "2026-07-11",
+          startTime: "09:00",
+          endTime: "10:00",
+          status: "cancelled",
+        },
+      ];
+      req.additionalSlots = [
+        { date: "2026-07-12", startTime: "14:00", endTime: "15:00" },
+      ];
+      mockConnectRepo.findByIdRaw.mockResolvedValue(req);
+      mockAvailabilityRepo.findAvailabilityByMentor.mockResolvedValueOnce({
+        specificDates: [],
+        weeklyHours: [],
+        timezone: "America/New_York",
+        sessionDurations: [45],
+      });
+
+      await service.getMentorAvailability("id", 60, "u_id");
+
+      expect(mockGenerateSlots).toHaveBeenCalledWith(
+        60,
+        [],
+        [],
+        [
+          { date: "2026-07-10", startTime: "09:00", endTime: "10:00" },
+          { date: "2026-07-12", startTime: "14:00", endTime: "15:00" },
+        ],
+        28,
+      );
+    });
+  });
+
+  // ── Final gap closure: per-method 404s, emit ternary, collision, fallbacks ─
+  describe("Final branch closure — 404 guards, emit ternary, and remaining fallbacks", () => {
+    test("getSlots: additionalSlots undefined falls back to empty array", async () => {
+      const req = buildBaseRequest();
+      delete req.additionalSlots;
+      mockConnectRepo.findByIdRaw.mockResolvedValue(req);
+
+      const result = await service.getSlots("id", "u_id");
+      expect(result.additionalSlots).toEqual([]);
+    });
+
+    test("setMeetingLink: throws 404 when session is not found", async () => {
+      mockConnectRepo.findByIdRaw.mockResolvedValue(null);
+      await expect(
+        service.setMeetingLink({
+          connectRequestId: "id",
+          slotIndex: "0",
+          meetingLink: "https://meet.google.com/abc",
+          userId: "m_id",
+        }),
+      ).rejects.toThrow(new AppError("Session not found", 404));
+    });
+
+    test("markSlotComplete: throws 404 when session is not found", async () => {
+      mockConnectRepo.findByIdRaw.mockResolvedValue(null);
+      await expect(
+        service.markSlotComplete({
+          connectRequestId: "id",
+          slotIndex: "0",
+          userId: "u_id",
+        }),
+      ).rejects.toThrow(new AppError("Session not found", 404));
+    });
+
+    test("addSlot: throws 404 when session is not found", async () => {
+      mockConnectRepo.findByIdRaw.mockResolvedValue(null);
+      await expect(
+        service.addSlot({
+          connectRequestId: "id",
+          date: "2026-07-05",
+          startTime: "10:00",
+          endTime: "11:00",
+          userId: "m_id",
+        }),
+      ).rejects.toThrow(new AppError("Session not found", 404));
+    });
+
+    test("cancelSlot: throws 404 when session is not found", async () => {
+      mockConnectRepo.findByIdRaw.mockResolvedValue(null);
+      await expect(
+        service.cancelSlot({
+          connectRequestId: "id",
+          slotIndex: "0",
+          reason: "x",
+          userId: "m_id",
+        }),
+      ).rejects.toThrow(new AppError("Session not found", 404));
+    });
+
+    test("rescheduleSlot: throws 404 when session is not found", async () => {
+      mockConnectRepo.findByIdRaw.mockResolvedValue(null);
+      await expect(
+        service.rescheduleSlot({
+          connectRequestId: "id",
+          slotIndex: "0",
+          date: "2026-07-08",
+          startTime: "10:00",
+          endTime: "11:00",
+          userId: "u_id",
+        }),
+      ).rejects.toThrow(new AppError("Session not found", 404));
+    });
+
+    test("rescheduleSlot: throws 409 when the new slot is already booked (collision)", async () => {
+      const req = buildBaseRequest();
+      req.selectedSlots = [
+        {
+          date: "2026-07-01",
+          startTime: "10:00",
+          endTime: "11:00",
+          status: "booked",
+        },
+        {
+          date: "2026-07-08",
+          startTime: "10:00",
+          endTime: "11:00",
+          status: "booked",
+        },
+      ];
+      mockConnectRepo.findByIdRaw.mockResolvedValue(req);
+
+      await expect(
+        service.rescheduleSlot({
+          connectRequestId: "id",
+          slotIndex: "0",
+          date: "2026-07-08",
+          startTime: "10:00",
+          endTime: "11:00",
+          userId: "u_id",
+        }),
+      ).rejects.toThrow(new AppError("The new slot is already booked", 409));
+    });
+
+    test("getMentorAvailability: throws 404 when session is not found", async () => {
+      mockConnectRepo.findByIdRaw.mockResolvedValue(null);
+      await expect(
+        service.getMentorAvailability("id", 60, "u_id"),
+      ).rejects.toThrow(new AppError("Session not found", 404));
+    });
+
+    test("getMentorAvailability: falls back to defaults when availability lacks timezone/sessionDurations, and handles missing slot arrays", async () => {
+      const req = buildBaseRequest();
+      delete req.selectedSlots;
+      delete req.additionalSlots;
+      mockConnectRepo.findByIdRaw.mockResolvedValue(req);
+      mockAvailabilityRepo.findAvailabilityByMentor.mockResolvedValueOnce({
+        specificDates: [],
+        weeklyHours: [],
+        // no timezone, no sessionDurations
+      });
+
+      const result = await service.getMentorAvailability("id", 60, "m_id");
+
+      expect(result.timezone).toBe("Asia/Kolkata");
+      expect(result.sessionDurations).toEqual([30, 60]);
+      expect(mockGenerateSlots).toHaveBeenCalledWith(60, [], [], [], 28);
+    });
+
+    test("_emitToOther: does nothing when socketHandler has no emitToUser (silent branch)", async () => {
+      const silentService = createSessionService({
+        mongoose: { startSession: jest.fn() },
+        connectRequestRepo: mockConnectRepo,
+        availabilityRepo: mockAvailabilityRepo,
+        escrowService: mockEscrowService,
+        releaseEscrow: mockReleaseEscrow,
+        socketHandler: {},
+        emailUtils: mockEmailUtils,
+        generateAvailableSlots: mockGenerateSlots,
+        logger: mockLogger,
+      });
+      const req = buildBaseRequest();
+      req.selectedSlots = [
+        { status: "booked", menteeMarked: false, mentorMarked: false },
+      ];
+      mockConnectRepo.findByIdRaw.mockResolvedValue(req);
+
+      await expect(
+        silentService.cancelSlot({
+          connectRequestId: "id",
+          slotIndex: "0",
+          reason: "x",
+          userId: "m_id",
+        }),
+      ).resolves.toBeDefined();
+    });
+
+    test("_emitToOther: resolves otherId as mentor when the caller is the mentee", async () => {
+      const req = buildBaseRequest();
+      req.selectedSlots = [
+        { status: "booked", menteeMarked: false, mentorMarked: false },
+      ];
+      mockConnectRepo.findByIdRaw.mockResolvedValue(req);
+
+      await service.cancelSlot({
+        connectRequestId: "id",
+        slotIndex: "0",
+        reason: "x",
+        userId: "u_id", // mentee is the caller → otherId should resolve to mentor
+      });
+
+      // emitToUser called for both slot-update broadcasts plus one "emitToOther" call to the mentor
+      expect(mockSocket.emitToUser).toHaveBeenCalledWith(
+        "m_id",
+        "slot_cancelled",
+        expect.any(Object),
+      );
+    });
+    test("cancelSlot: defaults cancellationReason to empty string when reason is omitted", async () => {
+      const req = buildBaseRequest();
+      req.selectedSlots = [
+        { status: "booked", menteeMarked: false, mentorMarked: false },
+      ];
+      mockConnectRepo.findByIdRaw.mockResolvedValue(req);
+
+      const result = await service.cancelSlot({
+        connectRequestId: "id",
+        slotIndex: "0",
+        userId: "m_id",
+        // reason intentionally omitted
+      });
+
+      expect(result.slot.cancellationReason).toBe("");
+    });
+
+    test("getMentorAvailability: defaults specificDates/weeklyHours to [] when absent on the availability record", async () => {
+      const req = buildBaseRequest();
+      mockConnectRepo.findByIdRaw.mockResolvedValue(req);
+      mockAvailabilityRepo.findAvailabilityByMentor.mockResolvedValueOnce({
+        timezone: "UTC",
+        sessionDurations: [30],
+        // specificDates and weeklyHours intentionally absent
+      });
+
+      await service.getMentorAvailability("id", 60, "m_id");
+
+      expect(mockGenerateSlots).toHaveBeenCalledWith(60, [], [], [], 28);
+    });
+  });
 });
