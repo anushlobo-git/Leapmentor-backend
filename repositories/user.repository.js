@@ -158,6 +158,23 @@ const createUserRepository = (User) => {
   const createUser = (data) => User.create(data);
 
   /**
+   * Adds a single role to an existing user's `roles` array, atomically.
+   * Uses `$addToSet` (not a read-modify-write) so a duplicate/concurrent
+   * request can never produce a duplicate entry, and `runValidators` so
+   * the schema's `enum` (sourced from constants/roles.js) still rejects
+   * anything not recognized as a real role.
+   * @param {string} userId
+   * @param {string} role
+   * @returns {Promise<Object|null>} the updated user document, or null if not found
+   */
+  const addRoleToUser = (userId, role) =>
+    User.findByIdAndUpdate(
+      userId,
+      { $addToSet: { roles: role } },
+      { new: true, runValidators: true },
+    );
+
+  /**
    * Fetch query matching identifiers evaluating case-insensitive name constraints.
    * @param {string} search - Search phrase query criteria parameter.
    * @returns {Promise<Array<Object>>} Lean projected collection containing unique IDs.
@@ -242,6 +259,7 @@ const createUserRepository = (User) => {
     findUserByEmail,
     findUserByEmailWithPassword,
     createUser,
+    addRoleToUser,
     saveUser,
     findUsersByNameSearch,
     findUsersByRoleAndNameRegex,

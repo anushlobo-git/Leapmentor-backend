@@ -4,6 +4,8 @@
  * state signatures generation, and platform user role verification checks.
  */
 
+const { isValidRole, ALL_ROLES } = require("../constants/roles");
+
 const createAuthUtils = (config, jwt, crypto, googleClient) => {
   const {
     jwtSecret,
@@ -40,15 +42,23 @@ const createAuthUtils = (config, jwt, crypto, googleClient) => {
 
   /**
    * Screens and aggregates arrays containing incoming platform access permissions flags.
+   * Valid role names come from the single central registry (constants/roles.js)
+   * rather than a second hardcoded list here, so this function automatically
+   * recognizes any role added there — no edit needed in this file.
    */
   const validateRoles = (roles) => {
-    const validRoles = new Set(["mentor", "mentee"]);
+    if (!Array.isArray(roles) || roles.length === 0) {
+      return {
+        valid: false,
+        message: `At least one role is required. Use one or more of: ${ALL_ROLES.join(", ")}.`,
+      };
+    }
     const uniqueRoles = [...new Set(roles)];
     for (const r of uniqueRoles) {
-      if (!validRoles.has(r)) {
+      if (!isValidRole(r)) {
         return {
           valid: false,
-          message: "Invalid role. Use mentor and/or mentee.",
+          message: `Invalid role "${r}". Use one or more of: ${ALL_ROLES.join(", ")}.`,
         };
       }
     }

@@ -6,8 +6,13 @@
 
 const catchAsync = require("../utils/catchAsync");
 const { sendSuccess, sendError, STATUS } = require("../utils/apiResponse");
+const { getPrimaryRole } = require("../constants/roles");
 
-const createSocialAuthController = ({ socialAuthService, cookieUtils, logger }) => {
+const createSocialAuthController = ({
+  socialAuthService,
+  cookieUtils,
+  logger,
+}) => {
   /**
    * Process incoming federated identity criteria to establish secure user sessions.
    * @route   POST /api/v1/auth/social
@@ -18,7 +23,7 @@ const createSocialAuthController = ({ socialAuthService, cookieUtils, logger }) 
       const result = await socialAuthService.socialAuthUser(req.body);
 
       // Extract authorization metadata and hand over parameters to injected cookie managers
-      const role = result.user?.roles?.[0] || null;
+      const role = getPrimaryRole(result.user?.roles);
       cookieUtils.setAuthCookies(res, result.refreshToken, role);
 
       return sendSuccess(

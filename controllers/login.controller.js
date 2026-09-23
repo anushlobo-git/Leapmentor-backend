@@ -6,6 +6,7 @@
 
 const catchAsync = require("../utils/catchAsync");
 const { sendSuccess } = require("../utils/apiResponse");
+const { getPrimaryRole } = require("../constants/roles");
 
 const createLoginController = ({ authService, cookieUtils }) => {
   /**
@@ -16,7 +17,7 @@ const createLoginController = ({ authService, cookieUtils }) => {
   const login = catchAsync(async (req, res, next) => {
     const result = await authService.loginUser(req.body);
 
-    const role = result.user?.roles?.[0] || null;
+    const role = getPrimaryRole(result.user?.roles);
     cookieUtils.setAuthCookies(res, result.refreshToken, role);
 
     sendSuccess(

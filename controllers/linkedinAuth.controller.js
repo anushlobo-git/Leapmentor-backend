@@ -6,6 +6,7 @@
 
 const catchAsync = require("../utils/catchAsync");
 const { sendSuccess } = require("../utils/apiResponse");
+const { getPrimaryRole } = require("../constants/roles");
 
 // Upper-case Redirect Mapping Configuration Constants
 const LINKEDIN_AUTH_GATEWAY = "https://www.linkedin.com/oauth/v2/authorization";
@@ -89,7 +90,7 @@ const createLinkedinAuthController = ({
       termsAccepted: req.body.termsAccepted,
     });
 
-    const primaryRole = result.user?.roles?.[0] || null;
+    const primaryRole = getPrimaryRole(result.user?.roles);
     cookieUtils.setAuthCookies(res, result.refreshToken, primaryRole);
 
     return sendSuccess(

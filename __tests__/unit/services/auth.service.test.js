@@ -24,9 +24,11 @@ describe("User Authentication Service Unit Tests", () => {
       findUserByEmail: jest.fn(),
       createUser: jest.fn(),
       findUserByEmailWithPassword: jest.fn(),
+      addRoleToUser: jest.fn(),
     };
     mockWalletService = {
       createWalletsForRoles: jest.fn(),
+      createWalletForRole: jest.fn(),
     };
     mockAuthUtils = {
       validateRoles: jest.fn(),
@@ -217,6 +219,65 @@ describe("User Authentication Service Unit Tests", () => {
         statusCode: 403,
         message: "Please verify your email address to log in.",
       });
+    });
+  });
+
+  describe("addAccountRole (RBAC self-service role addition)", () => {
+    test("should add a new role to the caller's own account and provision a wallet for it", async () => {
+      const currentUser = {
+        _id: "user_1",
+        roles: ["mentee"],
+      };
+      const updatedUser = { _id: "user_1", roles: ["mentee", "mentor"] };
+      mockUserRepository.addRoleToUser.mockResolvedValue(updatedUser);
+
+      const result = await service.addAccountRole(currentUser, "mentor");
+
+      expect(mockUserRepository.addRoleToUser).toHaveBeenCalledWith(
+        "user_1",
+        "mentor",
+      );
+      expect(mockWalletService.createWalletForRole).toHaveBeenCalledWith(
+        "user_1",
+        "mentor",
+      );
+      expect(result).toMatchObject({ DTO: true, roles: ["mentee", "mentor"] });
+    });
+
+    test("should reject an unrecognized role name with a 400", async () => {
+      const currentUser = { _id: "user_1", roles: ["mentee"] };
+
+      await expect(
+        service.addAccountRole(currentUser, "superadmin"),
+      ).rejects.toMatchObject({ statusCode: 400 });
+
+      expect(mockUserRepository.addRoleToUser).not.toHaveBeenCalled();
+    });
+
+    test("should reject with 409 if the account already holds the requested role", async () => {
+      const currentUser = { _id: "user_1", roles: ["mentee", "mentor"] };
+
+      await expect(
+        service.addAccountRole(currentUser, "mentor"),
+      ).rejects.toMatchObject({
+        statusCode: 409,
+        message: 'Your account already has the "mentor" role.',
+      });
+
+      expect(mockUserRepository.addRoleToUser).not.toHaveBeenCalled();
+      expect(mockWalletService.createWalletForRole).not.toHaveBeenCalled();
+    });
+
+    test("should throw 404 if the account no longer exists at write time", async () => {
+      const currentUser = { _id: "ghost_user", roles: ["mentee"] };
+      mockUserRepository.addRoleToUser.mockResolvedValue(null);
+
+      await expect(
+        service.addAccountRole(currentUser, "mentor"),
+      ).rejects.toMatchObject({ statusCode: 404 });
+
+      // A vanished account should never trigger wallet provisioning.
+      expect(mockWalletService.createWalletForRole).not.toHaveBeenCalled();
     });
   });
 });

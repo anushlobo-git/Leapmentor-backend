@@ -6,6 +6,7 @@
 
 const catchAsync = require("../utils/catchAsync");
 const { sendSuccess, STATUS } = require("../utils/apiResponse");
+const { getPrimaryRole } = require("../constants/roles");
 
 const createRegisterController = ({ authService, cookieUtils }) => {
   /**
@@ -16,7 +17,10 @@ const createRegisterController = ({ authService, cookieUtils }) => {
   const register = catchAsync(async (req, res, next) => {
     const result = await authService.registerUser(req.body);
 
-    const role = result.user?.roles?.[0] || null;
+    // Which role drives the routing-hint cookie is now a config decision
+    // (constants/roles.js ROLE_PRIORITY), not a hardcoded "take the first
+    // one" — correct even for an account that holds several roles.
+    const role = getPrimaryRole(result.user?.roles);
     cookieUtils.setAuthCookies(res, result.refreshToken, role);
 
     sendSuccess(

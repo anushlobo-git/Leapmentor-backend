@@ -35,6 +35,7 @@ const createSupportController = require("../controllers/support.controller");
 const createUploadController = require("../controllers/upload.controller");
 const createVerificationController = require("../controllers/verification.controller");
 const createMentorSearchController = require("../controllers/mentorSearch.controller");
+const createUserController = require("../controllers/user.controller");
 
 // ── DEPENDENCIES
 const {
@@ -47,9 +48,7 @@ const {
   envConfig,
 } = require("./infrastructure");
 
-const {
-  userRepository,
-} = require("./repositories");
+const { userRepository } = require("./repositories");
 
 const {
   walletService,
@@ -193,7 +192,9 @@ const privateNoteController = createPrivateNoteController({
 const reportController = createReportController({ reportService });
 const sessionController = createSessionController({ sessionService });
 const slotLockController = createSlotLockController({ slotLockService });
-const supportController = createSupportController({supportService: supportMessageService });
+const supportController = createSupportController({
+  supportService: supportMessageService,
+});
 const uploadController = createUploadController({ uploadService });
 const verificationController = createVerificationController({
   verificationService,
@@ -202,6 +203,7 @@ const mentorSearchController = createMentorSearchController({
   mentorSearchService,
   cacheUtility,
 });
+const userController = createUserController({ authService });
 
 const authControllersPacked = {
   registerController,
@@ -254,6 +256,7 @@ module.exports = {
   uploadController,
   verificationController,
   mentorSearchController,
+  userController,
   authControllersPacked,
   connectControllersPacked,
 };

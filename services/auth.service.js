@@ -7,6 +7,7 @@
 
 const AppError = require("../utils/AppError");
 const { toUserDTO } = require("../mappers/user.mapper");
+const { isValidRole, ALL_ROLES } = require("../constants/roles");
 
 const BCRYPT_SALT_REGISTER = 10;
 
@@ -93,9 +94,48 @@ const createAuthService = ({
     };
   };
 
+  /**
+   * Adds an additional role to an ALREADY AUTHENTICATED user's own account
+   * ("become a mentor too" / "become a mentee too"). This is the concrete
+   * capability that the old schema (roles.length === 1) made impossible —
+   * a single account can now legitimately hold more than one role.
+   *
+   * Deliberately self-service only: `currentUser` must be the account
+   * making the request (enforced by the controller passing req.user),
+   * never an id read from the request body. Adding a role to someone
+   * ELSE's account is an admin action, not this one.
+   */
+  const addAccountRole = async (currentUser, role) => {
+    if (!isValidRole(role)) {
+      throw new AppError(
+        `Invalid role "${role}". Use one of: ${ALL_ROLES.join(", ")}.`,
+        400,
+      );
+    }
+    if (currentUser.roles?.includes(role)) {
+      throw new AppError(`Your account already has the "${role}" role.`, 409);
+    }
+
+    const updatedUser = await userRepository.addRoleToUser(
+      currentUser._id,
+      role,
+    );
+    if (!updatedUser) {
+      throw new AppError("Account not found.", 404);
+    }
+
+    // A wallet is created per-role (see wallet.service.js) — a mentee who
+    // becomes a mentor needs a mentor-side wallet just as much as someone
+    // who registered as a mentor from the start.
+    await walletService.createWalletForRole(currentUser._id, role);
+
+    return toUserDTO(updatedUser);
+  };
+
   return {
     registerUser,
     loginUser,
+    addAccountRole,
   };
 };
 

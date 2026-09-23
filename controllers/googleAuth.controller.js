@@ -6,6 +6,7 @@
 
 const catchAsync = require("../utils/catchAsync");
 const { sendSuccess } = require("../utils/apiResponse");
+const { getPrimaryRole } = require("../constants/roles");
 
 const createGoogleAuthController = ({ googleAuthService, cookieUtils }) => {
   /**
@@ -20,7 +21,7 @@ const createGoogleAuthController = ({ googleAuthService, cookieUtils }) => {
       termsAccepted: req.body.termsAccepted,
     });
 
-    const primaryRole = result.user?.roles?.[0] || null;
+    const primaryRole = getPrimaryRole(result.user?.roles);
     cookieUtils.setAuthCookies(res, result.refreshToken, primaryRole);
 
     sendSuccess(
