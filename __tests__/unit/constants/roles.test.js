@@ -77,6 +77,7 @@ describe("RBAC Registry", () => {
       expect(getPermissionsForRoles([])).toEqual([]);
       expect(getPermissionsForRoles(["ghost-role"])).toEqual([]);
       expect(getPermissionsForRoles(undefined)).toEqual([]);
+      expect(getPermissionsForRoles(null)).toEqual([]);
     });
   });
 
@@ -97,6 +98,16 @@ describe("RBAC Registry", () => {
       expect(
         roleListHasPermission([ROLES.MENTEE], PERMISSIONS.VIEW_EARNINGS),
       ).toBe(false);
+    });
+
+    test("false (never throws) for missing or non-array roles", () => {
+      expect(roleListHasPermission(undefined, PERMISSIONS.BOOK_SESSION)).toBe(
+        false,
+      );
+      expect(roleListHasPermission(null, PERMISSIONS.BOOK_SESSION)).toBe(false);
+      expect(roleListHasPermission("mentee", PERMISSIONS.BOOK_SESSION)).toBe(
+        false,
+      );
     });
   });
 

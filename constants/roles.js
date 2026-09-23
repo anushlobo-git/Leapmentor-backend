@@ -130,6 +130,10 @@ const isValidRole = (role) => ALL_ROLES.includes(role);
  * @returns {string[]} de-duplicated permission strings
  */
 const getPermissionsForRoles = (roles = []) => {
+  // Default params only cover `undefined`; null / a bare string / an object
+  // would otherwise reach the for...of below and either throw or iterate
+  // characters. Anything that isn't an array grants nothing.
+  if (!Array.isArray(roles)) return [];
   const permissionSet = new Set();
   for (const role of roles) {
     const rolePermissions = ROLE_PERMISSIONS[role] || [];
@@ -144,8 +148,8 @@ const getPermissionsForRoles = (roles = []) => {
  * @param {string} permission
  * @returns {boolean}
  */
-const roleListHasPermission = (roles , permission) =>
-  getPermissionsForRoles(roles | []).includes(permission);
+const roleListHasPermission = (roles, permission) =>
+  getPermissionsForRoles(roles).includes(permission);
 
 /**
  * Picks one "primary" role out of an account's roles array, for contexts
