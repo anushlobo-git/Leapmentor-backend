@@ -49,7 +49,6 @@ describe("AdminController", () => {
     mockAdminUserService = {
       getUsersService: jest.fn(),
       getUserDetailService: jest.fn(),
-      deleteUserService: jest.fn(),
       blockUserService: jest.fn(),
       unblockUserService: jest.fn(),
     };
@@ -388,39 +387,6 @@ describe("AdminController", () => {
       mockAdminUserService.getUserDetailService.mockRejectedValue(error);
 
       await controller.getUserDetail(req, res, next);
-
-      expect(next).toHaveBeenCalledWith(error);
-      expect(res.status).not.toHaveBeenCalled();
-    });
-
-    test("should return 200 and confirm hard-delete string interpolations inside deleteUser", async () => {
-      req.params.userId = "usr_drop_777";
-      mockAdminUserService.deleteUserService.mockResolvedValue({
-        name: "Bob Dev",
-        email: "bob@test.com",
-      });
-
-      await controller.deleteUser(req, res, next);
-
-      expect(mockAdminUserService.deleteUserService).toHaveBeenCalledWith(
-        "usr_drop_777",
-      );
-      expect(res.status).toHaveBeenCalledWith(200);
-      expect(res.json).toHaveBeenCalledWith(
-        successEnvelope(
-          null,
-          "User Bob Dev (bob@test.com) has been permanently deleted.",
-        ),
-      );
-      expect(next).not.toHaveBeenCalled();
-    });
-
-    test("should call next(err) and withhold HTTP status updates when deleteUser service throws", async () => {
-      req.params.userId = "usr_error";
-      const error = new Error("Write locks conflict");
-      mockAdminUserService.deleteUserService.mockRejectedValue(error);
-
-      await controller.deleteUser(req, res, next);
 
       expect(next).toHaveBeenCalledWith(error);
       expect(res.status).not.toHaveBeenCalled();

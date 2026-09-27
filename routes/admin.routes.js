@@ -63,13 +63,6 @@ const createAdminRoutes = ({
     adminController.getUserDetail,
   );
 
-  // @route   DELETE /api/v1/admin/users/:userId
-  router.delete(
-    "/users/:userId",
-    userIdParamValidation,
-    adminController.deleteUser,
-  );
-
   // @route   PATCH /api/v1/admin/users/:userId/block
   router.patch("/users/:userId/block", adminController.blockUser);
 

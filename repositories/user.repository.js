@@ -94,22 +94,6 @@ const createUserRepository = (User) => {
       .lean();
 
   /**
-   * Find an active live Mongoose entity object matching an ID regardless of soft-delete state.
-   * @param {string} id - Main entity document lookup key.
-   * @returns {Promise<Object|null>} Mutable tracking document reference.
-   */
-  const findUserByIdRaw = (id) =>
-    User.findById(id).setOptions({ ignoreIsDeleted: true });
-
-  /**
-   * Perform a hard-removal operation on an explicit document index, overriding soft-delete filters.
-   * @param {string} id - Main entity document lookup key.
-   * @returns {Promise<Object|null>}
-   */
-  const deleteUserById = (id) =>
-    User.findByIdAndDelete(id, { ignoreIsDeleted: true });
-
-  /**
    * Update access validation indices to apply an administrative soft-delete block.
    * @param {string} id - Main entity document lookup key.
    * @returns {Promise<Object|null>} Updated model state confirmation document.
@@ -252,8 +236,6 @@ const createUserRepository = (User) => {
     countUsersWithFilter,
     findUsers,
     findUserById,
-    findUserByIdRaw,
-    deleteUserById,
     blockUser,
     unblockUser,
     findUserByEmail,

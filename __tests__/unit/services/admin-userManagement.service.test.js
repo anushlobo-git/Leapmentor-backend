@@ -38,24 +38,19 @@ describe("AdminUserManagement Service", () => {
       countUsersWithFilter: jest.fn(),
       findUsers: jest.fn(),
       findUserById: jest.fn(),
-      findUserByIdRaw: jest.fn(),
-      deleteUserById: jest.fn(),
       blockUser: jest.fn(),
       unblockUser: jest.fn(),
     };
     mockMentorProfileRepository = {
       findMentorProfilesByUserIds: jest.fn(),
       findMentorProfileByUserId: jest.fn(),
-      deleteMentorProfileByUserId: jest.fn(),
     };
     mockMenteeProfileRepository = {
       findMenteeProfilesByUserIds: jest.fn(),
       findMenteeProfileByUserId: jest.fn(),
-      deleteMenteeProfileByUserId: jest.fn(),
     };
     mockConnectRequestRepository = {
       countCompletedSessionsByUser: jest.fn(),
-      deleteManyByUser: jest.fn(),
     };
 
     // ✅ Correct instantiation — matches the destructured signature
@@ -290,39 +285,6 @@ describe("AdminUserManagement Service", () => {
       await expect(
         userManagementService.getUserDetailService("missing"),
       ).rejects.toMatchObject({ statusCode: 404, message: "User not found." });
-    });
-  });
-
-  // ── deleteUserService ───────────────────────────────────────────────────
-  describe("deleteUserService", () => {
-    test("should execute a sweeping transactional data cascade across all matching domain vectors", async () => {
-      mockUserRepository.findUserByIdRaw.mockResolvedValue({
-        name: "Bob",
-        email: "bob@test.com",
-      });
-
-      const result = await userManagementService.deleteUserService("u1");
-
-      expect(mockUserRepository.deleteUserById).toHaveBeenCalledWith("u1");
-      expect(
-        mockMentorProfileRepository.deleteMentorProfileByUserId,
-      ).toHaveBeenCalledWith("u1");
-      expect(
-        mockMenteeProfileRepository.deleteMenteeProfileByUserId,
-      ).toHaveBeenCalledWith("u1");
-      expect(
-        mockConnectRequestRepository.deleteManyByUser,
-      ).toHaveBeenCalledWith("u1");
-      expect(result).toEqual({ name: "Bob", email: "bob@test.com" });
-    });
-
-    test("should stop cascading operations and throw a 404 error if user is not found", async () => {
-      mockUserRepository.findUserByIdRaw.mockResolvedValue(null);
-
-      await expect(
-        userManagementService.deleteUserService("absent"),
-      ).rejects.toMatchObject({ statusCode: 404, message: "User not found." });
-      expect(mockUserRepository.deleteUserById).not.toHaveBeenCalled();
     });
   });
 

@@ -106,23 +106,6 @@ const createAdminUserManagementService = ({
   };
 
   /**
-   * Executes a structural database cleanup cascade on an explicit user context index.
-   */
-  const deleteUserService = async (userId) => {
-    const user = await userRepository.findUserByIdRaw(userId);
-    if (!user) throw new AppError("User not found.", 404);
-
-    await Promise.all([
-      userRepository.deleteUserById(userId),
-      mentorProfileRepository.deleteMentorProfileByUserId(userId),
-      menteeProfileRepository.deleteMenteeProfileByUserId(userId),
-      connectRequestRepository.deleteManyByUser(userId),
-    ]);
-
-    return { name: user.name, email: user.email };
-  };
-
-  /**
    * Toggles a soft-delete status flag to lock platform authentication.
    */
   const blockUserService = async (userId) => {
@@ -143,7 +126,6 @@ const createAdminUserManagementService = ({
   return {
     getUsersService,
     getUserDetailService,
-    deleteUserService,
     blockUserService,
     unblockUserService,
   };

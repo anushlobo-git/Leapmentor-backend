@@ -191,22 +191,6 @@ const createAdminController = ({
   });
 
   /**
-   * Destructively and permanently wipes out a target user profile file.
-   * @route   DELETE /api/v1/admin/users/:userId
-   * @access  Private (Admin)
-   */
-  const deleteUser = catchAsync(async (req, res) => {
-    const { name, email } = await adminUserService.deleteUserService(
-      req.params.userId,
-    );
-    sendSuccess(
-      res,
-      null,
-      `User ${name} (${email}) has been permanently deleted.`,
-    );
-  });
-
-  /**
    * Revokes workspace accessibility clearances by flag-modifying a profile as blocked.
    * @route   PATCH /api/v1/admin/users/:userId/block
    * @access  Private (Admin)
@@ -266,7 +250,6 @@ const createAdminController = ({
     getMentorIndustryStats,
     getUsers,
     getUserDetail,
-    deleteUser,
     blockUser,
     unblockUser,
     getEngagementStats,

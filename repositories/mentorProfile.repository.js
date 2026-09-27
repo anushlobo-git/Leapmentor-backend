@@ -38,14 +38,6 @@ const createMentorProfileRepository = (MentorProfile) => {
     MentorProfile.findOne({ user: userId }).lean();
 
   /**
-   * Hard-delete a targeted mentor profile mapping matching a specific user ID.
-   * @param {string} userId
-   * @returns {Promise<Object|null>}
-   */
-  const deleteMentorProfileByUserId = (userId) =>
-    MentorProfile.findOneAndDelete({ user: userId });
-
-  /**
    * Retrieve all mentor profile entries including populated user details.
    * @returns {Promise<Array<Object>>}
    */
@@ -240,7 +232,6 @@ const createMentorProfileRepository = (MentorProfile) => {
     getMentorIndustryStats,
     findMentorProfilesByUserIds,
     findMentorProfileByUserId,
-    deleteMentorProfileByUserId,
     findAllMentorProfiles,
     findMentorProfileById,
     findMentorProfileByIdWithUser,

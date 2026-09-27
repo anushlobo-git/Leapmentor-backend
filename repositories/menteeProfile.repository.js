@@ -36,14 +36,6 @@ const createMenteeProfileRepository = (MenteeProfile) => {
     MenteeProfile.findOne({ user: userId }).lean();
 
   /**
-   * Hard-delete a target profiling mapping matching a specific user context.
-   * @param {string} userId - Core reference linking parent identity configurations.
-   * @returns {Promise<Object|null>} Deleted profile record content tracking map.
-   */
-  const deleteMenteeProfileByUserId = (userId) =>
-    MenteeProfile.findOneAndDelete({ user: userId });
-
-  /**
    * Query detailed functional information mapping to a single mentee profile view.
    * @param {string} userId - Core reference linking parent identity configurations.
    * @returns {Promise<Object|null>} Filtered dataset mapping individual target metrics.
@@ -111,7 +103,6 @@ const createMenteeProfileRepository = (MenteeProfile) => {
     findMenteeProfilesByUserIds,
     findMenteeProfilesByUserIdsFull,
     findMenteeProfileByUserId,
-    deleteMenteeProfileByUserId,
     findMenteeProfile,
     findByUserId,
     findByUserIdWithAccountInfo,

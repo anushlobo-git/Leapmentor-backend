@@ -143,11 +143,6 @@ const createConnectRequestRepository = (ConnectRequest) => {
       status: "completed",
     });
 
-  const deleteManyByUser = (userId) =>
-    ConnectRequest.deleteMany({
-      $or: [{ mentor: userId }, { mentee: userId }],
-    });
-
   const findBookedRequestsByMentor = (mentorId) =>
     ConnectRequest.find(
       { mentor: mentorId, status: { $in: ["pending", "accepted", "ongoing"] } },
@@ -230,7 +225,6 @@ const createConnectRequestRepository = (ConnectRequest) => {
     countRefundedRequests,
     findSessionsByMonth,
     countCompletedSessionsByUser,
-    deleteManyByUser,
     findBookedRequestsByMentor,
     findRequestByIdWithMentor,
     findCompletedSessionsByMentor,

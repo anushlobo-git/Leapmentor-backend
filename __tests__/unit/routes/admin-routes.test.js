@@ -43,7 +43,6 @@ describe("Admin Routes Configuration Matrix", () => {
       getEngagementStats: jest.fn(),
       getUsers: jest.fn(),
       getUserDetail: jest.fn(),
-      deleteUser: jest.fn(),
       blockUser: jest.fn(),
       unblockUser: jest.fn(),
       getEngagements: jest.fn(),
@@ -133,11 +132,6 @@ describe("Admin Routes Configuration Matrix", () => {
         "/users/:userId",
         userIdParamValidation,
         mockAdminController.getUserDetail,
-      );
-      expect(mockRouter.delete).toHaveBeenCalledWith(
-        "/users/:userId",
-        userIdParamValidation,
-        mockAdminController.deleteUser,
       );
     });
 

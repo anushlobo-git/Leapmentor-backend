@@ -211,14 +211,6 @@ describe("ConnectRequest Repository", () => {
         status: "completed",
       });
     });
-
-    test("deleteManyByUser clears multiple documents across entities", async () => {
-      mockModel.deleteMany.mockResolvedValue({ deletedCount: 3 });
-      await repository.deleteManyByUser("userA");
-      expect(mockModel.deleteMany).toHaveBeenCalledWith({
-        $or: [{ mentor: "userA" }, { mentee: "userA" }],
-      });
-    });
   });
 
   // ── PAGINATION, FINANCIALS & SELECTION RULES ────────────────────────────

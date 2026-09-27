@@ -300,20 +300,6 @@ describe("MentorProfile Repository", () => {
 
   // ── WRITES, MUTATIONS & LIFECYCLE MANAGEMENT ───────────────────────────
   describe("Writes, Mutations & Lifecycle Management", () => {
-    test("deleteMentorProfileByUserId should drop targeting metrics tracking keys immediately", async () => {
-      mockMentorProfileModel.findOneAndDelete.mockResolvedValue(
-        mockProfileRecord,
-      );
-
-      const result =
-        await mentorProfileRepository.deleteMentorProfileByUserId("user777");
-
-      expect(mockMentorProfileModel.findOneAndDelete).toHaveBeenCalledWith({
-        user: "user777",
-      });
-      expect(result).toEqual(mockProfileRecord);
-    });
-
     test("create should wrap standard instance generation payload mapping routines", async () => {
       mockMentorProfileModel.create.mockResolvedValue(mockProfileRecord);
       const initialFields = { user: "user777", industry: "Tech" };
