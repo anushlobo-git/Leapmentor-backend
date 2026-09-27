@@ -49,6 +49,18 @@ const createWalletRepository = (Wallet) => {
     Wallet.findOne({ user: userId, role }).lean();
 
   /**
+   * Locates a role-scoped wallet for mutable inline balance adjustment.
+   * Non-lean so the caller can mutate + save it. Use this instead of the
+   * unscoped findWalletByUserMutable whenever a user may hold both a mentee
+   * and a mentor wallet — otherwise findOne({ user }) can return the wrong one.
+   * @param {string} userId
+   * @param {string} role
+   * @returns {Promise<Object|null>}
+   */
+  const findWalletByUserAndRoleMutable = (userId, role) =>
+    Wallet.findOne({ user: userId, role });
+
+  /**
    * Generates an active tracking balance matrix row.
    * @param {Object} data
    * @returns {Promise<Object>}
@@ -91,6 +103,24 @@ const createWalletRepository = (Wallet) => {
   };
 
   /**
+   * Increments a role-scoped wallet's balance. No upsert: the target role
+   * wallet is expected to already exist (both are seeded at registration), so
+   * a missing match returns null rather than silently creating a stray,
+   * role-less wallet the way an upsert on { user } would.
+   * @param {string} userId
+   * @param {string} role
+   * @param {number} amount
+   * @returns {Promise<Object|null>}
+   */
+  const incrementBalanceByRole = (userId, role, amount) => {
+    return Wallet.findOneAndUpdate(
+      { user: userId, role },
+      { $inc: { balance: amount } },
+      { new: true },
+    );
+  };
+
+  /**
    * Saves a wallet document instance to the database inside a transaction session.
    * @param {Object} doc
    * @param {ClientSession} [session]
@@ -107,10 +137,12 @@ const createWalletRepository = (Wallet) => {
     findWalletByUser,
     findWalletByUserMutable,
     findWalletByUserAndRole,
+    findWalletByUserAndRoleMutable,
     createWallet,
     findByUserId,
     findByUserIdAndRole,
     incrementBalance,
+    incrementBalanceByRole,
     save,
   };
 };

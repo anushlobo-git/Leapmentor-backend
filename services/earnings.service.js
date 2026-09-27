@@ -14,8 +14,10 @@ const DEFAULT_PAGE_NUMBER = 1;
 const DEFAULT_LIMIT_SIZE = 10;
 const MAX_LIMIT_SIZE = 20;
 const RADIX_DECIMAL = 10;
+const ROLE_MENTOR = "mentor";
 
 const createEarningsService = ({
+  mongoose,
   connectRequestRepository,
   mentorRepository,
   walletRepository,
@@ -33,7 +35,10 @@ const createEarningsService = ({
         connectRequestRepository.findCompletedSessionsByMentor(mentorId),
         connectRequestRepository.findOngoingPaidSessionsByMentor(mentorId),
         mentorRepository.findMentorRating(mentorId),
-        walletRepository.findWalletByUser(mentorId),
+        // Scope to the MENTOR wallet — a dual-role account also has a mentee
+        // wallet (seeded with the 500-point welcome bonus), and an unscoped
+        // findOne({ user }) could return that one, inflating mentor earnings.
+        walletRepository.findWalletByUserAndRole(mentorId, ROLE_MENTOR),
       ]);
 
     const totalEarnings = completed.reduce(
@@ -221,32 +226,60 @@ const createEarningsService = ({
    * @param {string} mentorId   - Unique identifier database key of the initiating mentor.
    */
   const withdrawEarningsService = async (mentorId) => {
-    const wallet = await walletRepository.findWalletByUserMutable(mentorId);
+    const session = await mongoose.startSession();
+    session.startTransaction();
 
-    if (!wallet) {
-      throw new AppError("Wallet registration records not found.", 404);
-    }
-    if (wallet.balance <= 0) {
-      throw new AppError(
-        "No clear liquid balances are currently available to withdraw.",
-        400,
+    try {
+      // Scope to the MENTOR wallet — a dual-role account also has a mentee
+      // wallet (the 500 LP welcome bonus), and an unscoped findOne({ user })
+      // could drain that one instead of the mentor's earnings.
+      const wallet = await walletRepository.findByUserIdAndRole(
+        mentorId,
+        ROLE_MENTOR,
+        session,
       );
+
+      if (!wallet) {
+        throw new AppError("Wallet registration records not found.", 404);
+      }
+      if (wallet.balance <= 0) {
+        throw new AppError(
+          "No clear liquid balances are currently available to withdraw.",
+          400,
+        );
+      }
+
+      const withdrawn = wallet.balance;
+      wallet.balance = 0;
+
+      // Zero the balance and record the ledger entry inside a single
+      // transaction — otherwise a failed ledger write (e.g. the missing
+      // "withdrawal" enum value that used to reject here) would leave the
+      // balance drained to 0 with no record of where the points went.
+      await walletRepository.save(wallet, session);
+
+      await transactionRepository.createMany(
+        [
+          {
+            user: mentorId,
+            type: "withdrawal",
+            amount: withdrawn,
+            description: "Mentor outward payout financial withdrawal request.",
+            balanceAfter: 0,
+          },
+        ],
+        session,
+      );
+
+      await session.commitTransaction();
+
+      return { withdrawn, newBalance: 0 };
+    } catch (err) {
+      await session.abortTransaction();
+      throw err;
+    } finally {
+      session.endSession();
     }
-
-    const withdrawn = wallet.balance;
-    wallet.balance = 0;
-
-    await walletRepository.saveWallet(wallet);
-
-    await transactionRepository.createTransaction({
-      user: mentorId,
-      type: "withdrawal",
-      amount: withdrawn,
-      description: "Mentor outward payout financial withdrawal request.",
-      balanceAfter: 0,
-    });
-
-    return { withdrawn, newBalance: 0 };
   };
 
   return {

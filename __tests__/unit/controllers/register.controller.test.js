@@ -36,12 +36,14 @@ describe("User Account Registration Controller Unit Tests", () => {
     jest.clearAllMocks();
   });
 
-  test("should return a 201 status code and establish auth cookies upon valid payload registration", async () => {
+  test("outcome 'created': 201 status and auth cookies for a brand-new account", async () => {
     const mockServicePayload = {
+      outcome: "created",
+      isNewUser: true,
+      loggedIn: false,
       accessToken: "mocked_access_jwt_string",
       refreshToken: "mocked_refresh_jwt_string",
       user: { _id: "usr_reg_999", name: "Jane Doe", roles: ["mentee"] },
-      isNewUser: true,
     };
     mockAuthService.registerUser.mockResolvedValue(mockServicePayload);
 
@@ -58,8 +60,10 @@ describe("User Account Registration Controller Unit Tests", () => {
     expect(mockRes.json).toHaveBeenCalledWith(
       successEnvelope(
         {
-          user: mockServicePayload.user,
+          outcome: "created",
           isNewUser: true,
+          loggedIn: false,
+          user: mockServicePayload.user,
           accessToken: "mocked_access_jwt_string",
         },
         "Registered successfully",
@@ -67,14 +71,15 @@ describe("User Account Registration Controller Unit Tests", () => {
     );
   });
 
-  test("should handle user with no roles and set null role in cookie", async () => {
-    const mockServicePayload = {
+  test("outcome 'created' with no roles sets a null role cookie", async () => {
+    mockAuthService.registerUser.mockResolvedValue({
+      outcome: "created",
+      isNewUser: true,
+      loggedIn: false,
       accessToken: "mocked_access_jwt_string",
       refreshToken: "mocked_refresh_jwt_string",
       user: { _id: "usr_reg_999", name: "Jane Doe" },
-      isNewUser: true,
-    };
-    mockAuthService.registerUser.mockResolvedValue(mockServicePayload);
+    });
 
     await controller.register(mockReq, mockRes, mockNext);
     await flushPromises();
@@ -86,10 +91,132 @@ describe("User Account Registration Controller Unit Tests", () => {
     );
   });
 
-  test("should capture service exceptions and delegate them to next() for global catching middleware", async () => {
-    const mockException = new Error(
-      "An account with this email already exists.",
+  test("outcome 'role_added' + verified: 200, auth cookies, and a logged-in session", async () => {
+    const user = {
+      _id: "usr_multi_1",
+      name: "Jane Doe",
+      roles: ["mentee", "mentor"],
+    };
+    mockAuthService.registerUser.mockResolvedValue({
+      outcome: "role_added",
+      isNewUser: false,
+      loggedIn: true,
+      accessToken: "mocked_access_jwt_string",
+      refreshToken: "mocked_refresh_jwt_string",
+      user,
+    });
+
+    await controller.register(mockReq, mockRes, mockNext);
+    await flushPromises();
+
+    // mentor wins the ROLE_PRIORITY tie-break for the routing-hint cookie.
+    expect(mockCookieUtils.setAuthCookies).toHaveBeenCalledWith(
+      mockRes,
+      "mocked_refresh_jwt_string",
+      "mentor",
     );
+    expect(mockRes.status).toHaveBeenCalledWith(200);
+    expect(mockRes.json).toHaveBeenCalledWith(
+      successEnvelope(
+        {
+          outcome: "role_added",
+          isNewUser: false,
+          loggedIn: true,
+          user,
+          accessToken: "mocked_access_jwt_string",
+        },
+        "Role added to your account",
+      ),
+    );
+  });
+
+  test("outcome 'role_added' + unverified: 200, NO cookies, routed to verify", async () => {
+    const user = {
+      _id: "usr_multi_2",
+      name: "Jane Doe",
+      roles: ["mentee", "mentor"],
+    };
+    mockAuthService.registerUser.mockResolvedValue({
+      outcome: "role_added",
+      isNewUser: false,
+      loggedIn: false,
+      email: "jane.doe@test.com",
+      user,
+    });
+
+    await controller.register(mockReq, mockRes, mockNext);
+    await flushPromises();
+
+    expect(mockCookieUtils.setAuthCookies).not.toHaveBeenCalled();
+    expect(mockRes.status).toHaveBeenCalledWith(200);
+    expect(mockRes.json).toHaveBeenCalledWith(
+      successEnvelope(
+        {
+          outcome: "role_added",
+          isNewUser: false,
+          loggedIn: false,
+          user,
+          email: "jane.doe@test.com",
+        },
+        "Role added to your account",
+      ),
+    );
+  });
+
+  test("outcome 'already_registered': 200, NO cookies, no session", async () => {
+    mockAuthService.registerUser.mockResolvedValue({
+      outcome: "already_registered",
+      isNewUser: false,
+      loggedIn: false,
+      email: "jane.doe@test.com",
+    });
+
+    await controller.register(mockReq, mockRes, mockNext);
+    await flushPromises();
+
+    expect(mockCookieUtils.setAuthCookies).not.toHaveBeenCalled();
+    expect(mockRes.status).toHaveBeenCalledWith(200);
+    expect(mockRes.json).toHaveBeenCalledWith(
+      successEnvelope(
+        {
+          outcome: "already_registered",
+          isNewUser: false,
+          loggedIn: false,
+          email: "jane.doe@test.com",
+        },
+        "You already have an account for this role",
+      ),
+    );
+  });
+
+  test("outcome 'login_required': 200, NO cookies, no session", async () => {
+    mockAuthService.registerUser.mockResolvedValue({
+      outcome: "login_required",
+      isNewUser: false,
+      loggedIn: false,
+      email: "jane.doe@test.com",
+    });
+
+    await controller.register(mockReq, mockRes, mockNext);
+    await flushPromises();
+
+    expect(mockCookieUtils.setAuthCookies).not.toHaveBeenCalled();
+    expect(mockRes.status).toHaveBeenCalledWith(200);
+    expect(mockRes.json).toHaveBeenCalledWith(
+      successEnvelope(
+        {
+          outcome: "login_required",
+          isNewUser: false,
+          loggedIn: false,
+          email: "jane.doe@test.com",
+        },
+        "An account with this email already exists",
+      ),
+    );
+  });
+
+  test("should capture service exceptions and delegate them to next() for global catching middleware", async () => {
+    const mockException = new Error("Invalid role.");
     mockAuthService.registerUser.mockRejectedValue(mockException);
 
     await controller.register(mockReq, mockRes, mockNext);

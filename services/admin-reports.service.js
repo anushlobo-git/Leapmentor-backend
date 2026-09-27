@@ -6,6 +6,10 @@
 
 const AppError = require("../utils/AppError");
 
+// Refunds always credit/adjust the mentee wallet. A dual-role account also has
+// a mentor wallet, so the lookup is role-scoped to avoid refunding the wrong one.
+const ROLE_MENTEE = "mentee";
+
 const createAdminReportsService = ({
   reportRepository,
   userRepository,
@@ -146,7 +150,10 @@ const createAdminReportsService = ({
     const menteeId = connectRequest.mentee;
     const totalAmount = connectRequest.totalAmount || 0;
 
-    const menteeWallet = await walletRepository.findWalletByUserId(menteeId);
+    const menteeWallet = await walletRepository.findWalletByUserAndRoleMutable(
+      menteeId,
+      ROLE_MENTEE,
+    );
     if (!menteeWallet) throw new AppError("Mentee wallet not found.", 404);
 
     const refundAmount = Math.min(totalAmount, menteeWallet.escrow);

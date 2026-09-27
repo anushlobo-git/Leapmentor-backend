@@ -36,7 +36,9 @@ describe("LeapRequest Service", () => {
 
     mockWalletRepository = {
       findWalletByUser: jest.fn(),
+      findWalletByUserAndRole: jest.fn(),
       incrementBalance: jest.fn(),
+      incrementBalanceByRole: jest.fn(),
     };
 
     service = createLeapRequestService({
@@ -79,11 +81,18 @@ describe("LeapRequest Service", () => {
       mockLeapRequestRepository.findLatestByMenteeAndStatus.mockResolvedValue(
         null,
       );
-      mockWalletRepository.findWalletByUser.mockResolvedValue({ balance: 150 });
+      mockWalletRepository.findWalletByUserAndRole.mockResolvedValue({
+        balance: 150,
+      });
       mockLeapRequestRepository.create.mockResolvedValue(mockRecord);
 
       const result = await service.createLeapRequest("menteeXYZ");
 
+      // Balance gate reads the mentee wallet specifically, never the mentor one.
+      expect(mockWalletRepository.findWalletByUserAndRole).toHaveBeenCalledWith(
+        "menteeXYZ",
+        "mentee",
+      );
       expect(mockLeapRequestRepository.create).toHaveBeenCalledWith({
         mentee: "menteeXYZ",
         currentBalance: 150,
@@ -109,7 +118,9 @@ describe("LeapRequest Service", () => {
       mockLeapRequestRepository.findLatestByMenteeAndStatus.mockResolvedValue(
         null,
       );
-      mockWalletRepository.findWalletByUser.mockResolvedValue({ balance: 500 });
+      mockWalletRepository.findWalletByUserAndRole.mockResolvedValue({
+        balance: 500,
+      });
 
       await expect(
         service.createLeapRequest("menteeXYZ"),
@@ -122,7 +133,7 @@ describe("LeapRequest Service", () => {
       mockLeapRequestRepository.findLatestByMenteeAndStatus.mockResolvedValue(
         null,
       );
-      mockWalletRepository.findWalletByUser.mockResolvedValue(null);
+      mockWalletRepository.findWalletByUserAndRole.mockResolvedValue(null);
       mockLeapRequestRepository.create.mockResolvedValue({
         ...mockRecord,
         currentBalance: 0,
@@ -184,13 +195,16 @@ describe("LeapRequest Service", () => {
     test("approves request, credits wallet, and updates state flags", async () => {
       const instance = { ...mockRecord };
       mockLeapRequestRepository.findById.mockResolvedValue(instance);
-      mockWalletRepository.incrementBalance.mockResolvedValue({ balance: 600 });
+      mockWalletRepository.incrementBalanceByRole.mockResolvedValue({
+        balance: 600,
+      });
       mockLeapRequestRepository.save.mockResolvedValue(instance);
 
       const result = await service.approveLeapRequest("req999", "adminA");
 
-      expect(mockWalletRepository.incrementBalance).toHaveBeenCalledWith(
+      expect(mockWalletRepository.incrementBalanceByRole).toHaveBeenCalledWith(
         "menteeXYZ",
+        "mentee",
         500,
       );
       expect(instance.status).toBe("approved");
@@ -202,15 +216,33 @@ describe("LeapRequest Service", () => {
     test("resolves menteeId from mentee._id when mentee is a populated object", async () => {
       const instance = { ...mockRecord, mentee: { _id: "menteeXYZ" } };
       mockLeapRequestRepository.findById.mockResolvedValue(instance);
-      mockWalletRepository.incrementBalance.mockResolvedValue({ balance: 600 });
+      mockWalletRepository.incrementBalanceByRole.mockResolvedValue({
+        balance: 600,
+      });
       mockLeapRequestRepository.save.mockResolvedValue(instance);
 
       await service.approveLeapRequest("req999", "adminA");
 
-      expect(mockWalletRepository.incrementBalance).toHaveBeenCalledWith(
+      expect(mockWalletRepository.incrementBalanceByRole).toHaveBeenCalledWith(
         "menteeXYZ",
+        "mentee",
         500,
       );
+    });
+
+    test("throws 404 if the mentee wallet does not exist", async () => {
+      const instance = { ...mockRecord };
+      mockLeapRequestRepository.findById.mockResolvedValue(instance);
+      mockWalletRepository.incrementBalanceByRole.mockResolvedValue(null);
+
+      await expect(
+        service.approveLeapRequest("req999", "adminA"),
+      ).rejects.toMatchObject({
+        statusCode: 404,
+        message: "Mentee wallet not found.",
+      });
+      // The request must not be marked approved if the grant failed to land.
+      expect(mockLeapRequestRepository.save).not.toHaveBeenCalled();
     });
 
     test("throws 404 if request not found", async () => {
@@ -251,7 +283,7 @@ describe("LeapRequest Service", () => {
       expect(instance.status).toBe("rejected");
       expect(instance.reviewedBy).toBe("adminA");
       expect(instance.reviewedAt).toBeInstanceOf(Date);
-      expect(mockWalletRepository.incrementBalance).not.toHaveBeenCalled();
+      expect(mockWalletRepository.incrementBalanceByRole).not.toHaveBeenCalled();
       expect(result.status).toBe("rejected");
     });
 

@@ -32,6 +32,7 @@ describe("Admin Reports Service", () => {
     mockUserRepository = { findUsersByName: jest.fn() };
     mockWalletRepository = {
       findWalletByUserId: jest.fn(),
+      findWalletByUserAndRoleMutable: jest.fn(),
       saveWallet: jest.fn(),
     };
     mockTransactionRepository = { createTransaction: jest.fn() };
@@ -427,7 +428,9 @@ describe("Admin Reports Service", () => {
           totalAmount: 100,
         },
       });
-      mockWalletRepository.findWalletByUserId.mockResolvedValue(null);
+      mockWalletRepository.findWalletByUserAndRoleMutable.mockResolvedValue(
+        null,
+      );
 
       await expect(
         service.processRefundService("rep1", "note", "adm1"),
@@ -456,7 +459,9 @@ describe("Admin Reports Service", () => {
       const mockWallet = { escrow: 500, balance: 1000 };
 
       mockReportRepository.findReportByIdWithAll.mockResolvedValue(mockReport);
-      mockWalletRepository.findWalletByUserId.mockResolvedValue(mockWallet);
+      mockWalletRepository.findWalletByUserAndRoleMutable.mockResolvedValue(
+        mockWallet,
+      );
       mockReportRepository.saveReport.mockResolvedValue(mockReport);
 
       const result = await service.processRefundService(
@@ -467,6 +472,10 @@ describe("Admin Reports Service", () => {
 
       expect(mockWallet.escrow).toBe(200); // 500 - 300
       expect(mockWallet.balance).toBe(1300); // 1000 + 300
+      // Refund targets the mentee wallet specifically, never the mentor one.
+      expect(
+        mockWalletRepository.findWalletByUserAndRoleMutable,
+      ).toHaveBeenCalledWith("u1", "mentee");
       expect(mockWalletRepository.saveWallet).toHaveBeenCalledWith(mockWallet);
       expect(mockTransactionRepository.createTransaction).toHaveBeenCalledWith(
         expect.objectContaining({ type: "escrow_refund", amount: 300 }),
@@ -497,7 +506,9 @@ describe("Admin Reports Service", () => {
       const mockWallet = { escrow: 200, balance: 0 };
 
       mockReportRepository.findReportByIdWithAll.mockResolvedValue(mockReport);
-      mockWalletRepository.findWalletByUserId.mockResolvedValue(mockWallet);
+      mockWalletRepository.findWalletByUserAndRoleMutable.mockResolvedValue(
+        mockWallet,
+      );
       mockReportRepository.saveReport.mockResolvedValue(mockReport);
 
       await service.processRefundService("rep1", "   ", "adm1"); // blank note

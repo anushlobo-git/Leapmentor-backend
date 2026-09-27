@@ -9,29 +9,53 @@ const { sendSuccess, STATUS } = require("../utils/apiResponse");
 const { getPrimaryRole } = require("../constants/roles");
 
 const createRegisterController = ({ authService, cookieUtils }) => {
+  // Human-readable message per register outcome (the frontend routes off the
+  // machine-readable `outcome` field, not this string).
+  const OUTCOME_MESSAGES = {
+    created: "Registered successfully",
+    role_added: "Role added to your account",
+    already_registered: "You already have an account for this role",
+    login_required: "An account with this email already exists",
+  };
+
   /**
-   * Register and provision a brand-new user profile account.
+   * Register / resolve a submission to the public register form.
+   *
+   * One email can hold multiple roles, so this endpoint no longer 409s on a
+   * known email. It returns an `outcome` the client routes on:
+   *   created | role_added | already_registered | login_required
+   * (see authService.registerUser for the full contract).
+   *
    * @route   POST /api/v1/auth/register
    * @access  Public
    */
   const register = catchAsync(async (req, res, next) => {
     const result = await authService.registerUser(req.body);
 
-    // Which role drives the routing-hint cookie is now a config decision
-    // (constants/roles.js ROLE_PRIORITY), not a hardcoded "take the first
-    // one" — correct even for an account that holds several roles.
-    const role = getPrimaryRole(result.user?.roles);
-    cookieUtils.setAuthCookies(res, result.refreshToken, role);
+    // Only outcomes that actually start a session hand back a refresh token
+    // (a brand-new account, or an existing verified account we just added a
+    // role to). For those we set the auth cookies exactly like login does;
+    // for the "go log in" outcomes we deliberately set nothing.
+    if (result.refreshToken) {
+      const role = getPrimaryRole(result.user?.roles);
+      cookieUtils.setAuthCookies(res, result.refreshToken, role);
+    }
+
+    const status =
+      result.outcome === "created" ? STATUS.CREATED : STATUS.OK;
 
     sendSuccess(
       res,
       {
-        user: result.user,
+        outcome: result.outcome,
         isNewUser: result.isNewUser,
+        loggedIn: result.loggedIn,
+        user: result.user,
         accessToken: result.accessToken,
+        email: result.email,
       },
-      "Registered successfully",
-      STATUS.CREATED,
+      OUTCOME_MESSAGES[result.outcome] || "Registered successfully",
+      status,
     );
   });
 

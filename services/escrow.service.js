@@ -260,7 +260,11 @@ const createEscrowService = ({
         throw new AppError("This slot has already been paid for", 409);
       }
 
-      const menteeWallet = await walletRepo.findByUserId(menteeId, session);
+      const menteeWallet = await walletRepo.findByUserIdAndRole(
+        menteeId,
+        ROLE_MENTEE,
+        session,
+      );
       if (!menteeWallet) throw new AppError("Mentee wallet not found", 404);
       if (menteeWallet.balance < totalAmount) {
         throw new AppError(
@@ -457,7 +461,11 @@ const createEscrowService = ({
 
       const { totalAmount, mentee: menteeId } = connectRequest;
 
-      const menteeWallet = await walletRepo.findByUserId(menteeId, session);
+      const menteeWallet = await walletRepo.findByUserIdAndRole(
+        menteeId,
+        ROLE_MENTEE,
+        session,
+      );
       if (!menteeWallet) throw new AppError("Mentee wallet not found", 404);
       if (menteeWallet.escrow < totalAmount) {
         throw new AppError("Escrow balance mismatch. Contact support.", 400);
@@ -530,8 +538,9 @@ const createEscrowService = ({
         throw new AppError("Slot refund amount is too small to process", 400);
       }
 
-      const menteeWallet = await walletRepo.findByUserId(
+      const menteeWallet = await walletRepo.findByUserIdAndRole(
         menteeId,
+        ROLE_MENTEE,
         mongoSession,
       );
       if (!menteeWallet) throw new AppError("Mentee wallet not found", 404);
@@ -589,7 +598,10 @@ const createEscrowService = ({
 
     const admin = await adminUserRepo.findActiveAdmin();
     const commissionRate = admin?.commissionRate ?? DEFAULT_COMMISSION_RATE;
-    const menteeWallet = await walletRepo.findByUserId(connectRequest.mentee);
+    const menteeWallet = await walletRepo.findByUserIdAndRole(
+      connectRequest.mentee,
+      ROLE_MENTEE,
+    );
 
     const sessionCount =
       connectRequest.sessionCount ??
@@ -631,9 +643,14 @@ const createEscrowService = ({
 
   /**
    * Exposes internal metrics describing caller-specific token configuration maps.
+   *
+   * Escrow is the MENTEE-side spending wallet (mentees pay for sessions from
+   * it), so this is scoped to the caller's `mentee` wallet explicitly. Without
+   * the role filter a dual-role account (mentee + mentor) would match whichever
+   * of its two wallets Mongo returned first, showing the wrong balance.
    */
   const getMyWallet = async (userId) => {
-    const wallet = await walletRepo.findByUserId(userId);
+    const wallet = await walletRepo.findByUserIdAndRole(userId, ROLE_MENTEE);
     if (!wallet) throw new AppError("Wallet not found", 404);
     return { balance: wallet.balance, escrow: wallet.escrow };
   };

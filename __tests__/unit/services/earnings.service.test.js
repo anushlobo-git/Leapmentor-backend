@@ -13,6 +13,8 @@ describe("Mentor Earnings Service Unit Tests", () => {
     mockWalletRepo,
     mockTransactionRepo,
     mockUserRepo,
+    mockMongoose,
+    mockSession,
     service;
 
   beforeEach(() => {
@@ -28,17 +30,30 @@ describe("Mentor Earnings Service Unit Tests", () => {
     };
     mockWalletRepo = {
       findWalletByUser: jest.fn(),
+      findWalletByUserAndRole: jest.fn(),
       findWalletByUserMutable: jest.fn(),
+      findWalletByUserAndRoleMutable: jest.fn(),
+      findByUserIdAndRole: jest.fn(),
       saveWallet: jest.fn(),
+      save: jest.fn(),
     };
     mockTransactionRepo = {
       createTransaction: jest.fn(),
+      createMany: jest.fn(),
     };
     mockUserRepo = {
       findUsersByNameSearch: jest.fn(),
     };
+    mockSession = {
+      startTransaction: jest.fn(),
+      commitTransaction: jest.fn(),
+      abortTransaction: jest.fn(),
+      endSession: jest.fn(),
+    };
+    mockMongoose = { startSession: jest.fn().mockResolvedValue(mockSession) };
 
     service = createEarningsService({
+      mongoose: mockMongoose,
       connectRequestRepository: mockConnectRepo,
       mentorRepository: mockMentorRepo,
       walletRepository: mockWalletRepo,
@@ -86,7 +101,7 @@ describe("Mentor Earnings Service Unit Tests", () => {
         { mentorPayout: 40 },
       ]);
       mockMentorRepo.findMentorRating.mockResolvedValue({ avgRating: 4.8 });
-      mockWalletRepo.findWalletByUser.mockResolvedValue({ balance: 500 });
+      mockWalletRepo.findWalletByUserAndRole.mockResolvedValue({ balance: 500 });
 
       const result = await service.getEarningsSummaryService("mentor_101");
 
@@ -95,6 +110,12 @@ describe("Mentor Earnings Service Unit Tests", () => {
       expect(result.pendingPayout).toBe(40);
       expect(result.avgRating).toBe(4.8);
       expect(result.walletBalance).toBe(500);
+      // Scoped to the mentor wallet so the 500 LP mentee welcome bonus never
+      // leaks into a dual-role user's earnings summary.
+      expect(mockWalletRepo.findWalletByUserAndRole).toHaveBeenCalledWith(
+        "mentor_101",
+        "mentor",
+      );
     });
 
     test("should handle sessions with missing totalAmount (|| 0) and missing mentorPayout (|| 0)", async () => {
@@ -105,7 +126,7 @@ describe("Mentor Earnings Service Unit Tests", () => {
         { mentorPayout: null },
       ]);
       mockMentorRepo.findMentorRating.mockResolvedValue({ avgRating: 4.8 });
-      mockWalletRepo.findWalletByUser.mockResolvedValue({ balance: 100 });
+      mockWalletRepo.findWalletByUserAndRole.mockResolvedValue({ balance: 100 });
 
       const result = await service.getEarningsSummaryService("mentor_101");
 
@@ -118,7 +139,7 @@ describe("Mentor Earnings Service Unit Tests", () => {
       mockConnectRepo.findCompletedSessionsByMentor.mockResolvedValue([]);
       mockConnectRepo.findOngoingPaidSessionsByMentor.mockResolvedValue([]);
       mockMentorRepo.findMentorRating.mockResolvedValue(null);
-      mockWalletRepo.findWalletByUser.mockResolvedValue({ balance: 0 });
+      mockWalletRepo.findWalletByUserAndRole.mockResolvedValue({ balance: 0 });
 
       const result =
         await service.getEarningsSummaryService("mentor_no_profile");
@@ -130,7 +151,7 @@ describe("Mentor Earnings Service Unit Tests", () => {
       mockConnectRepo.findCompletedSessionsByMentor.mockResolvedValue([]);
       mockConnectRepo.findOngoingPaidSessionsByMentor.mockResolvedValue([]);
       mockMentorRepo.findMentorRating.mockResolvedValue({ avgRating: 3.0 });
-      mockWalletRepo.findWalletByUser.mockResolvedValue(null);
+      mockWalletRepo.findWalletByUserAndRole.mockResolvedValue(null);
 
       const result =
         await service.getEarningsSummaryService("mentor_no_wallet");
@@ -360,26 +381,36 @@ describe("Mentor Earnings Service Unit Tests", () => {
   describe("withdrawEarningsService Inbound Transfers", () => {
     test("should cleanly flush balances to 0 and log an audit tracking entry", async () => {
       const mockWalletInstance = { balance: 350 };
-      mockWalletRepo.findWalletByUserMutable.mockResolvedValue(
-        mockWalletInstance,
-      );
-      mockWalletRepo.saveWallet.mockResolvedValue();
-      mockTransactionRepo.createTransaction.mockResolvedValue();
+      mockWalletRepo.findByUserIdAndRole.mockResolvedValue(mockWalletInstance);
+      mockWalletRepo.save.mockResolvedValue();
+      mockTransactionRepo.createMany.mockResolvedValue();
 
       const result = await service.withdrawEarningsService("mentor_101");
 
       expect(mockWalletInstance.balance).toBe(0);
-      expect(mockWalletRepo.saveWallet).toHaveBeenCalledWith(
+      // Scoped to the mentor wallet so a dual-role account never drains its
+      // mentee welcome-bonus wallet here.
+      expect(mockWalletRepo.findByUserIdAndRole).toHaveBeenCalledWith(
+        "mentor_101",
+        "mentor",
+        mockSession,
+      );
+      expect(mockWalletRepo.save).toHaveBeenCalledWith(
         mockWalletInstance,
+        mockSession,
       );
-      expect(mockTransactionRepo.createTransaction).toHaveBeenCalledWith(
-        expect.objectContaining({ type: "withdrawal", amount: 350 }),
+      // Balance drain and ledger entry commit together in one transaction.
+      expect(mockTransactionRepo.createMany).toHaveBeenCalledWith(
+        [expect.objectContaining({ type: "withdrawal", amount: 350 })],
+        mockSession,
       );
+      expect(mockSession.commitTransaction).toHaveBeenCalled();
+      expect(mockSession.abortTransaction).not.toHaveBeenCalled();
       expect(result).toEqual({ withdrawn: 350, newBalance: 0 });
     });
 
     test("should throw a 404 error if wallet record is not found", async () => {
-      mockWalletRepo.findWalletByUserMutable.mockResolvedValue(null);
+      mockWalletRepo.findByUserIdAndRole.mockResolvedValue(null);
 
       await expect(
         service.withdrawEarningsService("invalid_id"),
@@ -387,10 +418,15 @@ describe("Mentor Earnings Service Unit Tests", () => {
         statusCode: 404,
         message: "Wallet registration records not found.",
       });
+      // A failed withdrawal must roll back, never commit.
+      expect(mockSession.abortTransaction).toHaveBeenCalled();
+      expect(mockSession.commitTransaction).not.toHaveBeenCalled();
     });
 
     test("should throw a 400 error if balance is empty", async () => {
-      mockWalletRepo.findWalletByUserMutable.mockResolvedValue({ balance: 0 });
+      mockWalletRepo.findByUserIdAndRole.mockResolvedValue({
+        balance: 0,
+      });
 
       await expect(
         service.withdrawEarningsService("broke_id"),
@@ -399,6 +435,23 @@ describe("Mentor Earnings Service Unit Tests", () => {
         message:
           "No clear liquid balances are currently available to withdraw.",
       });
+      expect(mockSession.abortTransaction).toHaveBeenCalled();
+    });
+
+    test("should roll back and not zero the balance if the ledger write fails", async () => {
+      const mockWalletInstance = { balance: 350 };
+      mockWalletRepo.findByUserIdAndRole.mockResolvedValue(mockWalletInstance);
+      mockWalletRepo.save.mockResolvedValue();
+      mockTransactionRepo.createMany.mockRejectedValue(
+        new Error("ledger write failed"),
+      );
+
+      await expect(
+        service.withdrawEarningsService("mentor_101"),
+      ).rejects.toThrow("ledger write failed");
+
+      expect(mockSession.abortTransaction).toHaveBeenCalled();
+      expect(mockSession.commitTransaction).not.toHaveBeenCalled();
     });
   });
 });

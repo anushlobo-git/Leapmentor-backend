@@ -13,6 +13,10 @@ const STATUS_APPROVED = "approved";
 const STATUS_REJECTED = "rejected";
 const LEAP_POINTS_GRANT_AMOUNT = 500;
 const LEAP_POINTS_MAX_THRESHOLD = 500;
+// Leap Points top-ups only ever touch the mentee wallet. A dual-role account
+// also has a mentor wallet, so every wallet read/write here is role-scoped to
+// avoid granting to (or gating on) the wrong wallet.
+const ROLE_MENTEE = "mentee";
 
 const createLeapRequestService = ({leapRequestRepository, walletRepository}) => {
   /**
@@ -44,7 +48,10 @@ const createLeapRequestService = ({leapRequestRepository, walletRepository}) => 
       );
     }
 
-    const wallet = await walletRepository.findWalletByUser(menteeId);
+    const wallet = await walletRepository.findWalletByUserAndRole(
+      menteeId,
+      ROLE_MENTEE,
+    );
     const currentBalance = wallet?.balance ?? 0;
 
     if (currentBalance >= LEAP_POINTS_MAX_THRESHOLD) {
@@ -100,10 +107,14 @@ const createLeapRequestService = ({leapRequestRepository, walletRepository}) => 
     }
 
     const menteeId = request.mentee?._id ?? request.mentee;
-    const wallet = await walletRepository.incrementBalance(
+    const wallet = await walletRepository.incrementBalanceByRole(
       menteeId,
+      ROLE_MENTEE,
       LEAP_POINTS_GRANT_AMOUNT,
     );
+    if (!wallet) {
+      throw new AppError("Mentee wallet not found.", 404);
+    }
 
     request.status = STATUS_APPROVED;
     request.reviewedAt = new Date();

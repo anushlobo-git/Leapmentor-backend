@@ -55,12 +55,12 @@ describe("User Authentication Service Unit Tests", () => {
 
   // ── registerUser ────────────────────────────────────────────────────────
   describe("registerUser Processing Pipeline", () => {
-    test("should execute successfully and issue session tokens for unique registration parameters", async () => {
+    test("outcome 'created': brand-new email is registered and issued tokens", async () => {
       mockAuthUtils.validateRoles.mockReturnValue({
         valid: true,
         uniqueRoles: ["mentee"],
       });
-      mockUserRepository.findUserByEmail.mockResolvedValue(null);
+      mockUserRepository.findUserByEmailWithPassword.mockResolvedValue(null);
       mockBcrypt.hash.mockResolvedValue("cryptographic_hashed_password_string");
 
       const mockCreatedDoc = {
@@ -91,9 +91,11 @@ describe("User Authentication Service Unit Tests", () => {
         "new_user_id_101",
         ["mentee"],
       );
+      expect(result.outcome).toBe("created");
       expect(result.accessToken).toBe("mock_access_token");
       expect(result.refreshToken).toBe("mock_refresh_token");
       expect(result.isNewUser).toBe(true);
+      expect(result.loggedIn).toBe(false);
     });
 
     test("should throw 400 if role verification returns invalid", async () => {
@@ -110,25 +112,165 @@ describe("User Authentication Service Unit Tests", () => {
         message: "Invalid role. Use mentor and/or mentee.",
       });
 
-      expect(mockUserRepository.findUserByEmail).not.toHaveBeenCalled();
+      expect(
+        mockUserRepository.findUserByEmailWithPassword,
+      ).not.toHaveBeenCalled();
     });
 
-    test("should throw 409 if email already exists in the system", async () => {
-      // Branch: if (existing)
+    test("outcome 'login_required': existing email but the password does NOT match — account untouched", async () => {
+      mockAuthUtils.validateRoles.mockReturnValue({
+        valid: true,
+        uniqueRoles: ["mentor"],
+      });
+      mockUserRepository.findUserByEmailWithPassword.mockResolvedValue({
+        _id: "existing",
+        password: "stored_hash",
+        roles: ["mentee"],
+      });
+      mockBcrypt.compare.mockResolvedValue(false);
+
+      const result = await service.registerUser({
+        email: "clash@test.com",
+        password: "wrong-password",
+        roles: ["mentor"],
+      });
+
+      expect(result.outcome).toBe("login_required");
+      expect(result.loggedIn).toBe(false);
+      // Nothing about the account changes when ownership isn't proven.
+      expect(mockUserRepository.addRoleToUser).not.toHaveBeenCalled();
+      expect(mockWalletService.createWalletForRole).not.toHaveBeenCalled();
+      expect(mockUserRepository.createUser).not.toHaveBeenCalled();
+    });
+
+    test("outcome 'already_registered' + unverified: owner already holds the role, no session (routed to verify)", async () => {
       mockAuthUtils.validateRoles.mockReturnValue({
         valid: true,
         uniqueRoles: ["mentee"],
       });
-      mockUserRepository.findUserByEmail.mockResolvedValue({ _id: "existing" });
+      mockUserRepository.findUserByEmailWithPassword.mockResolvedValue({
+        _id: "existing",
+        password: "stored_hash",
+        roles: ["mentee"],
+        isEmailVerified: false,
+      });
+      mockBcrypt.compare.mockResolvedValue(true);
 
-      await expect(
-        service.registerUser({ email: "clash@test.com", roles: ["mentee"] }),
-      ).rejects.toMatchObject({
-        statusCode: 409,
-        message: "An account with this email already exists.",
+      const result = await service.registerUser({
+        email: "owner@test.com",
+        password: "correct-password",
+        roles: ["mentee"],
       });
 
-      expect(mockBcrypt.hash).not.toHaveBeenCalled();
+      expect(result.outcome).toBe("already_registered");
+      expect(result.loggedIn).toBe(false);
+      expect(result.accessToken).toBeUndefined();
+      expect(mockUserRepository.addRoleToUser).not.toHaveBeenCalled();
+      expect(mockWalletService.createWalletForRole).not.toHaveBeenCalled();
+    });
+
+    test("outcome 'already_registered' + verified: owner already holds the role → auto-logs-in", async () => {
+      mockAuthUtils.validateRoles.mockReturnValue({
+        valid: true,
+        uniqueRoles: ["mentee"],
+      });
+      mockUserRepository.findUserByEmailWithPassword.mockResolvedValue({
+        _id: "existing",
+        password: "stored_hash",
+        roles: ["mentee"],
+        isEmailVerified: true,
+      });
+      mockBcrypt.compare.mockResolvedValue(true);
+
+      const result = await service.registerUser({
+        email: "owner@test.com",
+        password: "correct-password",
+        roles: ["mentee"],
+      });
+
+      expect(result.outcome).toBe("already_registered");
+      expect(result.loggedIn).toBe(true);
+      expect(result.accessToken).toBe("mock_access_token");
+      expect(result.refreshToken).toBe("mock_refresh_token");
+      // Nothing to create — the role already exists.
+      expect(mockUserRepository.addRoleToUser).not.toHaveBeenCalled();
+      expect(mockWalletService.createWalletForRole).not.toHaveBeenCalled();
+    });
+
+    test("outcome 'role_added' + verified: adds the role, provisions its wallet, and auto-logs-in", async () => {
+      mockAuthUtils.validateRoles.mockReturnValue({
+        valid: true,
+        uniqueRoles: ["mentor"],
+      });
+      mockUserRepository.findUserByEmailWithPassword.mockResolvedValue({
+        _id: "existing",
+        password: "stored_hash",
+        roles: ["mentee"],
+        isEmailVerified: true,
+      });
+      mockBcrypt.compare.mockResolvedValue(true);
+      mockUserRepository.addRoleToUser.mockResolvedValue({
+        _id: "existing",
+        roles: ["mentee", "mentor"],
+        isEmailVerified: true,
+      });
+
+      const result = await service.registerUser({
+        email: "owner@test.com",
+        password: "correct-password",
+        roles: ["mentor"],
+      });
+
+      expect(mockUserRepository.addRoleToUser).toHaveBeenCalledWith(
+        "existing",
+        "mentor",
+      );
+      expect(mockWalletService.createWalletForRole).toHaveBeenCalledWith(
+        "existing",
+        "mentor",
+      );
+      expect(result.outcome).toBe("role_added");
+      expect(result.loggedIn).toBe(true);
+      expect(result.accessToken).toBe("mock_access_token");
+      expect(result.refreshToken).toBe("mock_refresh_token");
+    });
+
+    test("outcome 'role_added' + unverified: adds the role but issues NO session (routed to verify)", async () => {
+      mockAuthUtils.validateRoles.mockReturnValue({
+        valid: true,
+        uniqueRoles: ["mentor"],
+      });
+      mockUserRepository.findUserByEmailWithPassword.mockResolvedValue({
+        _id: "existing",
+        password: "stored_hash",
+        roles: ["mentee"],
+        isEmailVerified: false,
+      });
+      mockBcrypt.compare.mockResolvedValue(true);
+      mockUserRepository.addRoleToUser.mockResolvedValue({
+        _id: "existing",
+        roles: ["mentee", "mentor"],
+        isEmailVerified: false,
+      });
+
+      const result = await service.registerUser({
+        email: "owner@test.com",
+        password: "correct-password",
+        roles: ["mentor"],
+      });
+
+      expect(mockUserRepository.addRoleToUser).toHaveBeenCalledWith(
+        "existing",
+        "mentor",
+      );
+      expect(mockWalletService.createWalletForRole).toHaveBeenCalledWith(
+        "existing",
+        "mentor",
+      );
+      expect(result.outcome).toBe("role_added");
+      expect(result.loggedIn).toBe(false);
+      expect(result.accessToken).toBeUndefined();
+      expect(result.refreshToken).toBeUndefined();
     });
   });
 
