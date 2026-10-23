@@ -3,9 +3,16 @@
  */
 
 const createSocialAuthController = require("../../../controllers/socialAuth.controller");
+const { successEnvelope, errorEnvelope } = require("../../helpers/apiResponse");
 
 describe("Social Authentication Controller Unit Tests", () => {
-  let mockSocialAuthService, mockCookieUtils, mockLogger, controller, mockReq, mockRes, mockNext;
+  let mockSocialAuthService,
+    mockCookieUtils,
+    mockLogger,
+    controller,
+    mockReq,
+    mockRes,
+    mockNext;
   const flushPromises = () => new Promise(setImmediate);
 
   beforeEach(() => {
@@ -18,11 +25,16 @@ describe("Social Authentication Controller Unit Tests", () => {
       logger: mockLogger,
     });
     mockReq = { body: { provider: "linkedin", providerId: "lnk_123" } };
-    mockRes = { status: jest.fn().mockReturnThis(), json: jest.fn().mockReturnThis() };
+    mockRes = {
+      status: jest.fn().mockReturnThis(),
+      json: jest.fn().mockReturnThis(),
+    };
     mockNext = jest.fn();
   });
 
-  afterEach(() => { jest.clearAllMocks(); });
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
 
   test("should return 200 and set secure tokens when supplied valid federated social logins", async () => {
     const mockServicePayload = {
@@ -36,17 +48,26 @@ describe("Social Authentication Controller Unit Tests", () => {
     await controller.socialAuth(mockReq, mockRes, mockNext);
     await flushPromises();
 
-    expect(mockSocialAuthService.socialAuthUser).toHaveBeenCalledWith(mockReq.body);
-    expect(mockCookieUtils.setAuthCookies).toHaveBeenCalledWith(mockRes, "refresh_token_jwt", "mentor");
-    expect(mockRes.json).toHaveBeenCalledWith({
-      message: "Social login successful",
-      user: mockServicePayload.user,
-      accessToken: "access_token_jwt",
-      isNewUser: false,
-    });
+    expect(mockSocialAuthService.socialAuthUser).toHaveBeenCalledWith(
+      mockReq.body,
+    );
+    expect(mockCookieUtils.setAuthCookies).toHaveBeenCalledWith(
+      mockRes,
+      "refresh_token_jwt",
+    );
+    expect(mockRes.json).toHaveBeenCalledWith(
+      successEnvelope(
+        {
+          user: mockServicePayload.user,
+          accessToken: "access_token_jwt",
+          isNewUser: false,
+        },
+        "Social login successful",
+      ),
+    );
   });
 
-  test("should handle user with no roles and set null role in cookie", async () => {
+  test("should handle user with no roles and still set the refresh cookie", async () => {
     const mockServicePayload = {
       accessToken: "access_token_jwt",
       refreshToken: "refresh_token_jwt",
@@ -58,18 +79,25 @@ describe("Social Authentication Controller Unit Tests", () => {
     await controller.socialAuth(mockReq, mockRes, mockNext);
     await flushPromises();
 
-    expect(mockCookieUtils.setAuthCookies).toHaveBeenCalledWith(mockRes, "refresh_token_jwt", null);
+    expect(mockCookieUtils.setAuthCookies).toHaveBeenCalledWith(
+      mockRes,
+      "refresh_token_jwt",
+    );
   });
 
   test("should map a 400 bad request status code if the service throws a TERMS_NOT_ACCEPTED validation error", async () => {
-    mockSocialAuthService.socialAuthUser.mockRejectedValue(new Error("TERMS_NOT_ACCEPTED"));
+    mockSocialAuthService.socialAuthUser.mockRejectedValue(
+      new Error("TERMS_NOT_ACCEPTED"),
+    );
 
     await controller.socialAuth(mockReq, mockRes, mockNext);
     await flushPromises();
 
     expect(mockLogger.warn).toHaveBeenCalled();
     expect(mockRes.status).toHaveBeenCalledWith(400);
-    expect(mockRes.json).toHaveBeenCalledWith({ message: "You must accept terms to continue" });
+    expect(mockRes.json).toHaveBeenCalledWith(
+      errorEnvelope("You must accept terms to continue", null),
+    );
     expect(mockNext).not.toHaveBeenCalled();
   });
 

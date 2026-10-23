@@ -91,6 +91,27 @@ const createAdminUserRepository = (AdminUser) => {
       .lean();
   };
 
+  /**
+   * Fetch the full administrator document (including isActive, tokenVersion)
+   * for auth/session checks. Unlike findAdminByIdLean, this is not select-limited.
+   * @param {string} id
+   * @returns {Promise<Object|null>}
+   */
+  const findAdminByIdFull = (id) => AdminUser.findById(id);
+
+  /**
+   * Bumps tokenVersion, invalidating every access/refresh token issued
+   * before this call — used on logout and for forced session revocation.
+   * @param {string} id
+   * @returns {Promise<Object|null>}
+   */
+  const incrementTokenVersion = (id) =>
+    AdminUser.findByIdAndUpdate(
+      id,
+      { $inc: { tokenVersion: 1 } },
+      { new: true },
+    );
+
   return {
     findAdminByEmail,
     saveAdmin,
@@ -101,7 +122,9 @@ const createAdminUserRepository = (AdminUser) => {
     incrementWalletBalance,
     findActiveAdminLean,
     findAdminByEmailLean,
+    findAdminByIdFull,
+    incrementTokenVersion,
   };
-};
+};;
 
 module.exports = createAdminUserRepository;

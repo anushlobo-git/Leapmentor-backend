@@ -11,6 +11,7 @@ jest.mock("../../../utils/catchAsync", () => {
 });
 
 const createAdminVerificationController = require("../../../controllers/admin-verification.controller");
+const { successEnvelope } = require("../../helpers/apiResponse");
 
 describe("AdminVerificationController", () => {
   let mockAdminVerificationService;
@@ -87,11 +88,12 @@ describe("AdminVerificationController", () => {
         expect.any(Function),
       );
       expect(res.status).toHaveBeenCalledWith(200);
-      expect(res.json).toHaveBeenCalledWith({
-        success: true,
-        mentors: mockMentorsList,
-        total: 2,
-      });
+      expect(res.json).toHaveBeenCalledWith(
+        successEnvelope(
+          { mentors: mockMentorsList, total: 2 },
+          "Mentor verifications retrieved",
+        ),
+      );
       expect(next).not.toHaveBeenCalled();
     });
 
@@ -103,11 +105,12 @@ describe("AdminVerificationController", () => {
       await controller.getAllMentorVerifications(req, res, next);
 
       expect(res.status).toHaveBeenCalledWith(200);
-      expect(res.json).toHaveBeenCalledWith({
-        success: true,
-        mentors: [],
-        total: 0,
-      });
+      expect(res.json).toHaveBeenCalledWith(
+        successEnvelope(
+          { mentors: [], total: 0 },
+          "Mentor verifications retrieved",
+        ),
+      );
       expect(next).not.toHaveBeenCalled();
     });
 
@@ -143,12 +146,12 @@ describe("AdminVerificationController", () => {
         mockAdminVerificationService.getMentorVerificationByIdService,
       ).toHaveBeenCalledWith("prof_abc123");
       expect(res.status).toHaveBeenCalledWith(200);
-      expect(res.json).toHaveBeenCalledWith({
-        success: true,
-        _id: "prof_123",
-        bio: "Expert Architect",
-        skills: ["Node.js"],
-      });
+      expect(res.json).toHaveBeenCalledWith(
+        successEnvelope(
+          mockDetailData,
+          "Mentor verification details retrieved",
+        ),
+      );
       expect(next).not.toHaveBeenCalled();
     });
 
@@ -189,12 +192,15 @@ describe("AdminVerificationController", () => {
         "admin:verifications:profile-detail:prof_target777",
       );
       expect(res.status).toHaveBeenCalledWith(200);
-      expect(res.json).toHaveBeenCalledWith({
-        success: true,
-        message: "Alice Dev has been verified successfully",
-        mentorProfileId: "prof_target777",
-        verificationStatus: "verified",
-      });
+      expect(res.json).toHaveBeenCalledWith(
+        successEnvelope(
+          {
+            mentorProfileId: "prof_target777",
+            verificationStatus: "verified",
+          },
+          "Alice Dev has been verified successfully",
+        ),
+      );
       expect(next).not.toHaveBeenCalled();
     });
 
@@ -267,12 +273,15 @@ describe("AdminVerificationController", () => {
         "admin:verifications:profile-detail:prof_revoke555",
       );
       expect(res.status).toHaveBeenCalledWith(200);
-      expect(res.json).toHaveBeenCalledWith({
-        success: true,
-        message: "Verification revoked for Bob Code",
-        mentorProfileId: "prof_revoke555",
-        verificationStatus: "revoked",
-      });
+      expect(res.json).toHaveBeenCalledWith(
+        successEnvelope(
+          {
+            mentorProfileId: "prof_revoke555",
+            verificationStatus: "revoked",
+          },
+          "Verification revoked for Bob Code",
+        ),
+      );
       expect(next).not.toHaveBeenCalled();
     });
 

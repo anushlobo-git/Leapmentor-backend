@@ -3,6 +3,7 @@
  */
 
 const createSessionController = require("../../../controllers/session.controller");
+const { successEnvelope } = require("../../helpers/apiResponse");
 
 describe("Session Controller Unit Tests", () => {
   let mockService, controller, mockReq, mockRes, mockNext;
@@ -25,7 +26,10 @@ describe("Session Controller Unit Tests", () => {
       body: {},
       query: {},
     };
-    mockRes = { status: jest.fn().mockReturnThis(), json: jest.fn().mockReturnThis() };
+    mockRes = {
+      status: jest.fn().mockReturnThis(),
+      json: jest.fn().mockReturnThis(),
+    };
     mockNext = jest.fn();
   });
 
@@ -36,7 +40,9 @@ describe("Session Controller Unit Tests", () => {
 
     expect(mockService.getSlots).toHaveBeenCalledWith("conn_id", "user_id");
     expect(mockRes.status).toHaveBeenCalledWith(200);
-    expect(mockRes.json).toHaveBeenCalledWith({ success: true, slots: [] });
+    expect(mockRes.json).toHaveBeenCalledWith(
+      successEnvelope({ slots: [] }, "Session slots retrieved"),
+    );
   });
 
   test("getSlots should route error to next()", async () => {
@@ -48,7 +54,9 @@ describe("Session Controller Unit Tests", () => {
 
   test("setMeetingLink should return 200 with updated link", async () => {
     mockReq.body.meetingLink = "https://meet.example.com/abc";
-    mockService.setMeetingLink.mockResolvedValue({ slot: { meetingLink: "https://meet.example.com/abc" } });
+    mockService.setMeetingLink.mockResolvedValue({
+      slot: { meetingLink: "https://meet.example.com/abc" },
+    });
 
     await controller.setMeetingLink(mockReq, mockRes, mockNext);
     await flushPromises();
@@ -60,7 +68,14 @@ describe("Session Controller Unit Tests", () => {
       userId: "user_id",
     });
     expect(mockRes.status).toHaveBeenCalledWith(200);
-    expect(mockRes.json).toHaveBeenCalledWith(expect.objectContaining({ success: true, message: "Meeting link updated" }));
+    expect(mockRes.json).toHaveBeenCalledWith(
+      expect.objectContaining(
+        successEnvelope(
+          { slot: { meetingLink: "https://meet.example.com/abc" } },
+          "Meeting link updated",
+        ),
+      ),
+    );
   });
 
   test("setMeetingLink should route error to next()", async () => {
@@ -71,7 +86,9 @@ describe("Session Controller Unit Tests", () => {
   });
 
   test("markSlotComplete should return 200 with result", async () => {
-    mockService.markSlotComplete.mockResolvedValue({ slot: { status: "completed" } });
+    mockService.markSlotComplete.mockResolvedValue({
+      slot: { status: "completed" },
+    });
 
     await controller.markSlotComplete(mockReq, mockRes, mockNext);
     await flushPromises();
@@ -106,7 +123,14 @@ describe("Session Controller Unit Tests", () => {
       userId: "user_id",
     });
     expect(mockRes.status).toHaveBeenCalledWith(201);
-    expect(mockRes.json).toHaveBeenCalledWith(expect.objectContaining({ success: true, message: "Additional session slot added successfully" }));
+    expect(mockRes.json).toHaveBeenCalledWith(
+      expect.objectContaining(
+        successEnvelope(
+          { slot: { date: "2026-07-01" } },
+          "Additional session slot added successfully",
+        ),
+      ),
+    );
   });
 
   test("addSlot should route error to next()", async () => {
@@ -130,7 +154,14 @@ describe("Session Controller Unit Tests", () => {
       userId: "user_id",
     });
     expect(mockRes.status).toHaveBeenCalledWith(200);
-    expect(mockRes.json).toHaveBeenCalledWith(expect.objectContaining({ success: true, message: "Slot cancelled successfully" }));
+    expect(mockRes.json).toHaveBeenCalledWith(
+      expect.objectContaining(
+        successEnvelope(
+          { slot: { status: "cancelled" } },
+          "Slot cancelled successfully",
+        ),
+      ),
+    );
   });
 
   test("cancelSlot should route error to next()", async () => {
@@ -142,7 +173,9 @@ describe("Session Controller Unit Tests", () => {
 
   test("rescheduleSlot should return 200 with rescheduled slot", async () => {
     mockReq.body = { date: "2026-07-10", startTime: "14:00", endTime: "15:00" };
-    mockService.rescheduleSlot.mockResolvedValue({ slot: { date: "2026-07-10" } });
+    mockService.rescheduleSlot.mockResolvedValue({
+      slot: { date: "2026-07-10" },
+    });
 
     await controller.rescheduleSlot(mockReq, mockRes, mockNext);
     await flushPromises();
@@ -156,7 +189,14 @@ describe("Session Controller Unit Tests", () => {
       userId: "user_id",
     });
     expect(mockRes.status).toHaveBeenCalledWith(200);
-    expect(mockRes.json).toHaveBeenCalledWith(expect.objectContaining({ success: true, message: "Slot rescheduled successfully" }));
+    expect(mockRes.json).toHaveBeenCalledWith(
+      expect.objectContaining(
+        successEnvelope(
+          { slot: { date: "2026-07-10" } },
+          "Slot rescheduled successfully",
+        ),
+      ),
+    );
   });
 
   test("rescheduleSlot should route error to next()", async () => {
@@ -173,9 +213,15 @@ describe("Session Controller Unit Tests", () => {
     await controller.getMentorAvailability(mockReq, mockRes, mockNext);
     await flushPromises();
 
-    expect(mockService.getMentorAvailability).toHaveBeenCalledWith("conn_id", 60, "user_id");
+    expect(mockService.getMentorAvailability).toHaveBeenCalledWith(
+      "conn_id",
+      60,
+      "user_id",
+    );
     expect(mockRes.status).toHaveBeenCalledWith(200);
-    expect(mockRes.json).toHaveBeenCalledWith({ success: true, available: [] });
+    expect(mockRes.json).toHaveBeenCalledWith(
+      successEnvelope({ available: [] }, "Mentor availability retrieved"),
+    );
   });
 
   test("getMentorAvailability should use custom duration from query", async () => {
@@ -185,7 +231,11 @@ describe("Session Controller Unit Tests", () => {
     await controller.getMentorAvailability(mockReq, mockRes, mockNext);
     await flushPromises();
 
-    expect(mockService.getMentorAvailability).toHaveBeenCalledWith("conn_id", 30, "user_id");
+    expect(mockService.getMentorAvailability).toHaveBeenCalledWith(
+      "conn_id",
+      30,
+      "user_id",
+    );
   });
 
   test("getMentorAvailability should route error to next()", async () => {

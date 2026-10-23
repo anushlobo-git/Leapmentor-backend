@@ -4,6 +4,7 @@
  */
 
 const catchAsync = require("../utils/catchAsync");
+const { sendSuccess } = require("../utils/apiResponse");
 
 const createUploadController = ({ uploadService }) => {
   /**
@@ -16,10 +17,7 @@ const createUploadController = ({ uploadService }) => {
       req.file,
       req.body?.imageName,
     );
-    return res.status(200).json({
-      success: true,
-      ...result,
-    });
+    return sendSuccess(res, result, "Profile picture uploaded");
   });
 
   /**
@@ -33,10 +31,7 @@ const createUploadController = ({ uploadService }) => {
       req.body,
       req.files,
     );
-    return res.status(200).json({
-      success: true,
-      ...result,
-    });
+    return sendSuccess(res, result, "Verification documents uploaded");
   });
 
   return {

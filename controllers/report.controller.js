@@ -4,6 +4,7 @@
  */
 
 const catchAsync = require("../utils/catchAsync");
+const { sendSuccess, STATUS } = require("../utils/apiResponse");
 
 const createReportController = ({ reportService }) => {
   const submitReport = catchAsync(async (req, res, next) => {
@@ -12,12 +13,12 @@ const createReportController = ({ reportService }) => {
       req.body,
       req.file,
     );
-    return res.status(201).json({
-      success: true,
-      message:
-        "Report submitted successfully. Our team will review it shortly.",
-      report,
-    });
+    return sendSuccess(
+      res,
+      { report },
+      "Report submitted successfully. Our team will review it shortly.",
+      STATUS.CREATED,
+    );
   });
 
   const getMyReport = catchAsync(async (req, res, next) => {
@@ -25,12 +26,12 @@ const createReportController = ({ reportService }) => {
       req.params.connectRequestId,
       req.user._id,
     );
-    return res.status(200).json(result);
+    return sendSuccess(res, result, "Session report retrieved");
   });
 
   const getAllReports = catchAsync(async (req, res, next) => {
     const result = await reportService.getAdminReportsDashboard(req.query);
-    return res.status(200).json(result);
+    return sendSuccess(res, result, "Reports retrieved");
   });
 
   const updateReportStatus = catchAsync(async (req, res, next) => {
@@ -39,10 +40,7 @@ const createReportController = ({ reportService }) => {
       req.user._id,
       req.body,
     );
-    return res.status(200).json({
-      success: true,
-      report,
-    });
+    return sendSuccess(res, { report }, "Report status updated");
   });
 
   return {

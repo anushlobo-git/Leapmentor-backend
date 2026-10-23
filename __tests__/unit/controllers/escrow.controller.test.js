@@ -11,6 +11,7 @@ jest.mock("../../../utils/catchAsync", () => {
 });
 
 const createEscrowController = require("../../../controllers/escrow.controller");
+const { successEnvelope } = require("../../helpers/apiResponse");
 
 describe("EscrowController", () => {
   let mockEscrowService;
@@ -86,11 +87,12 @@ describe("EscrowController", () => {
         menteeId: "mentee_variant_111",
       });
       expect(res.status).toHaveBeenCalledWith(200);
-      expect(res.json).toHaveBeenCalledWith({
-        message: "Payment successful. Tokens locked in escrow.",
-        transactionId: "tx_esc_123",
-        currentHold: 500,
-      });
+      expect(res.json).toHaveBeenCalledWith(
+        successEnvelope(
+          mockTransactionResult,
+          "Payment successful. Tokens locked in escrow.",
+        ),
+      );
       expect(next).not.toHaveBeenCalled();
     });
 
@@ -125,12 +127,12 @@ describe("EscrowController", () => {
         menteeId: "mentee_variant_222",
       });
       expect(res.status).toHaveBeenCalledWith(200);
-      expect(res.json).toHaveBeenCalledWith({
-        message:
+      expect(res.json).toHaveBeenCalledWith(
+        successEnvelope(
+          mockTransactionResult,
           "Additional session payment successful. Tokens locked in escrow.",
-        transactionId: "tx_esc_123",
-        currentHold: 500,
-      });
+        ),
+      );
       expect(next).not.toHaveBeenCalled();
     });
 
@@ -159,10 +161,12 @@ describe("EscrowController", () => {
         menteeId: "mentee_variant_333",
       });
       expect(res.status).toHaveBeenCalledWith(200);
-      expect(res.json).toHaveBeenCalledWith({
-        message: "Session marked complete. Tokens released to mentor.",
-        releasedAmount: 200,
-      });
+      expect(res.json).toHaveBeenCalledWith(
+        successEnvelope(
+          { releasedAmount: 200 },
+          "Session marked complete. Tokens released to mentor.",
+        ),
+      );
       expect(next).not.toHaveBeenCalled();
     });
 
@@ -192,10 +196,12 @@ describe("EscrowController", () => {
         userId: "user_participant_444",
       });
       expect(res.status).toHaveBeenCalledWith(200);
-      expect(res.json).toHaveBeenCalledWith({
-        message: "Escrow refunded successfully. Tokens returned to mentee.",
-        refundedAmount: 300,
-      });
+      expect(res.json).toHaveBeenCalledWith(
+        successEnvelope(
+          { refundedAmount: 300 },
+          "Escrow refunded successfully. Tokens returned to mentee.",
+        ),
+      );
       expect(next).not.toHaveBeenCalled();
     });
 
@@ -227,7 +233,9 @@ describe("EscrowController", () => {
         userId: "user_participant_555",
       });
       expect(res.status).toHaveBeenCalledWith(200);
-      expect(res.json).toHaveBeenCalledWith(mockStatusResult);
+      expect(res.json).toHaveBeenCalledWith(
+        successEnvelope(mockStatusResult, "Escrow status retrieved"),
+      );
       expect(next).not.toHaveBeenCalled();
     });
 
@@ -255,7 +263,9 @@ describe("EscrowController", () => {
         "user_wallet_999",
       );
       expect(res.status).toHaveBeenCalledWith(200);
-      expect(res.json).toHaveBeenCalledWith(mockWalletResult);
+      expect(res.json).toHaveBeenCalledWith(
+        successEnvelope(mockWalletResult, "Wallet retrieved"),
+      );
       expect(next).not.toHaveBeenCalled();
     });
 
@@ -279,7 +289,9 @@ describe("EscrowController", () => {
 
       expect(mockEscrowService.getCommissionRate).toHaveBeenCalled();
       expect(res.status).toHaveBeenCalledWith(200);
-      expect(res.json).toHaveBeenCalledWith({ commissionRate: 18 });
+      expect(res.json).toHaveBeenCalledWith(
+        successEnvelope({ commissionRate: 18 }, "Commission rate retrieved"),
+      );
       expect(next).not.toHaveBeenCalled();
     });
 

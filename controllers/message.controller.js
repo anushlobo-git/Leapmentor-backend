@@ -4,6 +4,7 @@
  */
 
 const catchAsync = require("../utils/catchAsync");
+const { sendSuccess } = require("../utils/apiResponse");
 
 const createMessageController = ({ messageService }) => {
   /**
@@ -18,10 +19,7 @@ const createMessageController = ({ messageService }) => {
       req.query,
     );
 
-    return res.status(200).json({
-      success: true,
-      ...result,
-    });
+    return sendSuccess(res, result, "Messages retrieved");
   });
 
   /**
@@ -35,10 +33,7 @@ const createMessageController = ({ messageService }) => {
       req.user._id,
     );
 
-    return res.status(200).json({
-      success: true,
-      ...result,
-    });
+    return sendSuccess(res, result, "Unread count retrieved");
   });
 
   return {

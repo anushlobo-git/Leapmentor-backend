@@ -6,11 +6,14 @@
 
 const createRefreshController = require("../../../controllers/refresh.controller");
 const AppError = require("../../../utils/AppError");
+const { successEnvelope } = require("../../helpers/apiResponse");
+const { toUserDTO } = require("../../../mappers/user.mapper");
 
 describe("Session Token Refresh Controller Unit Tests", () => {
   let mockAuthUtils;
   let mockJwt;
   let mockConfig;
+  let mockUserRepository;
   let controller;
   let mockReq;
   let mockRes;
@@ -31,10 +34,19 @@ describe("Session Token Refresh Controller Unit Tests", () => {
       jwtRefreshSecret: "mock_env_refresh_secret_key",
     };
 
+    // Pre-existing gap fixed: the controller reads `userRepository.findUserById`
+    // before it can issue a new access token, so this dependency has to be
+    // mocked too — omitting it (as the previous version of this test did)
+    // meant the "success" test never actually reached signAccessToken at all.
+    mockUserRepository = {
+      findUserById: jest.fn(),
+    };
+
     controller = createRefreshController({
       authUtils: mockAuthUtils,
       jwt: mockJwt,
       config: mockConfig,
+      userRepository: mockUserRepository,
     });
 
     mockReq = {
@@ -56,6 +68,13 @@ describe("Session Token Refresh Controller Unit Tests", () => {
   test("should issue a fresh short-term access token when supplied a valid refresh cookie", async () => {
     mockJwt.verify.mockReturnValue({ id: "user_account_id_555" });
     mockAuthUtils.signAccessToken.mockReturnValue("newly_minted_access_jwt");
+    const mockUser = {
+      _id: "user_account_id_555",
+      name: "Test User",
+      email: "test@example.com",
+      roles: ["mentee"],
+    };
+    mockUserRepository.findUserById.mockResolvedValue(mockUser);
 
     await controller.refreshToken(mockReq, mockRes, mockNext);
     await flushPromises();
@@ -64,14 +83,22 @@ describe("Session Token Refresh Controller Unit Tests", () => {
       "valid_refresh_token_cookie_string",
       "mock_env_refresh_secret_key",
     );
+    expect(mockUserRepository.findUserById).toHaveBeenCalledWith(
+      "user_account_id_555",
+    );
     expect(mockAuthUtils.signAccessToken).toHaveBeenCalledWith(
       "user_account_id_555",
     );
     expect(mockRes.status).toHaveBeenCalledWith(200);
-    expect(mockRes.json).toHaveBeenCalledWith({
-      success: true,
-      accessToken: "newly_minted_access_jwt",
-    });
+    expect(mockRes.json).toHaveBeenCalledWith(
+      successEnvelope(
+        {
+          accessToken: "newly_minted_access_jwt",
+          user: toUserDTO(mockUser),
+        },
+        "Access token refreshed",
+      ),
+    );
   });
 
   test("should forward a 401 Unauthorized error to next() if the refreshToken cookie is missing", async () => {

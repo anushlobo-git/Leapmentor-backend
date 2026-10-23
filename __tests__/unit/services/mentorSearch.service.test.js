@@ -27,6 +27,15 @@ describe("Mentor Search Service Unit Tests", () => {
 
   afterEach(() => jest.clearAllMocks());
 
+  const facetResponse = (results, total = results.length) => [
+    { metadata: [{ total }], results },
+  ];
+
+  const SEARCHABLE_FILTER = {
+    isProfileComplete: true,
+    isProfilePublished: { $ne: false },
+  };
+
   // ── _getPlainList (no query, no filters) ──────────────────────
 
   test("queryMentors: returns plain list when no query or filters provided", async () => {
@@ -38,9 +47,17 @@ describe("Mentor Search Service Unit Tests", () => {
 
     const result = await service.queryMentors({});
 
-    expect(mockMentorRepo.countMentorProfiles).toHaveBeenCalled();
+    expect(mockMentorRepo.countMentorProfiles).toHaveBeenCalledWith(
+      SEARCHABLE_FILTER,
+    );
     expect(result.mentors).toHaveLength(2);
-    expect(result.pagination).toMatchObject({ totalCount: 2, currentPage: 1 });
+    expect(result.pagination).toMatchObject({
+      totalCount: 2,
+      currentPage: 1,
+      page: 1,
+      limit: 6,
+      hasMore: false,
+    });
   });
 
   // ── _validatePriceRange ───────────────────────────────────────
@@ -55,9 +72,9 @@ describe("Mentor Search Service Unit Tests", () => {
   });
 
   test("queryMentors: does not throw if only minPrice is provided", async () => {
-    mockMentorRepo.aggregateMentorProfiles.mockResolvedValue([
-      { results: [{ _id: "m1", user: { _id: "u1" }, searchScore: 5 }] },
-    ]);
+    mockMentorRepo.aggregateMentorProfiles.mockResolvedValue(
+      facetResponse([{ _id: "m1", user: { _id: "u1" }, searchScore: 5 }]),
+    );
 
     await expect(
       service.queryMentors({ skill: "js", minPrice: "50" }),
@@ -72,9 +89,7 @@ describe("Mentor Search Service Unit Tests", () => {
       user: { _id: "u1", name: "Alice", email: "a@b.com" },
       searchScore: 9,
     };
-    mockMentorRepo.aggregateMentorProfiles.mockResolvedValue([
-      { results: [mentor] },
-    ]);
+    mockMentorRepo.aggregateMentorProfiles.mockResolvedValue(facetResponse([mentor]));
 
     const result = await service.queryMentors({
       skill: "react",
@@ -85,6 +100,7 @@ describe("Mentor Search Service Unit Tests", () => {
     expect(mockMentorRepo.aggregateMentorProfiles).toHaveBeenCalled();
     expect(result.mentors[0]).toMatchObject({ mapped: true, searchScore: 9 });
     expect(result.pagination.totalCount).toBe(1);
+    expect(result.pagination.hasMore).toBe(false);
   });
 
   test("queryMentors: includes industry must-clause and experience $match when filters provided", async () => {
@@ -93,9 +109,7 @@ describe("Mentor Search Service Unit Tests", () => {
       user: { _id: "u2", name: "Bob", email: "b@b.com" },
       searchScore: 3,
     };
-    mockMentorRepo.aggregateMentorProfiles.mockResolvedValue([
-      { results: [mentor] },
-    ]);
+    mockMentorRepo.aggregateMentorProfiles.mockResolvedValue(facetResponse([mentor]));
 
     const result = await service.queryMentors({
       skill: "python",
@@ -114,7 +128,7 @@ describe("Mentor Search Service Unit Tests", () => {
   // ── Atlas Search: 0 hits → fallback ──────────────────────────
 
   test("queryMentors: falls back to regex when Atlas returns 0 results", async () => {
-    mockMentorRepo.aggregateMentorProfiles.mockResolvedValue([{ results: [] }]);
+    mockMentorRepo.aggregateMentorProfiles.mockResolvedValue(facetResponse([]));
     mockMentorRepo.countMentorProfiles.mockResolvedValue(1);
     mockMentorRepo.findMentorsWithUserPopulation.mockResolvedValue([
       { _id: "m3" },
@@ -160,9 +174,9 @@ describe("Mentor Search Service Unit Tests", () => {
 
   test("queryMentors: merges name-matched profiles missing from Atlas results", async () => {
     const atlasResult = { _id: "m1", user: { _id: "u1" }, searchScore: 5 };
-    mockMentorRepo.aggregateMentorProfiles.mockResolvedValue([
-      { results: [atlasResult] },
-    ]);
+    mockMentorRepo.aggregateMentorProfiles
+      .mockResolvedValueOnce([{ user: "u1" }])
+      .mockResolvedValueOnce(facetResponse([atlasResult], 1));
     // u2 is name-matched but not in Atlas results
     mockUserRepo.findUsersByRoleAndNameRegex.mockResolvedValue([{ _id: "u2" }]);
     const extraProfile = {
@@ -180,16 +194,18 @@ describe("Mentor Search Service Unit Tests", () => {
 
     expect(mockMentorRepo.findMentorsWithUserPopulation).toHaveBeenCalled();
     expect(result.mentors.length).toBeGreaterThanOrEqual(1);
+    expect(result.pagination.totalCount).toBe(2);
   });
 
   test("queryMentors: filters to only name-matched profiles when no skill is provided", async () => {
     const u1Profile = { _id: "m1", user: { _id: "u1" }, searchScore: 5 };
     const u2Profile = { _id: "m2", user: { _id: "u2" }, searchScore: 3 };
-    mockMentorRepo.aggregateMentorProfiles.mockResolvedValue([
-      { results: [u1Profile, u2Profile] },
-    ]);
+    mockMentorRepo.aggregateMentorProfiles
+      .mockResolvedValueOnce([{ user: "u1" }, { user: "u2" }])
+      .mockResolvedValueOnce(facetResponse([u1Profile, u2Profile], 2));
     // only u1 matched by name
     mockUserRepo.findUsersByRoleAndNameRegex.mockResolvedValue([{ _id: "u1" }]);
+    mockMentorRepo.countMentorProfiles.mockResolvedValue(1);
 
     const result = await service.queryMentors({ name: "Alice" });
 
@@ -198,9 +214,9 @@ describe("Mentor Search Service Unit Tests", () => {
   });
 
   test("queryMentors: skips merge when nameMatchedProfileUserIds is empty set", async () => {
-    mockMentorRepo.aggregateMentorProfiles.mockResolvedValue([
-      { results: [{ _id: "m1", user: { _id: "u1" }, searchScore: 1 }] },
-    ]);
+    mockMentorRepo.aggregateMentorProfiles.mockResolvedValue(
+      facetResponse([{ _id: "m1", user: { _id: "u1" }, searchScore: 1 }]),
+    );
     mockUserRepo.findUsersByRoleAndNameRegex.mockResolvedValue([]); // empty → empty Set
 
     const result = await service.queryMentors({ name: "nobody", skill: "go" });
@@ -227,7 +243,10 @@ describe("Mentor Search Service Unit Tests", () => {
     });
 
     expect(mockMentorRepo.countMentorProfiles).toHaveBeenCalledWith(
-      expect.objectContaining({ industry: expect.any(Object) }),
+      expect.objectContaining({
+        industry: expect.any(Object),
+        ...SEARCHABLE_FILTER,
+      }),
     );
     expect(result.mentors).toHaveLength(0);
   });

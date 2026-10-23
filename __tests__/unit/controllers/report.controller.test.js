@@ -3,6 +3,7 @@
  */
 
 const createReportController = require("../../../controllers/report.controller");
+const { successEnvelope } = require("../../helpers/apiResponse");
 
 describe("Report Controller Unit Tests", () => {
   let mockService, controller, mockReq, mockRes, mockNext;
@@ -16,8 +17,17 @@ describe("Report Controller Unit Tests", () => {
       processAdminReportUpdate: jest.fn(),
     };
     controller = createReportController({ reportService: mockService });
-    mockReq = { user: { _id: "u1" }, body: {}, params: {}, query: {}, file: null };
-    mockRes = { status: jest.fn().mockReturnThis(), json: jest.fn().mockReturnThis() };
+    mockReq = {
+      user: { _id: "u1" },
+      body: {},
+      params: {},
+      query: {},
+      file: null,
+    };
+    mockRes = {
+      status: jest.fn().mockReturnThis(),
+      json: jest.fn().mockReturnThis(),
+    };
     mockNext = jest.fn();
   });
 
@@ -27,13 +37,18 @@ describe("Report Controller Unit Tests", () => {
     await controller.submitReport(mockReq, mockRes, mockNext);
     await flushPromises();
 
-    expect(mockService.createIncidentReport).toHaveBeenCalledWith(mockReq.user, mockReq.body, mockReq.file);
+    expect(mockService.createIncidentReport).toHaveBeenCalledWith(
+      mockReq.user,
+      mockReq.body,
+      mockReq.file,
+    );
     expect(mockRes.status).toHaveBeenCalledWith(201);
-    expect(mockRes.json).toHaveBeenCalledWith({
-      success: true,
-      message: "Report submitted successfully. Our team will review it shortly.",
-      report: { _id: "r_id" },
-    });
+    expect(mockRes.json).toHaveBeenCalledWith(
+      successEnvelope(
+        { report: { _id: "r_id" } },
+        "Report submitted successfully. Our team will review it shortly.",
+      ),
+    );
   });
 
   test("submitReport should route error to next()", async () => {
@@ -52,9 +67,14 @@ describe("Report Controller Unit Tests", () => {
     await controller.getMyReport(mockReq, mockRes, mockNext);
     await flushPromises();
 
-    expect(mockService.getMySessionReport).toHaveBeenCalledWith("conn_id", "u1");
+    expect(mockService.getMySessionReport).toHaveBeenCalledWith(
+      "conn_id",
+      "u1",
+    );
     expect(mockRes.status).toHaveBeenCalledWith(200);
-    expect(mockRes.json).toHaveBeenCalledWith({ report: { _id: "r1" } });
+    expect(mockRes.json).toHaveBeenCalledWith(
+      successEnvelope({ report: { _id: "r1" } }, "Session report retrieved"),
+    );
   });
 
   test("getMyReport should route error to next()", async () => {
@@ -73,9 +93,13 @@ describe("Report Controller Unit Tests", () => {
     await controller.getAllReports(mockReq, mockRes, mockNext);
     await flushPromises();
 
-    expect(mockService.getAdminReportsDashboard).toHaveBeenCalledWith({ status: "pending" });
+    expect(mockService.getAdminReportsDashboard).toHaveBeenCalledWith({
+      status: "pending",
+    });
     expect(mockRes.status).toHaveBeenCalledWith(200);
-    expect(mockRes.json).toHaveBeenCalledWith({ reports: [] });
+    expect(mockRes.json).toHaveBeenCalledWith(
+      successEnvelope({ reports: [] }, "Reports retrieved"),
+    );
   });
 
   test("getAllReports should route error to next()", async () => {
@@ -90,14 +114,26 @@ describe("Report Controller Unit Tests", () => {
   test("updateReportStatus should return 200 with updated report", async () => {
     mockReq.params.reportId = "r1";
     mockReq.body = { status: "resolved" };
-    mockService.processAdminReportUpdate.mockResolvedValue({ _id: "r1", status: "resolved" });
+    mockService.processAdminReportUpdate.mockResolvedValue({
+      _id: "r1",
+      status: "resolved",
+    });
 
     await controller.updateReportStatus(mockReq, mockRes, mockNext);
     await flushPromises();
 
-    expect(mockService.processAdminReportUpdate).toHaveBeenCalledWith("r1", "u1", { status: "resolved" });
+    expect(mockService.processAdminReportUpdate).toHaveBeenCalledWith(
+      "r1",
+      "u1",
+      { status: "resolved" },
+    );
     expect(mockRes.status).toHaveBeenCalledWith(200);
-    expect(mockRes.json).toHaveBeenCalledWith({ success: true, report: { _id: "r1", status: "resolved" } });
+    expect(mockRes.json).toHaveBeenCalledWith(
+      successEnvelope(
+        { report: { _id: "r1", status: "resolved" } },
+        "Report status updated",
+      ),
+    );
   });
 
   test("updateReportStatus should route error to next()", async () => {

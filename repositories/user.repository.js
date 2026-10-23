@@ -94,22 +94,6 @@ const createUserRepository = (User) => {
       .lean();
 
   /**
-   * Find an active live Mongoose entity object matching an ID regardless of soft-delete state.
-   * @param {string} id - Main entity document lookup key.
-   * @returns {Promise<Object|null>} Mutable tracking document reference.
-   */
-  const findUserByIdRaw = (id) =>
-    User.findById(id).setOptions({ ignoreIsDeleted: true });
-
-  /**
-   * Perform a hard-removal operation on an explicit document index, overriding soft-delete filters.
-   * @param {string} id - Main entity document lookup key.
-   * @returns {Promise<Object|null>}
-   */
-  const deleteUserById = (id) =>
-    User.findByIdAndDelete(id, { ignoreIsDeleted: true });
-
-  /**
    * Update access validation indices to apply an administrative soft-delete block.
    * @param {string} id - Main entity document lookup key.
    * @returns {Promise<Object|null>} Updated model state confirmation document.
@@ -156,6 +140,23 @@ const createUserRepository = (User) => {
    * @returns {Promise<Object>} Created model document validation details.
    */
   const createUser = (data) => User.create(data);
+
+  /**
+   * Adds a single role to an existing user's `roles` array, atomically.
+   * Uses `$addToSet` (not a read-modify-write) so a duplicate/concurrent
+   * request can never produce a duplicate entry, and `runValidators` so
+   * the schema's `enum` (sourced from constants/roles.js) still rejects
+   * anything not recognized as a real role.
+   * @param {string} userId
+   * @param {string} role
+   * @returns {Promise<Object|null>} the updated user document, or null if not found
+   */
+  const addRoleToUser = (userId, role) =>
+    User.findByIdAndUpdate(
+      userId,
+      { $addToSet: { roles: role } },
+      { new: true, runValidators: true },
+    );
 
   /**
    * Fetch query matching identifiers evaluating case-insensitive name constraints.
@@ -235,13 +236,12 @@ const createUserRepository = (User) => {
     countUsersWithFilter,
     findUsers,
     findUserById,
-    findUserByIdRaw,
-    deleteUserById,
     blockUser,
     unblockUser,
     findUserByEmail,
     findUserByEmailWithPassword,
     createUser,
+    addRoleToUser,
     saveUser,
     findUsersByNameSearch,
     findUsersByRoleAndNameRegex,

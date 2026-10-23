@@ -241,19 +241,19 @@ describe("escrow.service", () => {
     test("throws 404 if wallet not found", async () => {
       adminRepo.findActiveAdmin.mockResolvedValue({ commissionRate: 10 });
       connectRepo.findByIdWithParticipants.mockResolvedValue(ongoingReq());
-      walletRepo.findByUserId.mockResolvedValue(null);
+      walletRepo.findByUserIdAndRole.mockResolvedValue(null);
       await expect(call()).rejects.toMatchObject({ statusCode: 404 });
     });
     test("throws 400 if insufficient balance", async () => {
       adminRepo.findActiveAdmin.mockResolvedValue({ commissionRate: 10 });
       connectRepo.findByIdWithParticipants.mockResolvedValue(ongoingReq());
-      walletRepo.findByUserId.mockResolvedValue({ balance: 1, escrow: 0 });
+      walletRepo.findByUserIdAndRole.mockResolvedValue({ balance: 1, escrow: 0 });
       await expect(call()).rejects.toMatchObject({ statusCode: 400 });
     });
     test("commits and returns result", async () => {
       adminRepo.findActiveAdmin.mockResolvedValue({ commissionRate: 10 });
       connectRepo.findByIdWithParticipants.mockResolvedValue(ongoingReq());
-      walletRepo.findByUserId.mockResolvedValue({ balance: 500, escrow: 0 });
+      walletRepo.findByUserIdAndRole.mockResolvedValue({ balance: 500, escrow: 0 });
       const result = await call();
       expect(session.commitTransaction).toHaveBeenCalled();
       expect(result.slotId).toBe("s1");
@@ -388,18 +388,18 @@ describe("escrow.service", () => {
     });
     test("throws 404 if wallet not found", () => {
       connectRepo.findByIdRaw.mockResolvedValue(base);
-      walletRepo.findByUserId.mockResolvedValue(null);
+      walletRepo.findByUserIdAndRole.mockResolvedValue(null);
       return expect(call()).rejects.toMatchObject({ statusCode: 404 });
     });
     test("throws 400 if escrow too low", () => {
       connectRepo.findByIdRaw.mockResolvedValue(base);
-      walletRepo.findByUserId.mockResolvedValue({ balance: 0, escrow: 10 });
+      walletRepo.findByUserIdAndRole.mockResolvedValue({ balance: 0, escrow: 10 });
       return expect(call()).rejects.toMatchObject({ statusCode: 400 });
     });
     test("refunds and returns refunded status", async () => {
       connectRepo.findByIdRaw.mockResolvedValue(base);
       const w = { balance: 50, escrow: 150 };
-      walletRepo.findByUserId.mockResolvedValue(w);
+      walletRepo.findByUserIdAndRole.mockResolvedValue(w);
       const result = await call();
       expect(w.escrow).toBe(0);
       expect(w.balance).toBe(200);
@@ -453,7 +453,7 @@ describe("escrow.service", () => {
         mentee: "u1",
         totalAmount: 100,
       });
-      walletRepo.findByUserId.mockResolvedValue(null);
+      walletRepo.findByUserIdAndRole.mockResolvedValue(null);
       return expect(call()).rejects.toMatchObject({ statusCode: 404 });
     });
     test("throws 400 if escrow too low", () => {
@@ -463,7 +463,7 @@ describe("escrow.service", () => {
         mentee: "u1",
         totalAmount: 100,
       });
-      walletRepo.findByUserId.mockResolvedValue({ balance: 0, escrow: 0 });
+      walletRepo.findByUserIdAndRole.mockResolvedValue({ balance: 0, escrow: 0 });
       return expect(call()).rejects.toMatchObject({ statusCode: 400 });
     });
     test("refunds slot correctly", async () => {
@@ -475,7 +475,7 @@ describe("escrow.service", () => {
         totalAmount: 100,
       });
       const w = { balance: 0, escrow: 100 };
-      walletRepo.findByUserId.mockResolvedValue(w);
+      walletRepo.findByUserIdAndRole.mockResolvedValue(w);
       const result = await call();
       expect(result.refundedAmount).toBe(100);
       expect(w.balance).toBe(100);
@@ -511,7 +511,7 @@ describe("escrow.service", () => {
       mentorProfileRepo.findMentorProfile.mockResolvedValue({
         hourlyRate: 100,
       });
-      walletRepo.findByUserId.mockResolvedValue({ balance: 851, escrow: 15 });
+      walletRepo.findByUserIdAndRole.mockResolvedValue({ balance: 851, escrow: 15 });
       const result = await service.getStatus({ requestId: "r1", userId: "u1" });
       expect(result.sessionRate).toBe(100);
       expect(result.totalAmount).toBe(100);
@@ -521,17 +521,26 @@ describe("escrow.service", () => {
   // ── getMyWallet ───────────────────────────────────────────────
   describe("getMyWallet", () => {
     test("throws 404 if wallet not found", () => {
-      walletRepo.findByUserId.mockResolvedValue(null);
+      walletRepo.findByUserIdAndRole.mockResolvedValue(null);
       return expect(service.getMyWallet("u1")).rejects.toMatchObject({
         statusCode: 404,
       });
     });
-    test("returns balance and escrow", async () => {
-      walletRepo.findByUserId.mockResolvedValue({ balance: 100, escrow: 20 });
+    test("returns the mentee wallet's balance and escrow", async () => {
+      walletRepo.findByUserIdAndRole.mockResolvedValue({
+        balance: 100,
+        escrow: 20,
+      });
       expect(await service.getMyWallet("u1")).toEqual({
         balance: 100,
         escrow: 20,
       });
+      // Scoped to the mentee wallet so a dual-role user never sees the
+      // mentor wallet's balance here.
+      expect(walletRepo.findByUserIdAndRole).toHaveBeenCalledWith(
+        "u1",
+        "mentee",
+      );
     });
   });
 

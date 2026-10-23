@@ -338,6 +338,23 @@ describe("Report Service Unit Tests", () => {
     });
   });
 
+   test("should fall back to default pagination values when page/limit query params are non-numeric or zero", async () => {
+     mockReportRepo.countReportsByFilter.mockResolvedValue(0);
+     mockReportRepo.findReports.mockResolvedValue([]);
+
+     const result = await service.getAdminReportsDashboard({
+       page: "abc",
+       limit: "0",
+     });
+
+     expect(mockReportRepo.findReports).toHaveBeenCalledWith(
+       {},
+       { skip: 0, limit: 20 },
+     );
+     expect(result.pagination.page).toBe(1);
+     expect(result.pagination.limit).toBe(20);
+   });
+
   describe("processAdminReportUpdate", () => {
     test("should throw 400 if state parameter falls outside the permitted tracking status pool", async () => {
       await expect(
@@ -412,5 +429,25 @@ describe("Report Service Unit Tests", () => {
       expect(mockEmailUtils.sendReportResolvedEmail).toHaveBeenCalled();
       expect(result).toEqual(finalizedReport);
     });
+
+    test("should default the resolution email's adminNote to an empty string when none was supplied", async () => {
+      const finalizedReport = {
+        id: "r1",
+        status: "dismissed",
+        complaintType: "Fraud",
+        reportedBy: { name: "Victim User", email: "victim@test.com" },
+      };
+      mockReportRepo.updateReportWithUsers.mockResolvedValue(finalizedReport);
+
+      await service.processAdminReportUpdate("r1", "admin_1", {
+        status: "dismissed",
+      });
+
+      expect(mockEmailUtils.sendReportResolvedEmail).toHaveBeenCalledWith(
+        expect.objectContaining({ adminNote: "" }),
+      );
+    });
+
+
   });
 });

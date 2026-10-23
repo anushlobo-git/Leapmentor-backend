@@ -1,4 +1,5 @@
 const createGoogleCalendarController = require("../../../controllers/googleCalendar.controller");
+const { successEnvelope } = require("../../helpers/apiResponse");
 
 describe("Google Calendar Controller Unit Tests", () => {
   let mockService, controller, mockReq, mockRes, mockNext;
@@ -12,7 +13,9 @@ describe("Google Calendar Controller Unit Tests", () => {
       getCalendarEvents: jest.fn(),
     };
 
-    controller = createGoogleCalendarController({ googleCalendarService: mockService });
+    controller = createGoogleCalendarController({
+      googleCalendarService: mockService,
+    });
     mockReq = { user: { _id: "user_123" }, query: {}, params: {} };
     mockRes = {
       status: jest.fn().mockReturnThis(),
@@ -28,7 +31,12 @@ describe("Google Calendar Controller Unit Tests", () => {
 
     expect(mockService.generateAuthUrl).toHaveBeenCalledWith("user_123");
     expect(mockRes.status).toHaveBeenCalledWith(200);
-    expect(mockRes.json).toHaveBeenCalledWith({ url: "https://redirect.url" });
+    expect(mockRes.json).toHaveBeenCalledWith(
+      successEnvelope(
+        { url: "https://redirect.url" },
+        "Google Calendar auth URL generated",
+      ),
+    );
   });
 
   test("handleCallback should deliver JavaScript injection messaging blocks on error vectors in query", async () => {
@@ -50,7 +58,10 @@ describe("Google Calendar Controller Unit Tests", () => {
 
     await controller.handleCallback(mockReq, mockRes, mockNext);
 
-    expect(mockService.handleAuthCallback).toHaveBeenCalledWith("auth_code", "auth_state");
+    expect(mockService.handleAuthCallback).toHaveBeenCalledWith(
+      "auth_code",
+      "auth_state",
+    );
     expect(mockRes.status).toHaveBeenCalledWith(200);
     expect(mockRes.send).toHaveBeenCalledWith(
       expect.stringContaining("GOOGLE_CALENDAR_CONNECTED"),
@@ -59,11 +70,16 @@ describe("Google Calendar Controller Unit Tests", () => {
 
   test("handleCallback should deliver error JavaScript injection messaging blocks when handleAuthCallback throws", async () => {
     mockReq.query = { code: "auth_code", state: "auth_state" };
-    mockService.handleAuthCallback.mockRejectedValue(new Error("Token validation failed"));
+    mockService.handleAuthCallback.mockRejectedValue(
+      new Error("Token validation failed"),
+    );
 
     await controller.handleCallback(mockReq, mockRes, mockNext);
 
-    expect(mockService.handleAuthCallback).toHaveBeenCalledWith("auth_code", "auth_state");
+    expect(mockService.handleAuthCallback).toHaveBeenCalledWith(
+      "auth_code",
+      "auth_state",
+    );
     expect(mockRes.status).toHaveBeenCalledWith(200);
     expect(mockRes.send).toHaveBeenCalledWith(
       expect.stringContaining("GOOGLE_CALENDAR_ERROR"),
@@ -79,12 +95,16 @@ describe("Google Calendar Controller Unit Tests", () => {
 
     expect(mockService.disconnectCalendar).toHaveBeenCalledWith("user_123");
     expect(mockRes.status).toHaveBeenCalledWith(200);
-    expect(mockRes.json).toHaveBeenCalledWith({ message: "Google Calendar disconnected" });
+    expect(mockRes.json).toHaveBeenCalledWith(
+      successEnvelope(null, "Google Calendar disconnected"),
+    );
   });
 
   test("getBusySlots should return busy slots and return 200", async () => {
     mockReq.query = { startDate: "2026-01-01", endDate: "2026-01-02" };
-    const mockBusy = [{ start: "2026-01-01T10:00:00Z", end: "2026-01-01T11:00:00Z" }];
+    const mockBusy = [
+      { start: "2026-01-01T10:00:00Z", end: "2026-01-01T11:00:00Z" },
+    ];
     mockService.getBusySlots.mockResolvedValue(mockBusy);
 
     await controller.getBusySlots(mockReq, mockRes, mockNext);
@@ -95,7 +115,9 @@ describe("Google Calendar Controller Unit Tests", () => {
       endDate: "2026-01-02",
     });
     expect(mockRes.status).toHaveBeenCalledWith(200);
-    expect(mockRes.json).toHaveBeenCalledWith({ busy: mockBusy });
+    expect(mockRes.json).toHaveBeenCalledWith(
+      successEnvelope({ busy: mockBusy }, "Busy slots retrieved"),
+    );
   });
 
   test("getEvents should return events and return 200", async () => {
@@ -111,6 +133,8 @@ describe("Google Calendar Controller Unit Tests", () => {
       endDate: "2026-01-02",
     });
     expect(mockRes.status).toHaveBeenCalledWith(200);
-    expect(mockRes.json).toHaveBeenCalledWith({ events: mockEvents });
+    expect(mockRes.json).toHaveBeenCalledWith(
+      successEnvelope({ events: mockEvents }, "Calendar events retrieved"),
+    );
   });
 });

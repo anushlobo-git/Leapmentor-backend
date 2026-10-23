@@ -5,6 +5,7 @@
  */
 
 const catchAsync = require("../utils/catchAsync");
+const { sendSuccess } = require("../utils/apiResponse");
 
 // Upper-case Redirect Mapping Configuration Constants
 const LINKEDIN_AUTH_GATEWAY = "https://www.linkedin.com/oauth/v2/authorization";
@@ -88,15 +89,17 @@ const createLinkedinAuthController = ({
       termsAccepted: req.body.termsAccepted,
     });
 
-    const primaryRole = result.user?.roles?.[0] || null;
-    cookieUtils.setAuthCookies(res, result.refreshToken, primaryRole);
+    cookieUtils.setAuthCookies(res, result.refreshToken);
 
-    return res.status(200).json({
-      message: "LinkedIn login successful",
-      user: result.user,
-      accessToken: result.accessToken,
-      isNewUser: result.isNewUser,
-    });
+    return sendSuccess(
+      res,
+      {
+        user: result.user,
+        accessToken: result.accessToken,
+        isNewUser: result.isNewUser,
+      },
+      "LinkedIn login successful",
+    );
   });
 
   return {

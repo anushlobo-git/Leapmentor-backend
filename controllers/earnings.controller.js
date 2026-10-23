@@ -5,6 +5,7 @@
  */
 
 const catchAsync = require("../utils/catchAsync");
+const { sendSuccess } = require("../utils/apiResponse");
 
 const createEarningsController = ({ earningsService }) => {
   /**
@@ -16,7 +17,7 @@ const createEarningsController = ({ earningsService }) => {
     const result = await earningsService.getEarningsSummaryService(
       req.user._id,
     );
-    return res.status(200).json({ success: true, ...result });
+    return sendSuccess(res, result, "Earnings summary retrieved");
   });
 
   /**
@@ -30,7 +31,7 @@ const createEarningsController = ({ earningsService }) => {
       req.user._id,
       period,
     );
-    return res.status(200).json({ success: true, ...result });
+    return sendSuccess(res, result, "Earnings chart retrieved");
   });
 
   /**
@@ -43,7 +44,7 @@ const createEarningsController = ({ earningsService }) => {
       req.user._id,
       req.query,
     );
-    return res.status(200).json({ success: true, ...result });
+    return sendSuccess(res, result, "Payout history retrieved");
   });
 
   /**
@@ -54,11 +55,11 @@ const createEarningsController = ({ earningsService }) => {
   const withdrawEarnings = catchAsync(async (req, res, next) => {
     const result = await earningsService.withdrawEarningsService(req.user._id);
 
-    return res.status(200).json({
-      success: true,
-      message: "Withdrawal request submitted successfully",
-      ...result,
-    });
+    return sendSuccess(
+      res,
+      result,
+      "Withdrawal request submitted successfully",
+    );
   });
 
   return {

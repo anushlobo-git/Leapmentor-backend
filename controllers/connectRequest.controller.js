@@ -5,6 +5,7 @@
  */
 
 const catchAsync = require("../utils/catchAsync");
+const { sendSuccess, STATUS } = require("../utils/apiResponse");
 
 const createConnectRequestController = ({ connectRequestService }) => {
   /**
@@ -18,11 +19,12 @@ const createConnectRequestController = ({ connectRequestService }) => {
       req.body,
       req.user,
     );
-    return res.status(201).json({
-      success: true,
-      message: "Connect request sent successfully",
-      request,
-    });
+    return sendSuccess(
+      res,
+      { request },
+      "Connect request sent successfully",
+      STATUS.CREATED,
+    );
   });
 
 
@@ -35,7 +37,7 @@ const createConnectRequestController = ({ connectRequestService }) => {
     const requests = await connectRequestService.getMyRequestsService(
       req.user._id,
     );
-    return res.status(200).json({ success: true, requests });
+    return sendSuccess(res, { requests }, "Connect requests retrieved");
   });
 
   /**
@@ -48,7 +50,7 @@ const createConnectRequestController = ({ connectRequestService }) => {
       req.user._id,
       req.query.status,
     );
-    return res.status(200).json({ success: true, requests });
+    return sendSuccess(res, { requests }, "Incoming requests retrieved");
   });
 
   /**
@@ -63,11 +65,11 @@ const createConnectRequestController = ({ connectRequestService }) => {
       req.body,
     );
 
-    return res.status(200).json({
-      success: true,
-      message: `Request ${req.body.status} successfully`,
-      request,
-    });
+    return sendSuccess(
+      res,
+      { request },
+      `Request ${req.body.status} successfully`,
+    );
   });
 
   /**
@@ -81,10 +83,7 @@ const createConnectRequestController = ({ connectRequestService }) => {
       req.user._id,
     );
 
-    return res.status(200).json({
-      success: true,
-      message: "Request cancelled successfully",
-    });
+    return sendSuccess(res, null, "Request cancelled successfully");
   });
 
   /**
@@ -99,11 +98,7 @@ const createConnectRequestController = ({ connectRequestService }) => {
       req.body,
     );
 
-    return res.status(200).json({
-      success: true,
-      message: "Request referred successfully",
-      ...result,
-    });
+    return sendSuccess(res, result, "Request referred successfully");
   });
 
   /**
@@ -115,7 +110,7 @@ const createConnectRequestController = ({ connectRequestService }) => {
     const connects = await connectRequestService.getOngoingConnectsService(
       req.user._id,
     );
-    return res.status(200).json({ success: true, connects });
+    return sendSuccess(res, { connects }, "Ongoing connects retrieved");
   });
 
   /**
@@ -128,7 +123,7 @@ const createConnectRequestController = ({ connectRequestService }) => {
       req.params.id,
       req.user._id,
     );
-    return res.status(200).json({ success: true, connect });
+    return sendSuccess(res, { connect }, "Connect details retrieved");
   });
 
   return {

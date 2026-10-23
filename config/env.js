@@ -19,6 +19,7 @@ module.exports = {
 
   // Database
   mongoUri: getEnv("MONGO_URI", ""),
+  mongoSecondaryUri: getEnv("MONGO_SECONDARY_URI", ""),
 
   // JWT
   jwtSecret: getEnv("JWT_SECRET", "development-secret"),

@@ -22,6 +22,7 @@ const transactionSchema = new mongoose.Schema(
           "escrow_refund", // points returned from escrow → mentee (on rejection/cancel)
           "commission_deduct", // platform takes its commission cut from escrow
           "mentor_payout", // net amount sent to mentor after commission deduction
+          "withdrawal", // mentor drains cleared wallet balance out to their payout method
         ],
         message:
           "{VALUE} is not a recognized transaction accounting event type classification",

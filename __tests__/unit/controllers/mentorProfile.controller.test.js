@@ -4,6 +4,7 @@
  */
 
 const createMentorProfileController = require("../../../controllers/mentorProfile.controller");
+const { successEnvelope } = require("../../helpers/apiResponse");
 
 describe("Mentor Profile Controller Unit Tests", () => {
   let mockService, controller, mockReq, mockRes, mockNext;
@@ -18,7 +19,9 @@ describe("Mentor Profile Controller Unit Tests", () => {
       getPublicProfile: jest.fn(),
     };
 
-    controller = createMentorProfileController({ mentorProfileService: mockService });
+    controller = createMentorProfileController({
+      mentorProfileService: mockService,
+    });
 
     mockReq = { user: { _id: "user_101" }, body: {}, params: {} };
     mockRes = {
@@ -37,12 +40,21 @@ describe("Mentor Profile Controller Unit Tests", () => {
 
     await controller.createProfile(mockReq, mockRes, mockNext);
 
-    expect(mockService.createProfile).toHaveBeenCalledWith("user_101", mockReq.body);
+    expect(mockService.createProfile).toHaveBeenCalledWith(
+      "user_101",
+      mockReq.body,
+    );
     expect(mockRes.status).toHaveBeenCalledWith(201);
-    expect(mockRes.json).toHaveBeenCalledWith({
-      message: "Mentor profile created successfully",
-      profile: expect.objectContaining({ currentRole: "Principal Engineer" }),
-    });
+    expect(mockRes.json).toHaveBeenCalledWith(
+      successEnvelope(
+        {
+          profile: expect.objectContaining({
+            currentRole: "Principal Engineer",
+          }),
+        },
+        "Mentor profile created successfully",
+      ),
+    );
   });
 
   test("createProfile should route exception to next()", async () => {
@@ -61,7 +73,9 @@ describe("Mentor Profile Controller Unit Tests", () => {
 
     expect(mockService.getMyProfile).toHaveBeenCalledWith("user_101");
     expect(mockRes.status).toHaveBeenCalledWith(200);
-    expect(mockRes.json).toHaveBeenCalledWith({ _id: "prof_01" });
+    expect(mockRes.json).toHaveBeenCalledWith(
+      successEnvelope({ _id: "prof_01" }, "Mentor profile retrieved"),
+    );
   });
 
   test("getMyProfile should route exception to next()", async () => {
@@ -82,12 +96,21 @@ describe("Mentor Profile Controller Unit Tests", () => {
 
     await controller.updateProfile(mockReq, mockRes, mockNext);
 
-    expect(mockService.updateMyProfile).toHaveBeenCalledWith("user_101", mockReq.body);
+    expect(mockService.updateMyProfile).toHaveBeenCalledWith(
+      "user_101",
+      mockReq.body,
+    );
     expect(mockRes.status).toHaveBeenCalledWith(200);
-    expect(mockRes.json).toHaveBeenCalledWith({
-      message: "Profile updated successfully",
-      profile: expect.objectContaining({ currentRole: "Distinguished Engineer" }),
-    });
+    expect(mockRes.json).toHaveBeenCalledWith(
+      successEnvelope(
+        {
+          profile: expect.objectContaining({
+            currentRole: "Distinguished Engineer",
+          }),
+        },
+        "Profile updated successfully",
+      ),
+    );
   });
 
   test("updateProfile should route exception to next()", async () => {
@@ -105,9 +128,13 @@ describe("Mentor Profile Controller Unit Tests", () => {
 
     await controller.getPublicProfile(mockReq, mockRes, mockNext);
 
-    expect(mockService.getPublicProfile).toHaveBeenCalledWith("target_mentor_id");
+    expect(mockService.getPublicProfile).toHaveBeenCalledWith(
+      "target_mentor_id",
+    );
     expect(mockRes.status).toHaveBeenCalledWith(200);
-    expect(mockRes.json).toHaveBeenCalledWith({ name: "Bob" });
+    expect(mockRes.json).toHaveBeenCalledWith(
+      successEnvelope({ name: "Bob" }, "Mentor profile retrieved"),
+    );
   });
 
   test("getPublicProfile should route exception to next()", async () => {

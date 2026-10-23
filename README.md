@@ -13,6 +13,8 @@ LeapMentor is a full-stack mentorship platform that connects mentors and mentees
 - [Installation](#installation)
 - [Environment Variables](#environment-variables)
 - [Running the Project](#running-the-project)
+- [API Documentation & Interactive Testing](#api-documentation--interactive-testing)
+- [Rate Limiting](#rate-limiting)
 - [API Reference](#api-reference)
 - [Authentication Flows](#authentication-flows)
 - [Real-time Events (Socket.IO)](#real-time-events-socketio)
@@ -40,19 +42,19 @@ The LeapMentor backend provides the following core capabilities:
 
 ## Tech Stack
 
-| Layer | Technology |
-|---|---|
-| Runtime | Node.js 18+ |
-| Framework | Express 5 |
-| Database | MongoDB with Mongoose 9 |
-| Caching | Redis |
-| Real-time | Socket.IO 4 |
-| Authentication | JWT, Google OAuth, Clerk SSO |
-| File Storage | Cloudinary |
-| Email | Nodemailer (SMTP) |
-| Push Notifications | Web Push (VAPID) |
-| Testing | Jest, Supertest, mongodb-memory-server |
-| Deployment | Render |
+| Layer              | Technology                             |
+| ------------------ | -------------------------------------- |
+| Runtime            | Node.js 18+                            |
+| Framework          | Express 5                              |
+| Database           | MongoDB with Mongoose 9                |
+| Caching            | Redis                                  |
+| Real-time          | Socket.IO 4                            |
+| Authentication     | JWT, Google OAuth, Clerk SSO           |
+| File Storage       | Cloudinary                             |
+| Email              | Nodemailer (SMTP)                      |
+| Push Notifications | Web Push (VAPID)                       |
+| Testing            | Jest, Supertest, mongodb-memory-server |
+| Deployment         | Render                                 |
 
 ---
 
@@ -174,31 +176,127 @@ The server starts on the port defined by `PORT` in your `.env` file (default: `5
 
 ---
 
+## API Documentation & Interactive Testing
+
+### Swagger UI
+
+The entire API is documented using **OpenAPI 3.0.0** specification and available via **Swagger UI** for interactive exploration and testing.
+
+**Access Swagger UI:**
+
+- Local: `http://localhost:5000/api-docs`
+- Production: `https://api.leapmentor.com/api-docs`
+
+**Features:**
+
+- 🔍 Browse all endpoints with descriptions
+- 📝 View request/response schemas
+- 🧪 Test endpoints directly from the browser
+- 🔐 Add authentication tokens (JWT, cookies)
+- 📚 See example payloads for each operation
+
+**Documentation Location:**
+All Swagger definitions are in `config/swagger/` organized by feature:
+
+- `paths/auth.js` — Authentication endpoints
+- `paths/usersAndProfiles.js` — User and profile management
+- `paths/connectAndSessions.js` — Session booking and management
+- `paths/financial.js` — Payments and transactions
+- `paths/administrative.js` — Admin operations
+
+For detailed Swagger and Rate Limiting documentation, see [docs/API_DOCUMENTATION.md](./docs/API_DOCUMENTATION.md).
+
+---
+
+## Rate Limiting
+
+Rate limiting protects the API from abuse and ensures fair resource distribution. All requests are tracked using **Redis** with **express-rate-limit**.
+
+### Rate Limits Summary
+
+| Endpoint Type          | Limit    | Window   | Tracked By    |
+| ---------------------- | -------- | -------- | ------------- |
+| **General API**        | 1000 req | 15 min   | IP address    |
+| **Authentication**     | 1000 req | 15 min   | Email or IP   |
+| **AI Requests**        | 2000 req | 1 hour   | User ID or IP |
+| **Booking Creation**   | 500 req  | 24 hours | User ID       |
+| **Payment Processing** | 2000 req | 1 hour   | User ID       |
+
+### Response Headers
+
+When you make a request, you'll receive rate limit info in the response headers:
+
+```http
+RateLimit-Limit: 1000          # Max requests per window
+RateLimit-Remaining: 999       # Requests left in current window
+RateLimit-Reset: 1719792000    # Unix timestamp when limit resets
+```
+
+### Rate Limit Exceeded
+
+If you exceed the limit, you'll receive a `429 Too Many Requests` response:
+
+```json
+{
+  "success": false,
+  "message": "Too many requests, please try again later.",
+  "retryAfter": 900
+}
+```
+
+**Client Tip:** Use the `Retry-After` header to know when to retry.
+
+### Handling Rate Limits
+
+Example with automatic retry:
+
+```javascript
+const makeRequest = async (url, options) => {
+  const response = await fetch(url, options);
+
+  if (response.status === 429) {
+    const retryAfter = parseInt(response.headers.get("Retry-After")) * 1000;
+    console.log(`Rate limited. Retrying in ${retryAfter}ms`);
+    await new Promise((resolve) => setTimeout(resolve, retryAfter));
+    return makeRequest(url, options); // Retry
+  }
+
+  return response.json();
+};
+```
+
+**Configuration Location:** `middleware/rateLimiter.js`
+
+For detailed rate limiting documentation and client examples, see [docs/API_DOCUMENTATION.md](./docs/API_DOCUMENTATION.md).
+
+---
+
 ## API Reference
 
 All protected routes require the header:
+
 ```
 Authorization: Bearer <jwt_token>
 ```
 
 ### Authentication — `/auth`
 
-| Method | Endpoint               | Auth| Description                      |
-|--------|------------------------|---- |----------------------------------|
-| POST   | `/auth/register`       | No  | Register with email and password |
-| POST   | `/auth/login`          | No  | Login and receive JWT            |
-| POST   | `/auth/google`         | No  | Google OAuth sign-in             |
-| POST   | `/auth/verify-otp`     | No  | Verify email via OTP             |
-| GET    | `/auth/verify-email`   | No  | Verify email via magic link      |
-| POST   | `/auth/resend-otp`     | No  | Resend OTP to email              |
-| POST   | `/auth/forgot-password`| No  | Request password reset link      |
-| POST   | `/auth/reset-password` | No  | Reset password via token         |
-| GET    | `/auth/me`             | Yes | Get authenticated user details   |
+| Method | Endpoint                | Auth | Description                      |
+| ------ | ----------------------- | ---- | -------------------------------- |
+| POST   | `/auth/register`        | No   | Register with email and password |
+| POST   | `/auth/login`           | No   | Login and receive JWT            |
+| POST   | `/auth/google`          | No   | Google OAuth sign-in             |
+| POST   | `/auth/verify-otp`      | No   | Verify email via OTP             |
+| GET    | `/auth/verify-email`    | No   | Verify email via magic link      |
+| POST   | `/auth/resend-otp`      | No   | Resend OTP to email              |
+| POST   | `/auth/forgot-password` | No   | Request password reset link      |
+| POST   | `/auth/reset-password`  | No   | Reset password via token         |
+| GET    | `/auth/me`              | Yes  | Get authenticated user details   |
 
 ### Mentor Profiles — `/mentor-profile`
 
 | Method | Endpoint              | Auth   | Description                  |
-|--------|-----------------------|--------|------------------------------|
+| ------ | --------------------- | ------ | ---------------------------- |
 | POST   | `/mentor-profile`     | Mentor | Create onboarding profile    |
 | GET    | `/mentor-profile/me`  | Mentor | Get own profile              |
 | PUT    | `/mentor-profile/me`  | Mentor | Update own profile           |
@@ -207,29 +305,29 @@ Authorization: Bearer <jwt_token>
 ### Mentee Profiles — `/mentee-profile`
 
 | Method | Endpoint              | Auth   | Description                  |
-|--------|-----------------------|--------|------------------------------|
+| ------ | --------------------- | ------ | ---------------------------- |
 | POST   | `/mentee-profile`     | Mentee | Create onboarding profile    |
-| GET    | `/mentee-profile/me`  | Mentee | Get own profile              | 
+| GET    | `/mentee-profile/me`  | Mentee | Get own profile              |
 | PUT    | `/mentee-profile/me`  | Mentee | Update own profile           |
 | GET    | `/mentee-profile/:id` | Public | Get published mentee profile |
 
 ### File Uploads — `/upload`
 
 | Method | Endpoint                         | Auth   | Description                                 |
-|--------|----------------------------------|--------|---------------------------------------------|
+| ------ | -------------------------------- | ------ | ------------------------------------------- |
 | POST   | `/upload/profile-picture`        | Yes    | Upload profile picture to Cloudinary        |
 | POST   | `/upload/verification-documents` | Mentor | Upload resume and work experience documents |
 
 ### Mentor Discovery — `/mentors`
 
 | Method | Endpoint          | Auth   | Description               |
-|--------|-------------------|--------|---------------------------|
+| ------ | ----------------- | ------ | ------------------------- |
 | GET    | `/mentors/search` | Mentee | Search and filter mentors |
 
 ### Availability — `/availability`
 
 | Method | Endpoint                  | Auth   | Description             |
-|--------|---------------------------|--------|-------------------------|
+| ------ | ------------------------- | ------ | ----------------------- |
 | POST   | `/availability`           | Mentor | Set availability slots  |
 | GET    | `/availability/:mentorId` | Yes    | Get mentor availability |
 | PUT    | `/availability`           | Mentor | Update availability     |
@@ -237,7 +335,7 @@ Authorization: Bearer <jwt_token>
 ### Connect Requests — `/connect-requests`
 
 | Method | Endpoint                        | Auth   | Description                     |
-|--------|---------------------------------|--------|---------------------------------|
+| ------ | ------------------------------- | ------ | ------------------------------- |
 | POST   | `/connect-requests`             | Mentee | Send a connect request          |
 | GET    | `/connect-requests/my-requests` | Mentee | Get outgoing requests           |
 | GET    | `/connect-requests/incoming`    | Mentor | Get incoming requests           |
@@ -250,7 +348,7 @@ Authorization: Bearer <jwt_token>
 ### Payments & Escrow — `/escrow`
 
 | Method | Endpoint                           | Auth   | Description                     |
-|--------|------------------------------------|--------|---------------------------------|
+| ------ | ---------------------------------- | ------ | ------------------------------- |
 | POST   | `/escrow/deposit`                  | Mentee | Deposit to escrow for a session |
 | POST   | `/escrow/release`                  | Mentor | Release payment after session   |
 | GET    | `/escrow/status/:connectRequestId` | Yes    | Get escrow status               |
@@ -258,53 +356,53 @@ Authorization: Bearer <jwt_token>
 ### Earnings — `/earnings`
 
 | Method | Endpoint    | Auth   | Description                                  |
-|--------|-------------|--------|----------------------------------------------|
+| ------ | ----------- | ------ | -------------------------------------------- |
 | GET    | `/earnings` | Mentor | Get earnings summary and transaction history |
 
 ### Feedback — `/feedback`
 
 | Method | Endpoint                      | Auth | Description                        |
-|--------|-------------------------------|------|------------------------------------|
+| ------ | ----------------------------- | ---- | ---------------------------------- |
 | POST   | `/feedback`                   | Yes  | Submit session feedback and rating |
 | GET    | `/feedback/:connectRequestId` | Yes  | Get feedback for a session         |
 
 ### Chat — `/messages`
 
 | Method | Endpoint                  | Auth | Description                          |
-|--------|---------------------------|------|--------------------------------------|
+| ------ | ------------------------- | ---- | ------------------------------------ |
 | GET    | `/messages/:connectionId` | Yes  | Get message history for a connection |
 
 ### Notes — `/notes` and `/private-notes`
 
-| Method | Endpoint               | Auth | Description                        |
-|--------|------------------------|------|------------------------------------|
-| POST   | `/notes`               | Yes  | Create a shared session note       |
-| GET    | `/notes/:connectionId` | Yes  |  Get shared notes for a connection |
-| PATCH  | `/notes/:id`           | Yes  | Update a shared note               |
-| DELETE | `/notes/:id`           | Yes  | Delete a shared note               |
-| POST   | `/private-notes`       | Yes  | Create a private note              |
-| GET    | `/private-notes`       | Yes  | Get own private notes              |
+| Method | Endpoint               | Auth | Description                       |
+| ------ | ---------------------- | ---- | --------------------------------- |
+| POST   | `/notes`               | Yes  | Create a shared session note      |
+| GET    | `/notes/:connectionId` | Yes  | Get shared notes for a connection |
+| PATCH  | `/notes/:id`           | Yes  | Update a shared note              |
+| DELETE | `/notes/:id`           | Yes  | Delete a shared note              |
+| POST   | `/private-notes`       | Yes  | Create a private note             |
+| GET    | `/private-notes`       | Yes  | Get own private notes             |
 
 ### Reports — `/reports`
 
 | Method | Endpoint      | Auth | Description               |
-|--------|---------------|------|---------------------------|
+| ------ | ------------- | ---- | ------------------------- |
 | POST   | `/reports`    | Yes  | Submit a report           |
 | GET    | `/reports/me` | Yes  | Get own submitted reports |
 
 ### Notifications — `/notifications`
 
-| Method | Endpoint                  | Auth | Description                     |
-|--------|---------------------------|------|---------------------------------|
-| GET    | `/notifications`          | Yes  | Get all notifications           |
-| PATCH  | `/notifications/:id/read` | Yes  | Mark notification as read       |
-| PATCH  | `/notifications/read-all` | Yes  |  Mark all notifications as read |
+| Method | Endpoint                  | Auth | Description                    |
+| ------ | ------------------------- | ---- | ------------------------------ |
+| GET    | `/notifications`          | Yes  | Get all notifications          |
+| PATCH  | `/notifications/:id/read` | Yes  | Mark notification as read      |
+| PATCH  | `/notifications/read-all` | Yes  | Mark all notifications as read |
 
 ### Admin — `/admin`
 
 | Method | Endpoint                                 | Auth  | Description                               |
-|--------|------------------------------------------|-------|-------------------------------------------|
-| POST   | `/admin/login`                           | No    | Admin login                               | 
+| ------ | ---------------------------------------- | ----- | ----------------------------------------- |
+| POST   | `/admin/login`                           | No    | Admin login                               |
 | GET    | `/admin/users`                           | Admin | List all users                            |
 | PATCH  | `/admin/users/:id/ban`                   | Admin | Ban a user                                |
 | GET    | `/admin/mentor-verifications`            | Admin | List all mentor verification applications |
@@ -317,7 +415,7 @@ Authorization: Bearer <jwt_token>
 | GET    | `/admin/payments`                        | Admin | View all transactions                     |
 | GET    | `/admin/settings`                        | Admin | Get platform settings                     |
 | PATCH  | `/admin/settings`                        | Admin | Update platform settings                  |
-| POST   |  `/admin/settings/add-admin`             | Admin | Provision a new admin account             |
+| POST   | `/admin/settings/add-admin`              | Admin | Provision a new admin account             |
 
 ---
 
@@ -352,32 +450,32 @@ Socket.IO runs on the same HTTP server as Express. Authentication is handled by 
 
 ### Client → Server
 
-| Event | Payload | Description |
-|---|---|---|
-| `join_room` | `{ connectionId }` | Join a chat room for a given connection |
-| `send_message` | `{ connectionId, content }` | Send a message in a chat room |
-| `disconnect` | — | Auto-cleanup on client disconnect |
+| Event          | Payload                     | Description                             |
+| -------------- | --------------------------- | --------------------------------------- |
+| `join_room`    | `{ connectionId }`          | Join a chat room for a given connection |
+| `send_message` | `{ connectionId, content }` | Send a message in a chat room           |
+| `disconnect`   | —                           | Auto-cleanup on client disconnect       |
 
 ### Server → Client
 
-| Event | Description |
-|---|---|
-| `receive_message` | Delivers a new chat message to room members |
-| `notification` | Pushes a real-time notification to a specific user |
-| `new_connect_request` | Notifies a mentor of an incoming request |
+| Event                    | Description                                         |
+| ------------------------ | --------------------------------------------------- |
+| `receive_message`        | Delivers a new chat message to room members         |
+| `notification`           | Pushes a real-time notification to a specific user  |
+| `new_connect_request`    | Notifies a mentor of an incoming request            |
 | `request_status_changed` | Notifies participants when a request status changes |
-| `request_accepted` | Notifies mentee when their request is accepted |
-| `request_declined` | Notifies mentee when their request is declined |
-| `request_referred` | Notifies mentee when their request is referred |
+| `request_accepted`       | Notifies mentee when their request is accepted      |
+| `request_declined`       | Notifies mentee when their request is declined      |
+| `request_referred`       | Notifies mentee when their request is referred      |
 
 ---
 
 ## Cron Jobs
 
-| File | Schedule | Description |
-|---|---|---|
-| `cleanupAvailability.js` | Daily at midnight | Removes expired specific-date slots from mentor availability |
-| `sessionReminders.js` | Every hour | Sends push notification and email reminders for upcoming sessions |
+| File                     | Schedule          | Description                                                       |
+| ------------------------ | ----------------- | ----------------------------------------------------------------- |
+| `cleanupAvailability.js` | Daily at midnight | Removes expired specific-date slots from mentor availability      |
+| `sessionReminders.js`    | Every hour        | Sends push notification and email reminders for upcoming sessions |
 
 ---
 
@@ -396,12 +494,12 @@ npm run test:watch
 
 Test suites are located in `__tests__/` and use `mongodb-memory-server` — no live database connection is required.
 
-| Suite | Coverage |
-|---|---|
-| `auth.test.js` | Registration, login, token validation |
+| Suite                  | Coverage                                   |
+| ---------------------- | ------------------------------------------ |
+| `auth.test.js`         | Registration, login, token validation      |
 | `availability.test.js` | Slot creation, updates, conflict detection |
-| `escrow.test.js` | Payment hold and release logic |
-| `session.test.js` | Full session lifecycle |
+| `escrow.test.js`       | Payment hold and release logic             |
+| `session.test.js`      | Full session lifecycle                     |
 
 ---
 

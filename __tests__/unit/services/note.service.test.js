@@ -154,6 +154,38 @@ describe("Note Service", () => {
       });
     });
 
+    test("throws 400 if cloudinary upload fails with a non-Error object payload", async () => {
+      mockConnectRepo.findById.mockResolvedValue(ongoingRequest);
+      mockCloudinary.uploader.upload_stream = makeUploadStream(null, {
+        status: "fail",
+        detail: "Quota exceeded",
+      });
+
+      await expect(
+        service.processNoteUpload("req1", "m1", mockFile, {}),
+      ).rejects.toMatchObject({
+        statusCode: 400,
+        message:
+          'Cloud asset storage delivery system failure: {"status":"fail","detail":"Quota exceeded"}',
+      });
+    });
+
+    test("throws 400 if cloudinary upload fails with a primitive string payload", async () => {
+      mockConnectRepo.findById.mockResolvedValue(ongoingRequest);
+      mockCloudinary.uploader.upload_stream = makeUploadStream(
+        null,
+        "raw stream rejection string",
+      );
+
+      await expect(
+        service.processNoteUpload("req1", "m1", mockFile, {}),
+      ).rejects.toMatchObject({
+        statusCode: 400,
+        message:
+          "Cloud asset storage delivery system failure: raw stream rejection string",
+      });
+    });
+
     test("uploads note successfully with isPrivate true (string)", async () => {
       mockConnectRepo.findById.mockResolvedValue(ongoingRequest);
       mockCloudinary.uploader.upload_stream = makeUploadStream({

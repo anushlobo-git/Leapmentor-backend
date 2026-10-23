@@ -5,6 +5,7 @@
 const crypto = require("node:crypto");
 const bcrypt = require("bcryptjs");
 const AppError = require("../utils/AppError");
+const env = require("../config/env");
 
 // Domain Constants
 const BCRYPT_SALT_ROUNDS = 10;

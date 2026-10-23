@@ -4,6 +4,7 @@
  */
 
 const catchAsync = require("../utils/catchAsync");
+const { sendSuccess, STATUS } = require("../utils/apiResponse");
 
 const createMentorProfileController = ({ mentorProfileService }) => {
   /**
@@ -16,10 +17,12 @@ const createMentorProfileController = ({ mentorProfileService }) => {
       req.user._id,
       req.body,
     );
-    return res.status(201).json({
-      message: "Mentor profile created successfully",
-      profile,
-    });
+    return sendSuccess(
+      res,
+      { profile },
+      "Mentor profile created successfully",
+      STATUS.CREATED,
+    );
   });
 
   /**
@@ -29,7 +32,7 @@ const createMentorProfileController = ({ mentorProfileService }) => {
    */
   const getMyProfile = catchAsync(async (req, res, next) => {
     const profile = await mentorProfileService.getMyProfile(req.user._id);
-    return res.status(200).json(profile);
+    return sendSuccess(res, profile, "Mentor profile retrieved");
   });
 
   /**
@@ -42,10 +45,7 @@ const createMentorProfileController = ({ mentorProfileService }) => {
       req.user._id,
       req.body,
     );
-    return res.status(200).json({
-      message: "Profile updated successfully",
-      profile,
-    });
+    return sendSuccess(res, { profile }, "Profile updated successfully");
   });
 
   /**
@@ -55,7 +55,7 @@ const createMentorProfileController = ({ mentorProfileService }) => {
    */
   const getPublicProfile = catchAsync(async (req, res, next) => {
     const profile = await mentorProfileService.getPublicProfile(req.params.id);
-    return res.status(200).json(profile);
+    return sendSuccess(res, profile, "Mentor profile retrieved");
   });
 
   return {

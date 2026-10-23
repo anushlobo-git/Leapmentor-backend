@@ -5,6 +5,7 @@
  */
 
 const catchAsync = require("../utils/catchAsync");
+const { sendSuccess } = require("../utils/apiResponse");
 
 const createMentorReferController = ({ mentorReferService }) => {
   /**
@@ -18,10 +19,7 @@ const createMentorReferController = ({ mentorReferService }) => {
       req.user._id,
     );
 
-    return res.status(200).json({
-      success: true,
-      ...result,
-    });
+    return sendSuccess(res, result, "Similar mentors retrieved");
   });
 
   return { getSimilarMentors };

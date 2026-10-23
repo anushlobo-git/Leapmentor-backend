@@ -1,7 +1,6 @@
 // backend/cron/cleanupAvailability.js
 const cron          = require("node-cron");
 const Availability  = require("../models/Availability");
-const MentorProfile = require("../models/MentorProfile");
 const logger        = require("../config/logger"); 
 
 // ── Helper ────────────────────────────────────────────────────
@@ -23,7 +22,6 @@ const cleanupAvailability = async () => {
 
     let totalDocsUpdated = 0;
     let totalDatesRemoved = 0;
-    let totalUnpublished = 0;
 
     for (const avail of allAvailability) {
       const before = avail.specificDates.length;
@@ -41,26 +39,12 @@ const cleanupAvailability = async () => {
         totalDocsUpdated  += 1;
 
         await avail.save();
-
-        //  Auto-unpublish mentor if no future slots remain
-        if (avail.specificDates.length === 0) {
-          await MentorProfile.findOneAndUpdate(
-            { user: avail.mentor },
-            { isProfilePublished: false }
-          );
-          totalUnpublished += 1;
-          logger.info("[Cron] Auto-unpublished mentor", { 
-          mentorId: avail.mentor,
-          reason: "no future slots left"
-        });
-        }
       }
     }
 
      logger.info("[Cron] Cleanup complete", {
        totalDocsUpdated,
        totalDatesRemoved,
-       totalUnpublished,
      });
 
   } catch (err) {

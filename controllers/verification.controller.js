@@ -4,20 +4,17 @@
  */
 
 const catchAsync = require("../utils/catchAsync");
+const { sendSuccess } = require("../utils/apiResponse");
 
 const createVerificationController = ({ verificationService }) => {
   const sendVerification = catchAsync(async (req, res, next) => {
     await verificationService.initiateVerification(req.body.email);
-    return res
-      .status(200)
-      .json({ message: "Verification email sent (OTP + magic link)" });
+    return sendSuccess(res, null, "Verification email sent (OTP + magic link)");
   });
 
   const resendVerification = catchAsync(async (req, res, next) => {
     await verificationService.initiateVerification(req.body.email, " (Resend)");
-    return res
-      .status(200)
-      .json({ message: "Verification email resent (OTP + magic link)" });
+    return sendSuccess(res, null, "Verification email resent (OTP + magic link)");
   });
 
   const verifyOtp = catchAsync(async (req, res, next) => {
@@ -25,7 +22,7 @@ const createVerificationController = ({ verificationService }) => {
       req.body.email,
       req.body.otp,
     );
-    return res.status(200).json({ message: "Email verified successfully" });
+    return sendSuccess(res, null, "Email verified successfully");
   });
 
   const verifyLink = catchAsync(async (req, res, next) => {
@@ -33,10 +30,7 @@ const createVerificationController = ({ verificationService }) => {
       req.params.token,
       req.query.email,
     );
-    return res.status(200).json({
-      message: "Email verified successfully",
-      role: result.role,
-    });
+    return sendSuccess(res, { role: result.role }, "Email verified successfully");
   });
 
   return {

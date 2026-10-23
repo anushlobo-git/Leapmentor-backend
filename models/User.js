@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const { ALL_ROLES } = require("../constants/roles");
 
 const userSchema = new mongoose.Schema(
   {
@@ -28,6 +29,11 @@ const userSchema = new mongoose.Schema(
       type: String,
       select: false,
     },
+    // RBAC: an account may hold ONE OR MORE roles (e.g. a user who is both
+    // a mentor and a mentee on the platform). `enum` is derived from the
+    // central registry in constants/roles.js — adding a new role there is
+    // the only change needed for this schema to accept it; nothing here
+    // needs to be touched.
     roles: {
       type: [String],
       required: [
@@ -35,16 +41,15 @@ const userSchema = new mongoose.Schema(
         "User operational capabilities role access classification array ledger is required",
       ],
       enum: {
-        values: ["mentor", "mentee"],
+        values: ALL_ROLES,
         message:
           "{VALUE} is not a recognized system account capability tier authorization role option",
       },
       validate: {
         validator: function (val) {
-          return Array.isArray(val) && val.length === 1;
+          return Array.isArray(val) && val.length >= 1;
         },
-        message:
-          "A user account mapping blueprint must capture exactly one structural role designation tier assignment",
+        message: "A user account must hold at least one role.",
       },
     },
     isEmailVerified: {

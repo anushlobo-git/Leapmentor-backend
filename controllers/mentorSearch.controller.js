@@ -5,6 +5,7 @@
  */
 
 const catchAsync = require("../utils/catchAsync");
+const { sendSuccess } = require("../utils/apiResponse");
 
 /**
  * Builds a deterministic cache key from all query parameters.
@@ -33,10 +34,7 @@ const createMentorSearchController = ({mentorSearchService, cacheUtility}) => {
       return await mentorSearchService.queryMentors(req.query);
     });
 
-    return res.status(200).json({
-      success: true,
-      ...result,
-    });
+    return sendSuccess(res, result, "Mentors retrieved");
   });
 
   return {

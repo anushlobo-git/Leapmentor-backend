@@ -112,6 +112,19 @@ describe("Verification Service Unit Tests", () => {
         "Email Verification",
       );
     });
+
+    test("should default subjectSuffix to an empty string when omitted", async () => {
+      mockUserRepo.findUserByEmail.mockResolvedValue(mockUserRecord);
+
+      await service.initiateVerification(testEmail);
+
+      expect(mockSendWithRetry).toHaveBeenCalledWith(
+        expect.objectContaining({
+          subject: "LeapMentor Email Verification",
+        }),
+        "Email Verification",
+      );
+    });
   });
 
   describe("processOtpVerification Strategy", () => {

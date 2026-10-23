@@ -5,6 +5,7 @@
  */
 
 const createGoogleAuthController = require("../../../controllers/googleAuth.controller");
+const { successEnvelope } = require("../../helpers/apiResponse");
 
 describe("Google Authentication Controller Unit Tests", () => {
   let mockGoogleAuthService;
@@ -70,18 +71,21 @@ describe("Google Authentication Controller Unit Tests", () => {
     expect(mockCookieUtils.setAuthCookies).toHaveBeenCalledWith(
       mockRes,
       "minted_refresh_jwt",
-      "mentee",
     );
     expect(mockRes.status).toHaveBeenCalledWith(200);
-    expect(mockRes.json).toHaveBeenCalledWith({
-      message: "Google login successful",
-      user: mockServiceResponse.user,
-      accessToken: "minted_access_jwt",
-      isNewUser: true,
-    });
+    expect(mockRes.json).toHaveBeenCalledWith(
+      successEnvelope(
+        {
+          user: mockServiceResponse.user,
+          accessToken: "minted_access_jwt",
+          isNewUser: true,
+        },
+        "Google login successful",
+      ),
+    );
   });
 
-  test("should set primaryRole to null when user has no roles array", async () => {
+  test("should set the refresh cookie when user has no roles array", async () => {
     const mockServiceResponse = {
       accessToken: "minted_access_jwt",
       refreshToken: "minted_refresh_jwt",
@@ -96,7 +100,6 @@ describe("Google Authentication Controller Unit Tests", () => {
     expect(mockCookieUtils.setAuthCookies).toHaveBeenCalledWith(
       mockRes,
       "minted_refresh_jwt",
-      null,
     );
   });
 

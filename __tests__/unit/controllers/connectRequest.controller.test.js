@@ -11,6 +11,7 @@ jest.mock("../../../utils/catchAsync", () => {
 });
 
 const createConnectRequestController = require("../../../controllers/connectRequest.controller");
+const { successEnvelope } = require("../../helpers/apiResponse");
 
 describe("ConnectRequestController", () => {
   let mockConnectRequestService;
@@ -83,11 +84,12 @@ describe("ConnectRequestController", () => {
         mockConnectRequestService.sendConnectRequestService,
       ).toHaveBeenCalledWith("user_mentee_777", req.body, req.user);
       expect(res.status).toHaveBeenCalledWith(201);
-      expect(res.json).toHaveBeenCalledWith({
-        success: true,
-        message: "Connect request sent successfully",
-        request: mockRequestRecord,
-      });
+      expect(res.json).toHaveBeenCalledWith(
+        successEnvelope(
+          { request: mockRequestRecord },
+          "Connect request sent successfully",
+        ),
+      );
       expect(next).not.toHaveBeenCalled();
     });
 
@@ -118,10 +120,12 @@ describe("ConnectRequestController", () => {
         mockConnectRequestService.getMyRequestsService,
       ).toHaveBeenCalledWith("user_variant_mentee_999");
       expect(res.status).toHaveBeenCalledWith(200);
-      expect(res.json).toHaveBeenCalledWith({
-        success: true,
-        requests: mockRequestsList,
-      });
+      expect(res.json).toHaveBeenCalledWith(
+        successEnvelope(
+          { requests: mockRequestsList },
+          "Connect requests retrieved",
+        ),
+      );
       expect(next).not.toHaveBeenCalled();
     });
 
@@ -151,10 +155,12 @@ describe("ConnectRequestController", () => {
         mockConnectRequestService.getIncomingRequestsService,
       ).toHaveBeenCalledWith("user_variant_mentor_555", "pending");
       expect(res.status).toHaveBeenCalledWith(200);
-      expect(res.json).toHaveBeenCalledWith({
-        success: true,
-        requests: mockRequestsList,
-      });
+      expect(res.json).toHaveBeenCalledWith(
+        successEnvelope(
+          { requests: mockRequestsList },
+          "Incoming requests retrieved",
+        ),
+      );
       expect(next).not.toHaveBeenCalled();
     });
 
@@ -193,11 +199,12 @@ describe("ConnectRequestController", () => {
         mockConnectRequestService.respondToRequestService,
       ).toHaveBeenCalledWith("req_target_999", "user_mentor_888", req.body);
       expect(res.status).toHaveBeenCalledWith(200);
-      expect(res.json).toHaveBeenCalledWith({
-        success: true,
-        message: "Request accepted successfully",
-        request: acceptedRecord,
-      });
+      expect(res.json).toHaveBeenCalledWith(
+        successEnvelope(
+          { request: acceptedRecord },
+          "Request accepted successfully",
+        ),
+      );
       expect(next).not.toHaveBeenCalled();
     });
 
@@ -228,10 +235,9 @@ describe("ConnectRequestController", () => {
         mockConnectRequestService.cancelRequestService,
       ).toHaveBeenCalledWith("req_cancel_123", "user_mentee_777");
       expect(res.status).toHaveBeenCalledWith(200);
-      expect(res.json).toHaveBeenCalledWith({
-        success: true,
-        message: "Request cancelled successfully",
-      });
+      expect(res.json).toHaveBeenCalledWith(
+        successEnvelope(null, "Request cancelled successfully"),
+      );
       expect(next).not.toHaveBeenCalled();
     });
 
@@ -268,12 +274,15 @@ describe("ConnectRequestController", () => {
         mockConnectRequestService.referRequestService,
       ).toHaveBeenCalledWith("req_refer_456", "user_mentor_888", req.body);
       expect(res.status).toHaveBeenCalledWith(200);
-      expect(res.json).toHaveBeenCalledWith({
-        success: true,
-        message: "Request referred successfully",
-        referralId: "ref_xyz789",
-        suggestedMentor: "user_mentor_alt_555",
-      });
+      expect(res.json).toHaveBeenCalledWith(
+        successEnvelope(
+          {
+            referralId: "ref_xyz789",
+            suggestedMentor: "user_mentor_alt_555",
+          },
+          "Request referred successfully",
+        ),
+      );
       expect(next).not.toHaveBeenCalled();
     });
 
@@ -303,10 +312,12 @@ describe("ConnectRequestController", () => {
         mockConnectRequestService.getOngoingConnectsService,
       ).toHaveBeenCalledWith("user_variant_mix_444");
       expect(res.status).toHaveBeenCalledWith(200);
-      expect(res.json).toHaveBeenCalledWith({
-        success: true,
-        connects: mockRequestsList,
-      });
+      expect(res.json).toHaveBeenCalledWith(
+        successEnvelope(
+          { connects: mockRequestsList },
+          "Ongoing connects retrieved",
+        ),
+      );
       expect(next).not.toHaveBeenCalled();
     });
 
@@ -338,10 +349,12 @@ describe("ConnectRequestController", () => {
         mockConnectRequestService.getConnectDetailService,
       ).toHaveBeenCalledWith("req_detail_000", "user_mentee_777");
       expect(res.status).toHaveBeenCalledWith(200);
-      expect(res.json).toHaveBeenCalledWith({
-        success: true,
-        connect: mockRequestRecord,
-      });
+      expect(res.json).toHaveBeenCalledWith(
+        successEnvelope(
+          { connect: mockRequestRecord },
+          "Connect details retrieved",
+        ),
+      );
       expect(next).not.toHaveBeenCalled();
     });
 

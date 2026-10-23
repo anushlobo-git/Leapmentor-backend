@@ -170,20 +170,6 @@ describe("MenteeProfile Repository", () => {
 
   // ── DATA MUTATIONS & WRITE ACTIONS ──────────────────────────────────────
   describe("Data Mutations & Write Actions", () => {
-    test("deleteMenteeProfileByUserId should immediately deploy native removal criteria hooks", async () => {
-      mockMenteeProfileModel.findOneAndDelete.mockResolvedValue(
-        mockProfileRecord,
-      );
-
-      const result =
-        await menteeProfileRepository.deleteMenteeProfileByUserId("user123");
-
-      expect(mockMenteeProfileModel.findOneAndDelete).toHaveBeenCalledWith({
-        user: "user123",
-      });
-      expect(result).toEqual(mockProfileRecord);
-    });
-
     test("create should persist structural data schemas directly down to the persistence tier", async () => {
       mockMenteeProfileModel.create.mockResolvedValue(mockProfileRecord);
       const incomingPayload = { user: "user123", skills: ["JavaScript"] };

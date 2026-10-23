@@ -243,6 +243,7 @@ const mentorReferService = createMentorReferService({
 });
 
 const earningsService = createEarningsService({
+  mongoose,
   connectRequestRepository,
   mentorRepository: mentorProfileRepository,
   walletRepository,

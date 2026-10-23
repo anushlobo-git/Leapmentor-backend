@@ -4,6 +4,7 @@
  */
 
 const catchAsync = require("../utils/catchAsync");
+const { sendSuccess } = require("../utils/apiResponse");
 
 const createAiController = ({ aiService }) => {
   /**
@@ -15,9 +16,7 @@ const createAiController = ({ aiService }) => {
 
     const text = await aiService.generateChatResponse(messages, systemPrompt);
 
-    res.status(200).json({
-      content: [{ type: "text", text }],
-    });
+    sendSuccess(res, { content: [{ type: "text", text }] }, "Chat response generated");
   });
 
   return {

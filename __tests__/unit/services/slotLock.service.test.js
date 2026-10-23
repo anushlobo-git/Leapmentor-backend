@@ -17,6 +17,8 @@ describe("Slot Lock Service Unit Tests", () => {
     mockLockRepo = {
       findActiveLocksByMentorAndDate: jest.fn(),
       upsertSlotLock: jest.fn(),
+      findLockBySlot: jest.fn(),
+      deleteLockById: jest.fn(),
       deleteOneLock: jest.fn(),
       deleteManyLocks: jest.fn(),
       findActiveLocksExcludingUser: jest.fn(),
@@ -48,6 +50,29 @@ describe("Slot Lock Service Unit Tests", () => {
           400,
         ),
       );
+    });
+
+    test("should gracefully treat malformed booking records lacking any slot fields as having zero booked slots", async () => {
+      const malformedBooking = [
+        {
+          // neither selectedSlots nor selectedSlot present
+        },
+      ];
+      mockConnectRepo.findBookedRequestsByMentor.mockResolvedValue(
+        malformedBooking,
+      );
+      mockLockRepo.findActiveLocksByMentorAndDate.mockResolvedValue([]);
+
+      const fields = {
+        mentorId: mockMentorId,
+        date: targetDate,
+        startTime: "09:00",
+        endTime: "10:00",
+      };
+      const result = await service.acquireSlotLock(mockMenteeId, fields);
+
+      expect(mockLockRepo.upsertSlotLock).toHaveBeenCalled();
+      expect(result.lockedFor).toBe(10);
     });
 
     test("should skip evaluation logic if permanent booking entries map to completely different dates", async () => {
@@ -196,6 +221,76 @@ describe("Slot Lock Service Unit Tests", () => {
         expect.any(Date),
       );
       expect(result.lockedFor).toBe(10);
+    });
+
+    test("should surface a 409 SLOT_LOCKED conflict when the unique index rejects a competing insert", async () => {
+      mockConnectRepo.findBookedRequestsByMentor.mockResolvedValue([]);
+      mockLockRepo.findActiveLocksByMentorAndDate.mockResolvedValue([]);
+      mockLockRepo.upsertSlotLock.mockRejectedValueOnce({ code: 11000 });
+      // The conflicting lock is still live, so the slot is genuinely held.
+      mockLockRepo.findLockBySlot.mockResolvedValue({
+        _id: "lock_live",
+        expiresAt: new Date(Date.now() + 5 * 60 * 1000),
+      });
+
+      const fields = {
+        mentorId: mockMentorId,
+        date: targetDate,
+        startTime: "14:00",
+        endTime: "15:00",
+      };
+
+      await expect(
+        service.acquireSlotLock(mockMenteeId, fields),
+      ).rejects.toThrow(
+        expect.objectContaining({ statusCode: 409, code: "SLOT_LOCKED" }),
+      );
+      expect(mockLockRepo.deleteLockById).not.toHaveBeenCalled();
+    });
+
+    test("should reclaim an expired lock lingering past TTL sweep and retry the insert once", async () => {
+      mockConnectRepo.findBookedRequestsByMentor.mockResolvedValue([]);
+      mockLockRepo.findActiveLocksByMentorAndDate.mockResolvedValue([]);
+      mockLockRepo.upsertSlotLock
+        .mockRejectedValueOnce({ code: 11000 })
+        .mockResolvedValueOnce({ _id: "lock_new" });
+      mockLockRepo.findLockBySlot.mockResolvedValue({
+        _id: "lock_stale",
+        expiresAt: new Date(Date.now() - 60 * 1000),
+      });
+      mockLockRepo.deleteLockById.mockResolvedValue({ deletedCount: 1 });
+
+      const fields = {
+        mentorId: mockMentorId,
+        date: targetDate,
+        startTime: "14:00",
+        endTime: "15:00",
+      };
+
+      const result = await service.acquireSlotLock(mockMenteeId, fields);
+
+      expect(mockLockRepo.deleteLockById).toHaveBeenCalledWith("lock_stale");
+      expect(mockLockRepo.upsertSlotLock).toHaveBeenCalledTimes(2);
+      expect(result.lockedFor).toBe(10);
+    });
+
+    test("should rethrow non-duplicate errors from the lock upsert untouched", async () => {
+      mockConnectRepo.findBookedRequestsByMentor.mockResolvedValue([]);
+      mockLockRepo.findActiveLocksByMentorAndDate.mockResolvedValue([]);
+      mockLockRepo.upsertSlotLock.mockRejectedValueOnce(
+        new Error("Unexpected DB outage"),
+      );
+
+      const fields = {
+        mentorId: mockMentorId,
+        date: targetDate,
+        startTime: "14:00",
+        endTime: "15:00",
+      };
+
+      await expect(
+        service.acquireSlotLock(mockMenteeId, fields),
+      ).rejects.toThrow("Unexpected DB outage");
     });
   });
 

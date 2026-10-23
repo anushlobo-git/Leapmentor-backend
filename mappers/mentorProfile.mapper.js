@@ -36,7 +36,7 @@ const toMentorProfileDTO = (profile) => {
     linkedInUrl: profile.linkedInUrl || "",
     portfolioUrl: profile.portfolioUrl || "",
     isProfileComplete: profile.isProfileComplete || false,
-    isProfilePublished: profile.isProfilePublished || false,
+    isProfilePublished: profile.isProfilePublished !== false,
     emailNotifications: profile.emailNotifications !== false,
     verificationStatus: profile.verificationStatus || "unverified",
     phoneNumber: profile.phoneNumber || "",

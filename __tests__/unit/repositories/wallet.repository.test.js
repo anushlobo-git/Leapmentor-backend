@@ -109,6 +109,21 @@ describe("Wallet Repository", () => {
       expect(mockChain.lean).toHaveBeenCalled();
       expect(result).toEqual(mockWalletRecord);
     });
+
+    test("findWalletByUserAndRoleMutable should constrain by owner and role without lean conversion", async () => {
+      mockWalletModel.findOne.mockResolvedValue(mockWalletRecord);
+
+      const result = await walletRepository.findWalletByUserAndRoleMutable(
+        "user456",
+        "mentor",
+      );
+
+      expect(mockWalletModel.findOne).toHaveBeenCalledWith({
+        user: "user456",
+        role: "mentor",
+      });
+      expect(result).toEqual(mockWalletRecord);
+    });
   });
 
   // ── TRANSACTIONAL & ROLE-SCOPED PIPELINES ───────────────────────────────
@@ -167,6 +182,23 @@ describe("Wallet Repository", () => {
         { user: "user456" },
         { $inc: { balance: 250 } },
         { new: true, upsert: true },
+      );
+      expect(result).toEqual(mockWalletRecord);
+    });
+
+    test("incrementBalanceByRole should scope to the role and never upsert", async () => {
+      mockWalletModel.findOneAndUpdate.mockResolvedValue(mockWalletRecord);
+
+      const result = await walletRepository.incrementBalanceByRole(
+        "user456",
+        "mentee",
+        500,
+      );
+
+      expect(mockWalletModel.findOneAndUpdate).toHaveBeenCalledWith(
+        { user: "user456", role: "mentee" },
+        { $inc: { balance: 500 } },
+        { new: true },
       );
       expect(result).toEqual(mockWalletRecord);
     });

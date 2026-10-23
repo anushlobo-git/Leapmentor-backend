@@ -11,6 +11,7 @@ jest.mock("../../../utils/catchAsync", () => {
 });
 
 const createAdminPaymentsController = require("../../../controllers/admin-payments.controller");
+const { successEnvelope } = require("../../helpers/apiResponse");
 
 describe("AdminPaymentsController", () => {
   let mockAdminPaymentsService;
@@ -90,10 +91,9 @@ describe("AdminPaymentsController", () => {
         mockAdminPaymentsService.getPaymentStatsService,
       ).toHaveBeenCalledWith("admin789");
       expect(res.status).toHaveBeenCalledWith(200);
-      expect(res.json).toHaveBeenCalledWith({
-        success: true,
-        data: mockStatsData,
-      });
+      expect(res.json).toHaveBeenCalledWith(
+        successEnvelope(mockStatsData, "Payment stats retrieved"),
+      );
       expect(next).not.toHaveBeenCalled();
     });
 
@@ -138,10 +138,9 @@ describe("AdminPaymentsController", () => {
         mockAdminPaymentsService.getRevenueChartService,
       ).toHaveBeenCalled();
       expect(res.status).toHaveBeenCalledWith(200);
-      expect(res.json).toHaveBeenCalledWith({
-        success: true,
-        data: mockChartData,
-      });
+      expect(res.json).toHaveBeenCalledWith(
+        successEnvelope(mockChartData, "Revenue chart retrieved"),
+      );
       expect(next).not.toHaveBeenCalled();
     });
 
@@ -174,10 +173,9 @@ describe("AdminPaymentsController", () => {
         type: "escrow",
       });
       expect(res.status).toHaveBeenCalledWith(200);
-      expect(res.json).toHaveBeenCalledWith({
-        success: true,
-        ...mockLedgerResult,
-      });
+      expect(res.json).toHaveBeenCalledWith(
+        successEnvelope(mockLedgerResult, "Transactions retrieved"),
+      );
       expect(next).not.toHaveBeenCalled();
     });
 

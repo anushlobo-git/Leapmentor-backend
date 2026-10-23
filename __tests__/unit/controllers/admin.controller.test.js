@@ -11,6 +11,7 @@ jest.mock("../../../utils/catchAsync", () => {
 });
 
 const createAdminController = require("../../../controllers/admin.controller");
+const { successEnvelope } = require("../../helpers/apiResponse");
 
 describe("AdminController", () => {
   let mockAdminAuthService;
@@ -35,7 +36,11 @@ describe("AdminController", () => {
 
   beforeEach(() => {
     // ── MOCK DEPENDENCIES
-    mockAdminAuthService = { adminLoginService: jest.fn() };
+    mockAdminAuthService = {
+      adminLoginService: jest.fn(),
+      refreshAdminTokenService: jest.fn(),
+      adminLogoutService: jest.fn(),
+    };
     mockAdminStatsService = {
       getStatsService: jest.fn(),
       getUserGrowthService: jest.fn(),
@@ -44,7 +49,6 @@ describe("AdminController", () => {
     mockAdminUserService = {
       getUsersService: jest.fn(),
       getUserDetailService: jest.fn(),
-      deleteUserService: jest.fn(),
       blockUserService: jest.fn(),
       unblockUserService: jest.fn(),
     };
@@ -95,7 +99,8 @@ describe("AdminController", () => {
     test("should set cookie and return 200 with admin profile on successful login", async () => {
       req.body = { email: "admin@test.com", password: "password" };
       mockAdminAuthService.adminLoginService.mockResolvedValue({
-        token: "jwt_token_xyz",
+        accessToken: "jwt_token_xyz",
+        refreshToken: "refresh_token_xyz",
         admin: mockAdminData,
       });
 
@@ -104,16 +109,22 @@ describe("AdminController", () => {
       expect(mockAdminAuthService.adminLoginService).toHaveBeenCalledWith(
         req.body,
       );
-      expect(res.cookie).toHaveBeenCalledWith(
+      expect(res.cookie).toHaveBeenNthCalledWith(
+        1,
         "adminToken",
         "jwt_token_xyz",
         expect.any(Object),
       );
+      expect(res.cookie).toHaveBeenNthCalledWith(
+        2,
+        "adminRefreshToken",
+        "refresh_token_xyz",
+        expect.any(Object),
+      );
       expect(res.status).toHaveBeenCalledWith(200);
-      expect(res.json).toHaveBeenCalledWith({
-        success: true,
-        admin: mockAdminData,
-      });
+      expect(res.json).toHaveBeenCalledWith(
+        successEnvelope({ admin: mockAdminData }, "Admin login successful"),
+      );
       expect(next).not.toHaveBeenCalled();
     });
 
@@ -127,18 +138,21 @@ describe("AdminController", () => {
       expect(res.status).not.toHaveBeenCalled();
     });
 
-    test("should clear adminToken token cookie and return 200 on logout", () => {
-      controller.adminLogout(req, res);
+    test("should clear adminToken token cookie and return 200 on logout", async () => {
+      req.cookies = { adminRefreshToken: "some-refresh-token" };
+      await controller.adminLogout(req, res, next);
 
+      expect(mockAdminAuthService.adminLogoutService).toHaveBeenCalledWith(
+        "some-refresh-token",
+      );
       expect(res.clearCookie).toHaveBeenCalledWith(
         "adminToken",
         expect.any(Object),
       );
       expect(res.status).toHaveBeenCalledWith(200);
-      expect(res.json).toHaveBeenCalledWith({
-        success: true,
-        message: "Logged out.",
-      });
+      expect(res.json).toHaveBeenCalledWith(
+        successEnvelope(null, "Logged out."),
+      );
     });
 
     test("should return 200 and serialize current profile data matching req.admin", async () => {
@@ -147,8 +161,83 @@ describe("AdminController", () => {
       await controller.adminMe(req, res, next);
 
       expect(res.status).toHaveBeenCalledWith(200);
-      expect(res.json).toHaveBeenCalledWith({ admin: req.admin });
+      expect(res.json).toHaveBeenCalledWith(
+        successEnvelope({ admin: req.admin }, "Admin profile retrieved"),
+      );
       expect(next).not.toHaveBeenCalled();
+    });
+
+    test("should rotate access and refresh tokens on adminRefresh when service succeeds", async () => {
+      req.cookies = { adminRefreshToken: "old-refresh-token" };
+      mockAdminAuthService.refreshAdminTokenService = jest
+        .fn()
+        .mockResolvedValue({
+          accessToken: "new-access-token-xyz",
+          refreshToken: "new-refresh-token-xyz",
+        });
+
+      await controller.adminRefresh(req, res, next);
+
+      expect(
+        mockAdminAuthService.refreshAdminTokenService,
+      ).toHaveBeenCalledWith("old-refresh-token");
+      expect(res.cookie).toHaveBeenCalledWith(
+        "adminToken",
+        "new-access-token-xyz",
+        expect.any(Object),
+      );
+      expect(res.cookie).toHaveBeenCalledWith(
+        "adminRefreshToken",
+        "new-refresh-token-xyz",
+        expect.any(Object),
+      );
+      expect(res.status).toHaveBeenCalledWith(200);
+      expect(res.json).toHaveBeenCalledWith(
+        successEnvelope(null, "Session refreshed"),
+      );
+      expect(next).not.toHaveBeenCalled();
+    });
+
+    test("should call next(err) when refresh service fails (e.g., invalid/expired token)", async () => {
+      req.cookies = { adminRefreshToken: "expired-token" };
+      const error = new Error("Invalid or expired refresh token");
+      mockAdminAuthService.refreshAdminTokenService = jest
+        .fn()
+        .mockRejectedValue(error);
+
+      await controller.adminRefresh(req, res, next);
+
+      expect(
+        mockAdminAuthService.refreshAdminTokenService,
+      ).toHaveBeenCalledWith("expired-token");
+      expect(next).toHaveBeenCalledWith(error);
+      expect(res.status).not.toHaveBeenCalled();
+    });
+
+    test("should handle refresh when no cookie is present (treat as missing token)", async () => {
+      req.cookies = {};
+      const error = new Error("No refresh token provided");
+      mockAdminAuthService.refreshAdminTokenService = jest
+        .fn()
+        .mockRejectedValue(error);
+
+      await controller.adminRefresh(req, res, next);
+
+      expect(
+        mockAdminAuthService.refreshAdminTokenService,
+      ).toHaveBeenCalledWith(undefined);
+      expect(next).toHaveBeenCalledWith(error);
+    });
+
+    test("should also clear adminRefreshToken cookie on logout", async () => {
+      req.cookies = { adminRefreshToken: "some-refresh-token" };
+      await controller.adminLogout(req, res, next);
+
+      expect(res.clearCookie).toHaveBeenNthCalledWith(
+        2,
+        "adminRefreshToken",
+        expect.any(Object),
+      );
     });
   });
 
@@ -167,7 +256,9 @@ describe("AdminController", () => {
         expect.any(Function),
       );
       expect(res.status).toHaveBeenCalledWith(200);
-      expect(res.json).toHaveBeenCalledWith(mockTelemetryStats);
+      expect(res.json).toHaveBeenCalledWith(
+        successEnvelope(mockTelemetryStats, "Platform stats retrieved"),
+      );
       expect(next).not.toHaveBeenCalled();
     });
 
@@ -194,7 +285,9 @@ describe("AdminController", () => {
         expect.any(Function),
       );
       expect(res.status).toHaveBeenCalledWith(200);
-      expect(res.json).toHaveBeenCalledWith(mockGrowthData);
+      expect(res.json).toHaveBeenCalledWith(
+        successEnvelope(mockGrowthData, "User growth data retrieved"),
+      );
       expect(next).not.toHaveBeenCalled();
     });
 
@@ -221,7 +314,9 @@ describe("AdminController", () => {
         expect.any(Function),
       );
       expect(res.status).toHaveBeenCalledWith(200);
-      expect(res.json).toHaveBeenCalledWith(mockIndustryStats);
+      expect(res.json).toHaveBeenCalledWith(
+        successEnvelope(mockIndustryStats, "Mentor industry stats retrieved"),
+      );
       expect(next).not.toHaveBeenCalled();
     });
 
@@ -253,7 +348,9 @@ describe("AdminController", () => {
         limit: "10",
       });
       expect(res.status).toHaveBeenCalledWith(200);
-      expect(res.json).toHaveBeenCalledWith(mockUsersCollection);
+      expect(res.json).toHaveBeenCalledWith(
+        successEnvelope(mockUsersCollection, "Users retrieved"),
+      );
       expect(next).not.toHaveBeenCalled();
     });
 
@@ -278,7 +375,9 @@ describe("AdminController", () => {
         "usr_target999",
       );
       expect(res.status).toHaveBeenCalledWith(200);
-      expect(res.json).toHaveBeenCalledWith(targetDetail);
+      expect(res.json).toHaveBeenCalledWith(
+        successEnvelope(targetDetail, "User details retrieved"),
+      );
       expect(next).not.toHaveBeenCalled();
     });
 
@@ -288,37 +387,6 @@ describe("AdminController", () => {
       mockAdminUserService.getUserDetailService.mockRejectedValue(error);
 
       await controller.getUserDetail(req, res, next);
-
-      expect(next).toHaveBeenCalledWith(error);
-      expect(res.status).not.toHaveBeenCalled();
-    });
-
-    test("should return 200 and confirm hard-delete string interpolations inside deleteUser", async () => {
-      req.params.userId = "usr_drop_777";
-      mockAdminUserService.deleteUserService.mockResolvedValue({
-        name: "Bob Dev",
-        email: "bob@test.com",
-      });
-
-      await controller.deleteUser(req, res, next);
-
-      expect(mockAdminUserService.deleteUserService).toHaveBeenCalledWith(
-        "usr_drop_777",
-      );
-      expect(res.status).toHaveBeenCalledWith(200);
-      expect(res.json).toHaveBeenCalledWith({
-        success: true,
-        message: "User Bob Dev (bob@test.com) has been permanently deleted.",
-      });
-      expect(next).not.toHaveBeenCalled();
-    });
-
-    test("should call next(err) and withhold HTTP status updates when deleteUser service throws", async () => {
-      req.params.userId = "usr_error";
-      const error = new Error("Write locks conflict");
-      mockAdminUserService.deleteUserService.mockRejectedValue(error);
-
-      await controller.deleteUser(req, res, next);
 
       expect(next).toHaveBeenCalledWith(error);
       expect(res.status).not.toHaveBeenCalled();
@@ -336,10 +404,9 @@ describe("AdminController", () => {
         "usr_block_456",
       );
       expect(res.status).toHaveBeenCalledWith(200);
-      expect(res.json).toHaveBeenCalledWith({
-        success: true,
-        message: "User Charlie has been blocked.",
-      });
+      expect(res.json).toHaveBeenCalledWith(
+        successEnvelope(null, "User Charlie has been blocked."),
+      );
       expect(next).not.toHaveBeenCalled();
     });
 
@@ -366,10 +433,9 @@ describe("AdminController", () => {
         "usr_restore_123",
       );
       expect(res.status).toHaveBeenCalledWith(200);
-      expect(res.json).toHaveBeenCalledWith({
-        success: true,
-        message: "User David has been restored.",
-      });
+      expect(res.json).toHaveBeenCalledWith(
+        successEnvelope(null, "User David has been restored."),
+      );
       expect(next).not.toHaveBeenCalled();
     });
 
@@ -401,7 +467,9 @@ describe("AdminController", () => {
         expect.any(Function),
       );
       expect(res.status).toHaveBeenCalledWith(200);
-      expect(res.json).toHaveBeenCalledWith(mockEngagementStats);
+      expect(res.json).toHaveBeenCalledWith(
+        successEnvelope(mockEngagementStats, "Engagement stats retrieved"),
+      );
       expect(next).not.toHaveBeenCalled();
     });
 
@@ -430,7 +498,9 @@ describe("AdminController", () => {
         mockAdminEngagementService.getEngagementsService,
       ).toHaveBeenCalledWith({ page: "3", status: "ongoing" });
       expect(res.status).toHaveBeenCalledWith(200);
-      expect(res.json).toHaveBeenCalledWith(mockEngagementsResult);
+      expect(res.json).toHaveBeenCalledWith(
+        successEnvelope(mockEngagementsResult, "Engagements retrieved"),
+      );
       expect(next).not.toHaveBeenCalled();
     });
 

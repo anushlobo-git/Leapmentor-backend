@@ -106,10 +106,41 @@ const createSlotLockService = ({
 
     const expiresAt = new Date(Date.now() + LOCK_DURATION_MINUTES * 60 * 1000);
 
-    await slotLockRepository.upsertSlotLock(
-      { mentorId, date, startTime, endTime, lockedBy: menteeId },
-      expiresAt,
-    );
+    const lockPayload = { mentorId, date, startTime, endTime, lockedBy: menteeId };
+
+    try {
+      await slotLockRepository.upsertSlotLock(lockPayload, expiresAt);
+    } catch (err) {
+      // The unique index on (mentorId, date, startTime, endTime) makes the
+      // insert atomic: a competing user racing for the same slot loses here.
+      if (err && err.code === 11000) {
+        // TTL sweeps are eventual, so an expired lock may still occupy the slot.
+        // Reclaim it once if it has lapsed; otherwise the slot is genuinely held.
+        const existing = await slotLockRepository.findLockBySlot({
+          mentorId,
+          date,
+          startTime,
+          endTime,
+        });
+
+        if (existing && new Date(existing.expiresAt) <= new Date()) {
+          await slotLockRepository.deleteLockById(existing._id);
+          await slotLockRepository.upsertSlotLock(lockPayload, expiresAt);
+          return {
+            expiresAt,
+            lockedFor: LOCK_DURATION_MINUTES,
+          };
+        }
+
+        const conflict = new AppError(
+          "Availability restriction: This slot is temporarily held by another checking-out user",
+          409,
+        );
+        conflict.code = "SLOT_LOCKED";
+        throw conflict;
+      }
+      throw err;
+    }
 
     return {
       expiresAt,

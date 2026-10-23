@@ -11,6 +11,7 @@ jest.mock("../../../utils/catchAsync", () => {
 });
 
 const createAvailabilityController = require("../../../controllers/availability.controller");
+const { successEnvelope } = require("../../helpers/apiResponse");
 
 describe("AvailabilityController", () => {
   let mockAvailabilityService;
@@ -77,7 +78,9 @@ describe("AvailabilityController", () => {
         "mentor_variant_x",
       );
       expect(res.status).toHaveBeenCalledWith(200);
-      expect(res.json).toHaveBeenCalledWith(mockAvailabilityConfig);
+      expect(res.json).toHaveBeenCalledWith(
+        successEnvelope(mockAvailabilityConfig, "Availability retrieved"),
+      );
       expect(next).not.toHaveBeenCalled();
     });
 
@@ -108,11 +111,12 @@ describe("AvailabilityController", () => {
         req.body,
       );
       expect(res.status).toHaveBeenCalledWith(201);
-      expect(res.json).toHaveBeenCalledWith({
-        success: true,
-        message: "Availability created successfully",
-        availability: mockAvailabilityConfig,
-      });
+      expect(res.json).toHaveBeenCalledWith(
+        successEnvelope(
+          { availability: mockAvailabilityConfig },
+          "Availability created successfully",
+        ),
+      );
       expect(next).not.toHaveBeenCalled();
     });
 
@@ -145,11 +149,12 @@ describe("AvailabilityController", () => {
         req.body,
       );
       expect(res.status).toHaveBeenCalledWith(200);
-      expect(res.json).toHaveBeenCalledWith({
-        success: true,
-        message: "Availability updated successfully",
-        availability: mockAvailabilityConfig,
-      });
+      expect(res.json).toHaveBeenCalledWith(
+        successEnvelope(
+          { availability: mockAvailabilityConfig },
+          "Availability updated successfully",
+        ),
+      );
       expect(next).not.toHaveBeenCalled();
     });
 
@@ -178,7 +183,12 @@ describe("AvailabilityController", () => {
         mockAvailabilityService.getMentorAvailability,
       ).toHaveBeenCalledWith("mentor_public_456");
       expect(res.status).toHaveBeenCalledWith(200);
-      expect(res.json).toHaveBeenCalledWith(mockAvailabilityConfig);
+      expect(res.json).toHaveBeenCalledWith(
+        successEnvelope(
+          mockAvailabilityConfig,
+          "Mentor availability retrieved",
+        ),
+      );
       expect(next).not.toHaveBeenCalled();
     });
 
@@ -206,10 +216,9 @@ describe("AvailabilityController", () => {
         "mentor_purge_777",
       );
       expect(res.status).toHaveBeenCalledWith(200);
-      expect(res.json).toHaveBeenCalledWith({
-        success: true,
-        message: "Availability cleared successfully",
-      });
+      expect(res.json).toHaveBeenCalledWith(
+        successEnvelope(null, "Availability cleared successfully"),
+      );
       expect(next).not.toHaveBeenCalled();
     });
 
@@ -242,7 +251,9 @@ describe("AvailabilityController", () => {
         "mentee_visitor_888",
       );
       expect(res.status).toHaveBeenCalledWith(200);
-      expect(res.json).toHaveBeenCalledWith(mockSlotsResult);
+      expect(res.json).toHaveBeenCalledWith(
+        successEnvelope(mockSlotsResult, "Available slots retrieved"),
+      );
       expect(next).not.toHaveBeenCalled();
     });
 

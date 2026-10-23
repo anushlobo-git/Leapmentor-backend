@@ -5,6 +5,7 @@
  */
 
 const createLeapRequestController = require("../../../controllers/leapRequest.controller");
+const { successEnvelope } = require("../../helpers/apiResponse");
 
 describe("LeapRequest Controller", () => {
   let mockLeapRequestService;
@@ -25,7 +26,9 @@ describe("LeapRequest Controller", () => {
       rejectLeapRequest: jest.fn(),
     };
 
-    controller = createLeapRequestController({ leapRequestService: mockLeapRequestService });
+    controller = createLeapRequestController({
+      leapRequestService: mockLeapRequestService,
+    });
 
     mockReq = {
       user: { _id: "mentee123" },
@@ -59,10 +62,9 @@ describe("LeapRequest Controller", () => {
         "mentee123",
       );
       expect(mockRes.status).toHaveBeenCalledWith(200);
-      expect(mockRes.json).toHaveBeenCalledWith({
-        success: true,
-        data: mockPayload,
-      });
+      expect(mockRes.json).toHaveBeenCalledWith(
+        successEnvelope(mockPayload, "Pending leap request retrieved"),
+      );
     });
 
     test("should respond with 200 and explicitly return null if no request is active", async () => {
@@ -71,7 +73,9 @@ describe("LeapRequest Controller", () => {
       await controller.getMyRequest(mockReq, mockRes, mockNext);
       await flushPromises();
 
-      expect(mockRes.json).toHaveBeenCalledWith({ success: true, data: null });
+      expect(mockRes.json).toHaveBeenCalledWith(
+        successEnvelope(null, "Pending leap request retrieved"),
+      );
     });
   });
 
@@ -88,10 +92,12 @@ describe("LeapRequest Controller", () => {
         "mentee123",
       );
       expect(mockRes.status).toHaveBeenCalledWith(201);
-      expect(mockRes.json).toHaveBeenCalledWith({
-        message: "Request submitted successfully.",
-        request: mockPayload,
-      });
+      expect(mockRes.json).toHaveBeenCalledWith(
+        successEnvelope(
+          { request: mockPayload },
+          "Request submitted successfully.",
+        ),
+      );
     });
   });
 
@@ -117,7 +123,9 @@ describe("LeapRequest Controller", () => {
       await flushPromises();
 
       expect(mockLeapRequestService.getPendingCount).toHaveBeenCalled();
-      expect(mockRes.json).toHaveBeenCalledWith({ count: 42 });
+      expect(mockRes.json).toHaveBeenCalledWith(
+        successEnvelope({ count: 42 }, "Pending request count retrieved"),
+      );
     });
   });
 
@@ -139,7 +147,13 @@ describe("LeapRequest Controller", () => {
       );
       expect(mockRes.status).toHaveBeenCalledWith(200);
       expect(mockRes.json).toHaveBeenCalledWith(
-        expect.objectContaining({ newBalance: 1000 }),
+        successEnvelope(
+          expect.objectContaining({
+            newBalance: 1000,
+            request: expect.any(Object),
+          }),
+          "500 LP added successfully.",
+        ),
       );
     });
 
@@ -159,7 +173,7 @@ describe("LeapRequest Controller", () => {
       );
       expect(mockRes.status).toHaveBeenCalledWith(200);
       expect(mockRes.json).toHaveBeenCalledWith(
-        expect.objectContaining({ message: "Request rejected." }),
+        successEnvelope(expect.any(Object), "Request rejected."),
       );
     });
   });

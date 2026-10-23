@@ -127,19 +127,6 @@ describe("User Repository", () => {
       expect(result).toEqual(mockUserRecord);
     });
 
-    test("findUserByIdRaw should return mutable documents tracking raw identifier keys", async () => {
-      const mockChain = makeChain(mockUserRecord);
-      mockUserModel.findById.mockReturnValue(mockChain);
-
-      const result = await userRepository.findUserByIdRaw("user123");
-
-      expect(mockUserModel.findById).toHaveBeenCalledWith("user123");
-      expect(mockChain.setOptions).toHaveBeenCalledWith({
-        ignoreIsDeleted: true,
-      });
-      expect(result).toEqual(mockUserRecord);
-    });
-
     test("findUsers should apply complete pagination boundaries alongside deletion bypass rules", async () => {
       const mockChain = makeChain(mockRecordsArray);
       mockUserModel.find.mockReturnValue(mockChain);
@@ -224,17 +211,6 @@ describe("User Repository", () => {
 
   // ── MUTATIONS, BLOCKS & ACCOUNT REMOVALS ────────────────────────────────
   describe("Mutations, Blocks & Account Removals", () => {
-    test("deleteUserById should enforce hard-purges across target accounts bypassing soft deletion configurations", async () => {
-      mockUserModel.findByIdAndDelete.mockResolvedValue(mockUserRecord);
-
-      const result = await userRepository.deleteUserById("user123");
-
-      expect(mockUserModel.findByIdAndDelete).toHaveBeenCalledWith("user123", {
-        ignoreIsDeleted: true,
-      });
-      expect(result).toEqual(mockUserRecord);
-    });
-
     test("blockUser should update soft deletion parameters tracking flexible timestamps safely", async () => {
       mockUserModel.findByIdAndUpdate.mockResolvedValue(mockUserRecord);
 

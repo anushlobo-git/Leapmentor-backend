@@ -5,6 +5,7 @@
  */
 
 const createLoginController = require("../../../controllers/login.controller");
+const { successEnvelope } = require("../../helpers/apiResponse");
 
 describe("User Login Controller Unit Tests", () => {
   let mockAuthService;
@@ -25,7 +26,10 @@ describe("User Login Controller Unit Tests", () => {
       setAuthCookies: jest.fn(),
     };
 
-    controller = createLoginController({ authService: mockAuthService, cookieUtils: mockCookieUtils });
+    controller = createLoginController({
+      authService: mockAuthService,
+      cookieUtils: mockCookieUtils,
+    });
 
     mockReq = {
       body: {
@@ -65,15 +69,17 @@ describe("User Login Controller Unit Tests", () => {
     expect(mockCookieUtils.setAuthCookies).toHaveBeenCalledWith(
       mockRes,
       "mock_refresh_jwt_token",
-      "mentor",
     );
     expect(mockRes.status).toHaveBeenCalledWith(200);
-    expect(mockRes.json).toHaveBeenCalledWith({
-      success: true,
-      message: "Login successful",
-      user: mockServiceResponse.user,
-      accessToken: "mock_access_jwt_token",
-    });
+    expect(mockRes.json).toHaveBeenCalledWith(
+      successEnvelope(
+        {
+          user: mockServiceResponse.user,
+          accessToken: "mock_access_jwt_token",
+        },
+        "Login successful",
+      ),
+    );
   });
 
   test("should handle user with no roles array", async () => {
@@ -93,7 +99,6 @@ describe("User Login Controller Unit Tests", () => {
     expect(mockCookieUtils.setAuthCookies).toHaveBeenCalledWith(
       mockRes,
       "mock_refresh_jwt_token",
-      null,
     );
   });
 

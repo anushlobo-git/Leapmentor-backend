@@ -4,6 +4,7 @@
  */
 
 const catchAsync = require("../utils/catchAsync");
+const { sendSuccess, STATUS } = require("../utils/apiResponse");
 
 const createPrivateNoteController = ({ privateNoteService }) => {
   const createNote = catchAsync(async (req, res, next) => {
@@ -11,10 +12,7 @@ const createPrivateNoteController = ({ privateNoteService }) => {
       req.user._id,
       req.body,
     );
-    return res.status(201).json({
-      success: true,
-      note,
-    });
+    return sendSuccess(res, { note }, "Private note created", STATUS.CREATED);
   });
 
   const getNotes = catchAsync(async (req, res, next) => {
@@ -22,10 +20,7 @@ const createPrivateNoteController = ({ privateNoteService }) => {
       req.params.connectRequestId,
       req.user._id,
     );
-    return res.status(200).json({
-      success: true,
-      notes,
-    });
+    return sendSuccess(res, { notes }, "Private notes retrieved");
   });
 
   const updateNote = catchAsync(async (req, res, next) => {
@@ -34,18 +29,12 @@ const createPrivateNoteController = ({ privateNoteService }) => {
       req.user._id,
       req.body,
     );
-    return res.status(200).json({
-      success: true,
-      note,
-    });
+    return sendSuccess(res, { note }, "Private note updated");
   });
 
   const deleteNote = catchAsync(async (req, res, next) => {
     await privateNoteService.removePrivateNote(req.params.id, req.user._id);
-    return res.status(200).json({
-      success: true,
-      message: "Note deleted successfully",
-    });
+    return sendSuccess(res, null, "Note deleted successfully");
   });
 
   return {

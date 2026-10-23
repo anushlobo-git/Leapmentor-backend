@@ -142,12 +142,6 @@ const createConnectRequestService = ({
       },
     );
 
-    await connectRequestRepository.rejectConflictingSlots(
-      request._id,
-      currentMentorId,
-      confirmedSlot,
-    );
-
     fireAndForgetEmail(
       () =>
         sendRequestAcceptedEmail({
@@ -414,15 +408,74 @@ const createConnectRequestService = ({
       });
     }
 
-    request.status = status;
-    request.respondedAt = new Date();
-
+    // The accept path mutates the permanent booking, so it must be serialized
+    // against concurrent accepts of the same slot. We re-load and re-validate
+    // inside a transaction; rejectConflictingSlots forces two racing accepts to
+    // contend on the same document, so withTransaction retries the loser, which
+    // then trips the SLOT_TAKEN guard below. Rejections need no such guard.
     if (status === "accepted") {
-      request.confirmedSlot = confirmedSlot;
-      await backfillSessionEconomics(request, currentMentorId);
-    }
+      const session = await mongoose.startSession();
+      try {
+        await session.withTransaction(async () => {
+          const fresh = await connectRequestRepository.findByIdWithParticipants(
+            requestId,
+            session,
+          );
+          if (!fresh) {
+            throw Object.assign(new Error("Request not found"), {
+              statusCode: 404,
+            });
+          }
+          if (fresh.status !== "pending") {
+            throw Object.assign(new Error(`Request already ${fresh.status}`), {
+              statusCode: 400,
+            });
+          }
 
-    await connectRequestRepository.saveRequest(request);
+          const clash =
+            await connectRequestRepository.findAcceptedSlotConflict(
+              currentMentorId,
+              confirmedSlot,
+              requestId,
+              session,
+            );
+          if (clash) {
+            const conflict = new Error(
+              "This slot has just been booked by another session. Please choose another.",
+            );
+            conflict.statusCode = 409;
+            conflict.code = "SLOT_TAKEN";
+            throw conflict;
+          }
+
+          fresh.status = "accepted";
+          fresh.respondedAt = new Date();
+          fresh.confirmedSlot = confirmedSlot;
+          await backfillSessionEconomics(fresh, currentMentorId);
+          await connectRequestRepository.save(fresh, session);
+          await connectRequestRepository.rejectConflictingSlots(
+            requestId,
+            currentMentorId,
+            confirmedSlot,
+            session,
+          );
+
+          // Reflect the committed state onto the object used for side-effects.
+          request.status = fresh.status;
+          request.respondedAt = fresh.respondedAt;
+          request.confirmedSlot = fresh.confirmedSlot;
+          request.sessionRate = fresh.sessionRate;
+          request.sessionCount = fresh.sessionCount;
+          request.totalAmount = fresh.totalAmount;
+        });
+      } finally {
+        session.endSession();
+      }
+    } else {
+      request.status = status;
+      request.respondedAt = new Date();
+      await connectRequestRepository.saveRequest(request);
+    }
 
     const currentMenteeId = request.mentee?._id ?? request.mentee;
 

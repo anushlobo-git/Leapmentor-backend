@@ -11,6 +11,7 @@ jest.mock("../../../utils/catchAsync", () => {
 });
 
 const createAdminReportsController = require("../../../controllers/admin-reports.controller");
+const { successEnvelope } = require("../../helpers/apiResponse");
 
 describe("AdminReportsController", () => {
   let mockAdminReportsService;
@@ -94,12 +95,9 @@ describe("AdminReportsController", () => {
       );
       expect(mockAdminReportsService.getReportStatsService).toHaveBeenCalled();
       expect(res.status).toHaveBeenCalledWith(200);
-      expect(res.json).toHaveBeenCalledWith({
-        success: true,
-        totalReports: 25,
-        pendingReports: 5,
-        resolvedReports: 20,
-      });
+      expect(res.json).toHaveBeenCalledWith(
+        successEnvelope(mockStatsData, "Report stats retrieved"),
+      );
       expect(next).not.toHaveBeenCalled();
     });
 
@@ -129,11 +127,9 @@ describe("AdminReportsController", () => {
         page: "1",
       });
       expect(res.status).toHaveBeenCalledWith(200);
-      expect(res.json).toHaveBeenCalledWith({
-        success: true,
-        reports: [{ _id: "rep123", reason: "Spam" }],
-        totalCount: 1,
-      });
+      expect(res.json).toHaveBeenCalledWith(
+        successEnvelope(mockReportsResult, "Reports retrieved"),
+      );
       expect(next).not.toHaveBeenCalled();
     });
 
@@ -168,11 +164,9 @@ describe("AdminReportsController", () => {
         "admin:reports:telemetry-stats",
       );
       expect(res.status).toHaveBeenCalledWith(200);
-      expect(res.json).toHaveBeenCalledWith({
-        success: true,
-        message: "Report resolved.",
-        report: mockReportRecord,
-      });
+      expect(res.json).toHaveBeenCalledWith(
+        successEnvelope({ report: mockReportRecord }, "Report resolved."),
+      );
       expect(next).not.toHaveBeenCalled();
     });
 
@@ -211,11 +205,12 @@ describe("AdminReportsController", () => {
         "admin:reports:telemetry-stats",
       );
       expect(res.status).toHaveBeenCalledWith(200);
-      expect(res.json).toHaveBeenCalledWith({
-        success: true,
-        message: "Refund of 150 tokens processed successfully.",
-        refundAmount: 150,
-      });
+      expect(res.json).toHaveBeenCalledWith(
+        successEnvelope(
+          { refundAmount: 150 },
+          "Refund of 150 tokens processed successfully.",
+        ),
+      );
       expect(next).not.toHaveBeenCalled();
     });
 
@@ -249,10 +244,9 @@ describe("AdminReportsController", () => {
         "admin:reports:telemetry-stats",
       );
       expect(res.status).toHaveBeenCalledWith(200);
-      expect(res.json).toHaveBeenCalledWith({
-        success: true,
-        message: "Session deleted and both parties notified.",
-      });
+      expect(res.json).toHaveBeenCalledWith(
+        successEnvelope(null, "Session deleted and both parties notified."),
+      );
       expect(next).not.toHaveBeenCalled();
     });
 

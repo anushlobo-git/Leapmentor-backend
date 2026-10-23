@@ -5,6 +5,7 @@
  */
 
 const catchAsync = require("../utils/catchAsync");
+const { sendSuccess } = require("../utils/apiResponse");
 
 const CACHE_TTL_SECONDS = 300; // 5-Minute corporate caching standard window
 const STATS_CACHE_KEY = "admin:reports:telemetry-stats";
@@ -16,12 +17,12 @@ const createAdminReportsController = ({adminReportsService, cacheUtility}) => {
       CACHE_TTL_SECONDS,
       () => adminReportsService.getReportStatsService(),
     );
-    res.status(200).json({ success: true, ...data });
+    sendSuccess(res, data, "Report stats retrieved");
   });
 
   const getReports = catchAsync(async (req, res) => {
     const result = await adminReportsService.getReportsService(req.query);
-    res.status(200).json({ success: true, ...result });
+    sendSuccess(res, result, "Reports retrieved");
   });
 
   const handleReport = catchAsync(async (req, res) => {
@@ -32,9 +33,7 @@ const createAdminReportsController = ({adminReportsService, cacheUtility}) => {
     );
     await cacheUtility.evictCache?.(STATS_CACHE_KEY);
 
-    res
-      .status(200)
-      .json({ success: true, message: `Report ${req.body.status}.`, report });
+    sendSuccess(res, { report }, `Report ${req.body.status}.`);
   });
 
   const processRefund = catchAsync(async (req, res) => {
@@ -45,11 +44,11 @@ const createAdminReportsController = ({adminReportsService, cacheUtility}) => {
     );
     await cacheUtility.evictCache?.(STATS_CACHE_KEY);
 
-    res.status(200).json({
-      success: true,
-      message: `Refund of ${refundAmount} tokens processed successfully.`,
-      refundAmount,
-    });
+    sendSuccess(
+      res,
+      { refundAmount },
+      `Refund of ${refundAmount} tokens processed successfully.`,
+    );
   });
 
   const deleteSession = catchAsync(async (req, res) => {
@@ -60,10 +59,7 @@ const createAdminReportsController = ({adminReportsService, cacheUtility}) => {
     );
     await cacheUtility.evictCache?.(STATS_CACHE_KEY);
 
-    res.status(200).json({
-      success: true,
-      message: "Session deleted and both parties notified.",
-    });
+    sendSuccess(res, null, "Session deleted and both parties notified.");
   });
 
   return {

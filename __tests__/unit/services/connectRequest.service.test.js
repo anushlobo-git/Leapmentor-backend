@@ -1,6 +1,12 @@
 const createConnectRequestService = require("../../../services/connectRequest.service");
 const mongoose = require("mongoose");
 
+// Transactions are mocked: startSession yields a session whose withTransaction
+// simply runs the callback once (no real Mongo, no retry) so the accept path's
+// serialized critical section can be unit-tested in isolation.
+let mockSession;
+let mongooseForService;
+
 const toConnectRequestDTO = jest.fn((v) => ({ isRequestDTO: true, ...v }));
 const toMentorProfileDTO = jest.fn((v) =>
   v ? { isMentorDTO: true, ...v } : null,
@@ -45,7 +51,9 @@ describe("connectRequest.service", () => {
       findIncomingRequests: jest.fn(),
       findByIdWithParticipants: jest.fn(),
       saveRequest: jest.fn(),
+      save: jest.fn(),
       rejectConflictingSlots: jest.fn(),
+      findAcceptedSlotConflict: jest.fn(),
       findByIdRaw: jest.fn(),
       deleteRequestById: jest.fn(),
       findOngoingConnects: jest.fn(),
@@ -66,6 +74,15 @@ describe("connectRequest.service", () => {
     socketService = { emitToUser: jest.fn() };
     logger = { info: jest.fn() };
 
+    mockSession = {
+      withTransaction: jest.fn(async (cb) => cb()),
+      endSession: jest.fn(),
+    };
+    mongooseForService = {
+      Types: mongoose.Types,
+      startSession: jest.fn().mockResolvedValue(mockSession),
+    };
+
     service = createConnectRequestService({
       connectRequestRepository: repo,
       mentorProfileRepository: mentorRepo,
@@ -77,7 +94,7 @@ describe("connectRequest.service", () => {
       toConnectRequestDTO,
       toMentorProfileDTO,
       toMenteeProfileDTO,
-      mongoose,
+      mongoose: mongooseForService,
       logger,
     });
   });
@@ -346,6 +363,56 @@ describe("connectRequest.service", () => {
         expect.objectContaining({ type: "connect_request_accepted" }),
       );
       expect(result.isRequestDTO).toBe(true);
+    });
+    test("accept runs inside a transaction and persists with the session", async () => {
+      repo.findByIdWithParticipants.mockResolvedValue({
+        _id: "r1",
+        status: "pending",
+        mentor: { _id: "m1", name: "Dr.A" },
+        mentee: { _id: "u1", name: "Alice", email: "a@b.com" },
+        selectedSlots: [validSlot],
+        sessionRate: 100,
+        sessionCount: 1,
+      });
+      await service.respondToRequestService("r1", "m1", {
+        status: "accepted",
+        confirmedSlot,
+      });
+      expect(mongooseForService.startSession).toHaveBeenCalled();
+      expect(mockSession.withTransaction).toHaveBeenCalled();
+      expect(mockSession.endSession).toHaveBeenCalled();
+      expect(repo.save).toHaveBeenCalledWith(
+        expect.any(Object),
+        mockSession,
+      );
+      expect(repo.rejectConflictingSlots).toHaveBeenCalledWith(
+        "r1",
+        "m1",
+        confirmedSlot,
+        mockSession,
+      );
+      // The advisory saveRequest path is not used for accepts anymore.
+      expect(repo.saveRequest).not.toHaveBeenCalled();
+    });
+    test("throws 409 SLOT_TAKEN when the slot was booked concurrently", async () => {
+      repo.findByIdWithParticipants.mockResolvedValue({
+        _id: "r1",
+        status: "pending",
+        mentor: { _id: "m1", name: "Dr.A" },
+        mentee: { _id: "u1", name: "Alice", email: "a@b.com" },
+        selectedSlots: [validSlot],
+        sessionRate: 100,
+        sessionCount: 1,
+      });
+      repo.findAcceptedSlotConflict.mockResolvedValue({ _id: "other" });
+      await expect(
+        service.respondToRequestService("r1", "m1", {
+          status: "accepted",
+          confirmedSlot,
+        }),
+      ).rejects.toMatchObject({ statusCode: 409, code: "SLOT_TAKEN" });
+      expect(repo.save).not.toHaveBeenCalled();
+      expect(repo.rejectConflictingSlots).not.toHaveBeenCalled();
     });
     test("rejects request, notifies mentee", async () => {
       repo.findByIdWithParticipants.mockResolvedValue({

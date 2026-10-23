@@ -11,6 +11,7 @@ jest.mock("../../../utils/catchAsync", () => {
 });
 
 const createAdminSettingsController = require("../../../controllers/admin-settings.controller");
+const { successEnvelope } = require("../../helpers/apiResponse");
 
 describe("AdminSettingsController", () => {
   let mockAdminSettingsService;
@@ -89,12 +90,9 @@ describe("AdminSettingsController", () => {
       );
       expect(mockAdminSettingsService.getOverviewService).toHaveBeenCalled();
       expect(res.status).toHaveBeenCalledWith(200);
-      expect(res.json).toHaveBeenCalledWith({
-        success: true,
-        totalUsers: 1500,
-        activeMentorships: 340,
-        pendingPayouts: 12,
-      });
+      expect(res.json).toHaveBeenCalledWith(
+        successEnvelope(mockOverviewData, "Settings overview retrieved"),
+      );
       expect(next).not.toHaveBeenCalled();
     });
 
@@ -126,10 +124,9 @@ describe("AdminSettingsController", () => {
         mockAdminSettingsService.changeAdminPasswordService,
       ).toHaveBeenCalledWith("super_admin_999", req.body);
       expect(res.status).toHaveBeenCalledWith(200);
-      expect(res.json).toHaveBeenCalledWith({
-        success: true,
-        message: "Password changed successfully.",
-      });
+      expect(res.json).toHaveBeenCalledWith(
+        successEnvelope(null, "Password changed successfully."),
+      );
     });
   });
 
@@ -150,13 +147,12 @@ describe("AdminSettingsController", () => {
         "admin:settings:dashboard-overview",
       );
       expect(res.status).toHaveBeenCalledWith(201);
-      expect(res.json).toHaveBeenCalledWith({
-        success: true,
-        message: "Admin account created for staff@leapmentor.com.",
-        adminId: "adm_new123",
-        email: "staff@leapmentor.com",
-        role: "moderator",
-      });
+      expect(res.json).toHaveBeenCalledWith(
+        successEnvelope(
+          mockAdminResult,
+          "Admin account created for staff@leapmentor.com.",
+        ),
+      );
     });
 
     test("should support silent execution steps if evictCache handle is missing on cache utility configurations", async () => {
@@ -183,10 +179,9 @@ describe("AdminSettingsController", () => {
         mockAdminSettingsService.getCommissionService,
       ).toHaveBeenCalledWith("super_admin_999");
       expect(res.status).toHaveBeenCalledWith(200);
-      expect(res.json).toHaveBeenCalledWith({
-        success: true,
-        commissionRate: 15,
-      });
+      expect(res.json).toHaveBeenCalledWith(
+        successEnvelope({ commissionRate: 15 }, "Commission rate retrieved"),
+      );
     });
   });
 
@@ -202,11 +197,12 @@ describe("AdminSettingsController", () => {
         mockAdminSettingsService.updateCommissionService,
       ).toHaveBeenCalledWith("super_admin_999", 12);
       expect(res.status).toHaveBeenCalledWith(200);
-      expect(res.json).toHaveBeenCalledWith({
-        success: true,
-        message: "Commission rate updated to 12%",
-        commissionRate: 12,
-      });
+      expect(res.json).toHaveBeenCalledWith(
+        successEnvelope(
+          { commissionRate: 12 },
+          "Commission rate updated to 12%",
+        ),
+      );
     });
   });
 });

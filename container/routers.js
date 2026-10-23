@@ -60,6 +60,7 @@ const {
   uploadValidations,
   verificationValidations,
   searchMentorsValidation,
+  userValidations,
   uploadImageConfig,
   uploadFieldsInterceptor,
 } = require("./infrastructure");
@@ -92,6 +93,7 @@ const {
   uploadController,
   verificationController,
   mentorSearchController,
+  userController,
   authControllersPacked,
   connectControllersPacked,
   aiController,
@@ -261,7 +263,11 @@ const uploadRouter = createUploadRoutes({
   validations: uploadValidations,
 });
 
-const userRouter = createUserRoutes({ authenticate });
+const userRouter = createUserRoutes({
+  userController,
+  authenticate,
+  validations: userValidations,
+});
 
 const verificationRouter = createVerificationRoutes({
   verificationController,

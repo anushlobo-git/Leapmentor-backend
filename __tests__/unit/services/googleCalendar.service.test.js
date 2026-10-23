@@ -227,6 +227,40 @@ describe("googleCalendar.service", () => {
     expect(result).toEqual([]);
   });
 
+  test("treats a missing calendarList items field as an empty list", async () => {
+  google.calendar.mockReturnValue({
+    calendarList: {
+      list: jest.fn().mockResolvedValue({ data: {} }), // no `items` key at all
+    },
+    events: { list: jest.fn() },
+  });
+
+  const result = await service.getCalendarEvents({
+      mentorId: "m1",
+      startDate: "2025-01-01",
+      endDate: "2025-01-02",
+   });
+  expect(result).toEqual([]);
+});
+
+test("treats a missing events.list items field as an empty list for that calendar", async () => {
+  google.calendar.mockReturnValue({
+    calendarList: {
+      list: jest.fn().mockResolvedValue({ data: { items: [{ id: "cal1" }] } }),
+    },
+    events: {
+      list: jest.fn().mockResolvedValue({ data: {} }), // no `items` key
+    },
+  });
+
+  const result = await service.getCalendarEvents({
+    mentorId: "m1",
+    startDate: "2025-01-01",
+    endDate: "2025-01-02",
+  });
+  expect(result).toEqual([]);
+});
+
   test("returns empty array if calendarList has no items", async () => {
     google.calendar.mockReturnValue(makeCalendar({ items: [] }));
     const result = await service.getCalendarEvents({
@@ -318,5 +352,7 @@ describe("googleCalendar.service", () => {
     });
     expect(result).toEqual([]);
     expect(logger.warn).toHaveBeenCalled();
+
+
   });
 });

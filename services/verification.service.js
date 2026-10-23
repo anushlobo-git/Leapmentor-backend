@@ -6,6 +6,7 @@
 
 const crypto = require("node:crypto");
 const AppError = require("../utils/AppError");
+const { getPrimaryRole } = require("../constants/roles");
 
 const BCRYPT_SALT_ROUNDS = 10;
 const TOKEN_LIFETIME_MS = 10 * 60 * 1000; // 10 Minutes window
@@ -42,7 +43,7 @@ const createVerificationService = ({
    * Generates validation signatures, secures entries in the database, and dispatches automated mail options.
    * @private
    */
-  const _sendVerificationEmail = async (user, subjectSuffix = "") => {
+  const _sendVerificationEmail = async (user, subjectSuffix) => {
     await verificationTokenRepository.deleteTokensByUserId(user._id);
 
     const expiresAt = new Date(Date.now() + TOKEN_LIFETIME_MS);
@@ -220,7 +221,7 @@ const createVerificationService = ({
     await userRepository.saveUser(user);
     await verificationTokenRepository.deleteTokensByUserId(user._id);
 
-    return { role: user.roles?.[0] || null };
+    return { role: getPrimaryRole(user.roles) };
   };
 
   return {

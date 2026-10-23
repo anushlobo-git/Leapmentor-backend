@@ -34,6 +34,7 @@ describe("Admin Routes Configuration Matrix", () => {
   beforeEach(() => {
     mockAdminController = {
       adminLogin: jest.fn(),
+      adminRefresh: jest.fn(),
       adminLogout: jest.fn(),
       adminMe: jest.fn(),
       getStats: jest.fn(),
@@ -42,7 +43,6 @@ describe("Admin Routes Configuration Matrix", () => {
       getEngagementStats: jest.fn(),
       getUsers: jest.fn(),
       getUserDetail: jest.fn(),
-      deleteUser: jest.fn(),
       blockUser: jest.fn(),
       unblockUser: jest.fn(),
       getEngagements: jest.fn(),
@@ -79,6 +79,13 @@ describe("Admin Routes Configuration Matrix", () => {
       expect(mockRouter.post).toHaveBeenCalledWith(
         "/auth/logout",
         mockAdminController.adminLogout,
+      );
+    });
+
+    test("should bind refresh token rotation to the post auth refresh path", () => {
+      expect(mockRouter.post).toHaveBeenCalledWith(
+        "/auth/refresh",
+        mockAdminController.adminRefresh,
       );
     });
 
@@ -125,11 +132,6 @@ describe("Admin Routes Configuration Matrix", () => {
         "/users/:userId",
         userIdParamValidation,
         mockAdminController.getUserDetail,
-      );
-      expect(mockRouter.delete).toHaveBeenCalledWith(
-        "/users/:userId",
-        userIdParamValidation,
-        mockAdminController.deleteUser,
       );
     });
 

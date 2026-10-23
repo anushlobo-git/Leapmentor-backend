@@ -13,15 +13,15 @@ const { Server } = require("socket.io");
 const mongoose = require("mongoose");
 
 // Dynamic Dependency Infrastructure
-const env = require("./config/env"); 
+const env = require("./config/env");
 const container = require("./container");
 const createApp = require("./app");
-
 
 const connectDatabase = require("./config/db");
 const socketAuth = require("./socket/socketAuth");
 const socketHandler = require("./socket/socketHandler");
 const logger = require("./config/logger");
+const { startResourceMonitor } = require("./utils/resourceMonitor");
 
 const { startCleanupCron } = require("./cron/cleanupAvailability");
 const { startSessionReminderCron } = require("./cron/sessionReminders");
@@ -47,7 +47,7 @@ const io = new Server(httpServer, {
       "http://localhost:5174",
       "http://localhost:3000",
       "http://localhost:4173",
-       env.appBaseUrl,
+      env.appBaseUrl,
     ],
     credentials: true,
   },
@@ -75,6 +75,7 @@ const startServer = async () => {
     // Step 2: Initialize background schedules safely now that queries can execute
     startCleanupCron();
     startSessionReminderCron();
+    startResourceMonitor();
     logger.info("⏰ Background cron engines synchronized and running.");
 
     // Step 3: Open port listeners to start receiving live traffic
@@ -108,7 +109,7 @@ const handleGracefulShutdown = (signal) => {
 
     try {
       // 2. Shut down database pools so active modifications finish cleanly
-      await mongoose.connection.close();
+      await connectDatabase.closeDatabaseConnections();
       logger.info("📦 MongoDB connection pools safely drained.");
       process.exit(0);
     } catch (err) {

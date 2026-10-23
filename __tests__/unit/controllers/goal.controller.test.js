@@ -1,4 +1,5 @@
 const createGoalController = require("../../../controllers/goal.controller");
+const { successEnvelope } = require("../../helpers/apiResponse");
 
 describe("Goal Controller Unit Tests", () => {
   let mockService, controller, mockReq, mockRes, mockNext;
@@ -46,10 +47,9 @@ describe("Goal Controller Unit Tests", () => {
       userId: "user_uuid",
     });
     expect(mockRes.status).toHaveBeenCalledWith(201);
-    expect(mockRes.json).toHaveBeenCalledWith({
-      success: true,
-      goal: mockGoal,
-    });
+    expect(mockRes.json).toHaveBeenCalledWith(
+      successEnvelope({ goal: mockGoal }, "Goal created"),
+    );
   });
 
   test("getGoal should return a goal and return 200", async () => {
@@ -58,12 +58,14 @@ describe("Goal Controller Unit Tests", () => {
     mockService.getGoalByConnection.mockResolvedValue(mockResult);
 
     await controller.getGoal(mockReq, mockRes, mockNext);
-    expect(mockService.getGoalByConnection).toHaveBeenCalledWith("c_id", "user_uuid");
+    expect(mockService.getGoalByConnection).toHaveBeenCalledWith(
+      "c_id",
+      "user_uuid",
+    );
     expect(mockRes.status).toHaveBeenCalledWith(200);
-    expect(mockRes.json).toHaveBeenCalledWith({
-      success: true,
-      ...mockResult,
-    });
+    expect(mockRes.json).toHaveBeenCalledWith(
+      successEnvelope(mockResult, "Goal retrieved"),
+    );
   });
 
   test("updateGoal should update a goal and return 200", async () => {
@@ -89,10 +91,9 @@ describe("Goal Controller Unit Tests", () => {
       userId: "user_uuid",
     });
     expect(mockRes.status).toHaveBeenCalledWith(200);
-    expect(mockRes.json).toHaveBeenCalledWith({
-      success: true,
-      goal: mockGoal,
-    });
+    expect(mockRes.json).toHaveBeenCalledWith(
+      successEnvelope({ goal: mockGoal }, "Goal updated"),
+    );
   });
 
   test("createMilestone should create a milestone and return 201", async () => {
@@ -114,10 +115,9 @@ describe("Goal Controller Unit Tests", () => {
       userId: "user_uuid",
     });
     expect(mockRes.status).toHaveBeenCalledWith(201);
-    expect(mockRes.json).toHaveBeenCalledWith({
-      success: true,
-      milestone: mockMilestone,
-    });
+    expect(mockRes.json).toHaveBeenCalledWith(
+      successEnvelope({ milestone: mockMilestone }, "Milestone created"),
+    );
   });
 
   test("updateMilestone should update a milestone and return 200", async () => {
@@ -139,10 +139,9 @@ describe("Goal Controller Unit Tests", () => {
       userId: "user_uuid",
     });
     expect(mockRes.status).toHaveBeenCalledWith(200);
-    expect(mockRes.json).toHaveBeenCalledWith({
-      success: true,
-      milestone: mockMilestone,
-    });
+    expect(mockRes.json).toHaveBeenCalledWith(
+      successEnvelope({ milestone: mockMilestone }, "Milestone updated"),
+    );
   });
 
   test("deleteMilestone should delete a milestone and return 200", async () => {
@@ -150,12 +149,13 @@ describe("Goal Controller Unit Tests", () => {
     mockService.deleteMilestone.mockResolvedValue("m_id");
 
     await controller.deleteMilestone(mockReq, mockRes, mockNext);
-    expect(mockService.deleteMilestone).toHaveBeenCalledWith("m_id", "user_uuid");
+    expect(mockService.deleteMilestone).toHaveBeenCalledWith(
+      "m_id",
+      "user_uuid",
+    );
     expect(mockRes.status).toHaveBeenCalledWith(200);
-    expect(mockRes.json).toHaveBeenCalledWith({
-      success: true,
-      message: "Milestone deleted",
-      milestoneId: "m_id",
-    });
+    expect(mockRes.json).toHaveBeenCalledWith(
+      successEnvelope({ milestoneId: "m_id" }, "Milestone deleted"),
+    );
   });
 });

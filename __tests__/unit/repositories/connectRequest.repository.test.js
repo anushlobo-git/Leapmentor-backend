@@ -211,14 +211,6 @@ describe("ConnectRequest Repository", () => {
         status: "completed",
       });
     });
-
-    test("deleteManyByUser clears multiple documents across entities", async () => {
-      mockModel.deleteMany.mockResolvedValue({ deletedCount: 3 });
-      await repository.deleteManyByUser("userA");
-      expect(mockModel.deleteMany).toHaveBeenCalledWith({
-        $or: [{ mentor: "userA" }, { mentee: "userA" }],
-      });
-    });
   });
 
   // ── PAGINATION, FINANCIALS & SELECTION RULES ────────────────────────────
@@ -292,7 +284,52 @@ describe("ConnectRequest Repository", () => {
         expect.objectContaining({
           $set: expect.objectContaining({ status: "rejected" }),
         }),
+        { session: undefined },
       );
+    });
+
+    test("rejectConflictingSlots forwards the transaction session to updateMany", async () => {
+      mockModel.updateMany.mockResolvedValue({ modifiedCount: 1 });
+      const confirmedSlot = {
+        date: "2026-07-02",
+        startTime: "14:00",
+        endTime: "15:00",
+      };
+
+      await repository.rejectConflictingSlots(
+        "req123",
+        "userB",
+        confirmedSlot,
+        mockSession,
+      );
+      expect(mockModel.updateMany).toHaveBeenCalledWith(
+        expect.any(Object),
+        expect.any(Object),
+        { session: mockSession },
+      );
+    });
+
+    test("findAcceptedSlotConflict targets live bookings on the exact confirmed slot excluding self", async () => {
+      const chain = makeChain(mockRecord);
+      mockModel.findOne.mockReturnValue(chain);
+      const slot = { date: "2026-07-02", startTime: "14:00", endTime: "15:00" };
+
+      await repository.findAcceptedSlotConflict(
+        "userB",
+        slot,
+        "req123",
+        mockSession,
+      );
+
+      expect(mockModel.findOne).toHaveBeenCalledWith({
+        mentor: "userB",
+        _id: { $ne: "req123" },
+        status: { $in: ["accepted", "ongoing"] },
+        "confirmedSlot.date": slot.date,
+        "confirmedSlot.startTime": slot.startTime,
+        "confirmedSlot.endTime": slot.endTime,
+      });
+      expect(chain.session).toHaveBeenCalledWith(mockSession);
     });
 
     test("findBookedRequestsByMentor restricts projections tightly", async () => {
@@ -322,6 +359,103 @@ describe("ConnectRequest Repository", () => {
       mockModel.findById.mockReturnValue(chain);
       await repository.findByIdWithMentorId("req123");
       expect(chain.select).toHaveBeenCalledWith("mentor status");
+    });
+  });
+
+  // ── MENTOR-SCOPED SESSION LOOKUPS & PAYOUT AGGREGATIONS ─────────────────
+  describe("Mentor-Scoped Session Lookups & Payout Aggregations", () => {
+    test("findRequestByIdWithMentor populates the mentor's name and email", async () => {
+      const chain = makeChain(mockRecord);
+      mockModel.findById.mockReturnValue(chain);
+
+      await repository.findRequestByIdWithMentor("req123");
+
+      expect(mockModel.findById).toHaveBeenCalledWith("req123");
+      expect(chain.populate).toHaveBeenCalledWith("mentor", "name email");
+    });
+
+    test("findCompletedSessionsByMentor filters by mentor and completed status", async () => {
+      const chain = makeChain(mockRecordsArray);
+      mockModel.find.mockReturnValue(chain);
+
+      const result = await repository.findCompletedSessionsByMentor("userB");
+
+      expect(mockModel.find).toHaveBeenCalledWith({
+        mentor: "userB",
+        status: "completed",
+      });
+      expect(chain.lean).toHaveBeenCalled();
+      expect(result).toEqual(mockRecordsArray);
+    });
+
+    test("findCompletedSessionsByMentorSince adds a completedAt lower bound", async () => {
+      const chain = makeChain(mockRecordsArray);
+      mockModel.find.mockReturnValue(chain);
+      const startDate = new Date("2026-01-01T00:00:00.000Z");
+
+      await repository.findCompletedSessionsByMentorSince("userB", startDate);
+
+      expect(mockModel.find).toHaveBeenCalledWith({
+        mentor: "userB",
+        status: "completed",
+        completedAt: { $gte: startDate },
+      });
+      expect(chain.lean).toHaveBeenCalled();
+    });
+
+    test("findOngoingPaidSessionsByMentor filters by ongoing status and paid payment status", async () => {
+      const chain = makeChain(mockRecordsArray);
+      mockModel.find.mockReturnValue(chain);
+
+      await repository.findOngoingPaidSessionsByMentor("userB");
+
+      expect(mockModel.find).toHaveBeenCalledWith({
+        mentor: "userB",
+        status: "ongoing",
+        paymentStatus: "paid",
+      });
+      expect(chain.lean).toHaveBeenCalled();
+    });
+
+    test("findCompletedSessionsWithMentee populates mentee, selects fields, sorts, and paginates", async () => {
+      const chain = makeChain(mockRecordsArray);
+      mockModel.find.mockReturnValue(chain);
+      const query = { mentor: "userB", status: "completed" };
+
+      await repository.findCompletedSessionsWithMentee(query, {
+        skip: 20,
+        limit: 10,
+      });
+
+      expect(mockModel.find).toHaveBeenCalledWith(query);
+      expect(chain.populate).toHaveBeenCalledWith("mentee", "name email");
+      expect(chain.select).toHaveBeenCalledWith(
+        "mentee confirmedSlot totalAmount paymentStatus completedAt sessionCount sessionRate",
+      );
+      expect(chain.sort).toHaveBeenCalledWith({ completedAt: -1 });
+      expect(chain.skip).toHaveBeenCalledWith(20);
+      expect(chain.limit).toHaveBeenCalledWith(10);
+      expect(chain.lean).toHaveBeenCalled();
+    });
+
+    test("countCompletedSessions forwards an arbitrary query straight to countDocuments", async () => {
+      mockModel.countDocuments.mockResolvedValue(42);
+      const query = { mentor: "userB", status: "completed" };
+
+      const result = await repository.countCompletedSessions(query);
+
+      expect(mockModel.countDocuments).toHaveBeenCalledWith(query);
+      expect(result).toBe(42);
+    });
+
+    test("countPayoutHistory forwards an arbitrary filter straight to countDocuments", async () => {
+      mockModel.countDocuments.mockResolvedValue(7);
+      const filter = { mentor: "userB" };
+
+      const result = await repository.countPayoutHistory(filter);
+
+      expect(mockModel.countDocuments).toHaveBeenCalledWith(filter);
+      expect(result).toBe(7);
     });
   });
 });

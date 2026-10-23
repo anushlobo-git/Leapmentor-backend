@@ -1,4 +1,5 @@
 const createMentorSearchController = require("../../../controllers/mentorSearch.controller");
+const { successEnvelope } = require("../../helpers/apiResponse");
 
 describe("Mentor Search Controller Unit Tests", () => {
   let mockSearchService,
@@ -27,7 +28,12 @@ describe("Mentor Search Controller Unit Tests", () => {
   });
 
   test("should resolve deterministic sorted cache keys regardless of parameter ordering", async () => {
-    mockReq.query = { skill: "node", page: "2", undefinedVal: undefined, emptyVal: "" };
+    mockReq.query = {
+      skill: "node",
+      page: "2",
+      undefinedVal: undefined,
+      emptyVal: "",
+    };
     mockCacheUtility.getOrSetCache.mockImplementation(async (key, ttl, cb) => {
       // Execute the callback to cover the inner function as well
       return await cb();
@@ -44,10 +50,9 @@ describe("Mentor Search Controller Unit Tests", () => {
     );
     expect(mockSearchService.queryMentors).toHaveBeenCalledWith(mockReq.query);
     expect(mockRes.status).toHaveBeenCalledWith(200);
-    expect(mockRes.json).toHaveBeenCalledWith({
-      success: true,
-      mentors: ["mentor1"],
-    });
+    expect(mockRes.json).toHaveBeenCalledWith(
+      successEnvelope({ mentors: ["mentor1"] }, "Mentors retrieved"),
+    );
   });
 
   test("should handle empty query with default 'all' cache key", async () => {

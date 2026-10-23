@@ -5,6 +5,7 @@
  */
 
 const catchAsync = require("../utils/catchAsync");
+const { sendSuccess, STATUS } = require("../utils/apiResponse");
 
 const DEFAULT_DURATION_MINUTES = 60;
 
@@ -16,7 +17,7 @@ const createAvailabilityController = ({ availabilityService }) => {
    */
   const getMyAvailability = catchAsync(async (req, res, next) => {
     const data = await availabilityService.getMyAvailability(req.user._id);
-    return res.status(200).json(data);
+    return sendSuccess(res, data, "Availability retrieved");
   });
 
   /**
@@ -30,11 +31,12 @@ const createAvailabilityController = ({ availabilityService }) => {
       req.body,
     );
 
-    return res.status(201).json({
-      success: true,
-      message: "Availability created successfully",
-      availability,
-    });
+    return sendSuccess(
+      res,
+      { availability },
+      "Availability created successfully",
+      STATUS.CREATED,
+    );
   });
 
   /**
@@ -48,11 +50,7 @@ const createAvailabilityController = ({ availabilityService }) => {
       req.body,
     );
 
-    return res.status(200).json({
-      success: true,
-      message: "Availability updated successfully",
-      availability,
-    });
+    return sendSuccess(res, { availability }, "Availability updated successfully");
   });
 
   /**
@@ -64,7 +62,7 @@ const createAvailabilityController = ({ availabilityService }) => {
     const data = await availabilityService.getMentorAvailability(
       req.params.mentorId,
     );
-    return res.status(200).json(data);
+    return sendSuccess(res, data, "Mentor availability retrieved");
   });
 
   /**
@@ -75,10 +73,7 @@ const createAvailabilityController = ({ availabilityService }) => {
   const deleteAvailability = catchAsync(async (req, res, next) => {
     await availabilityService.deleteAvailability(req.user._id);
 
-    return res.status(200).json({
-      success: true,
-      message: "Availability cleared successfully",
-    });
+    return sendSuccess(res, null, "Availability cleared successfully");
   });
 
   /**
@@ -95,7 +90,7 @@ const createAvailabilityController = ({ availabilityService }) => {
       req.user._id,
     );
 
-    return res.status(200).json(data);
+    return sendSuccess(res, data, "Available slots retrieved");
   });
 
   return {

@@ -1,4 +1,5 @@
 const createMessageController = require("../../../controllers/message.controller");
+const { successEnvelope } = require("../../helpers/apiResponse");
 
 describe("Message Controller Unit Tests", () => {
   let mockService, controller, mockReq, mockRes, mockNext;
@@ -29,9 +30,13 @@ describe("Message Controller Unit Tests", () => {
     await controller.getMessages(mockReq, mockRes, mockNext);
     await flushPromises();
 
-    expect(mockService.getChatHistory).toHaveBeenCalledWith("c1", "u1", { page: 1 });
+    expect(mockService.getChatHistory).toHaveBeenCalledWith("c1", "u1", {
+      page: 1,
+    });
     expect(mockRes.status).toHaveBeenCalledWith(200);
-    expect(mockRes.json).toHaveBeenCalledWith({ success: true, messages: [] });
+    expect(mockRes.json).toHaveBeenCalledWith(
+      successEnvelope({ messages: [] }, "Messages retrieved"),
+    );
   });
 
   test("getMessages should route errors to next()", async () => {
@@ -50,7 +55,9 @@ describe("Message Controller Unit Tests", () => {
 
     expect(mockService.getUnreadMessagesCount).toHaveBeenCalledWith("c1", "u1");
     expect(mockRes.status).toHaveBeenCalledWith(200);
-    expect(mockRes.json).toHaveBeenCalledWith({ success: true, count: 5 });
+    expect(mockRes.json).toHaveBeenCalledWith(
+      successEnvelope({ count: 5 }, "Unread count retrieved"),
+    );
   });
 
   test("getUnreadCount should route errors to next()", async () => {

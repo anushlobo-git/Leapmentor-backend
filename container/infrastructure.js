@@ -1,5 +1,5 @@
 require("dotenv").config();
-const env=require("../config/env");
+const env = require("../config/env");
 const axios = require("axios");
 const jwt = require("jsonwebtoken");
 const crypto = require("node:crypto");
@@ -11,7 +11,11 @@ const multer = require("multer");
 
 // ── MIDDLEWARE
 const { adminAuthenticate } = require("../middleware/adminAuth");
-const { authenticate, requireRole } = require("../middleware/authenticate");
+const {
+  authenticate,
+  requireRole,
+  requirePermission,
+} = require("../middleware/authenticate");
 const { upload, getFileType } = require("../middleware/upload.middleware");
 
 // ── CONFIG
@@ -97,6 +101,7 @@ const verificationValidations = require("../validations/verification.validation"
 const {
   searchMentorsValidation,
 } = require("../validations/mentorSearch.validation");
+const userValidations = require("../validations/user.validation");
 
 const envConfig = {
   linkedinClientId: env.linkedin.clientId,
@@ -114,7 +119,7 @@ const authConfig = {
   jwtExpiresIn: env.jwtExpiresIn,
   jwtAccessSecret: env.jwtAccessSecret,
   jwtRefreshSecret: env.jwtRefreshSecret,
-  stateSecret: env.jwtSecret, 
+  stateSecret: env.jwtSecret,
 };
 const googleClient = new OAuth2Client(env.google.clientId);
 const cookieConfig = { isProd: env.nodeEnv === "production" };
@@ -152,6 +157,7 @@ module.exports = {
   adminAuthenticate,
   authenticate,
   requireRole,
+  requirePermission,
   upload,
   getFileType,
 
@@ -202,7 +208,7 @@ module.exports = {
   toSupportMessageDTO,
   toConnectRequestDTO,
   toMenteeProfileDTO,
-  
+
   // configs
   authConfig,
   cookieConfig,
@@ -234,4 +240,5 @@ module.exports = {
   uploadValidations,
   verificationValidations,
   searchMentorsValidation,
+  userValidations,
 };

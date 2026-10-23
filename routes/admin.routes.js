@@ -24,6 +24,9 @@ const createAdminRoutes = ({
   // @route   POST /api/v1/admin/auth/login
   router.post("/auth/login", adminLoginValidation, adminController.adminLogin);
 
+  // @route   POST /api/v1/admin/auth/refresh
+  router.post("/auth/refresh", adminController.adminRefresh);
+
   // @route   POST /api/v1/admin/auth/logout
   router.post("/auth/logout", adminController.adminLogout);
 
@@ -60,13 +63,6 @@ const createAdminRoutes = ({
     adminController.getUserDetail,
   );
 
-  // @route   DELETE /api/v1/admin/users/:userId
-  router.delete(
-    "/users/:userId",
-    userIdParamValidation,
-    adminController.deleteUser,
-  );
-
   // @route   PATCH /api/v1/admin/users/:userId/block
   router.patch("/users/:userId/block", adminController.blockUser);
 
@@ -89,6 +85,6 @@ const createAdminRoutes = ({
   );
 
   return router;
-};
+};;
 
 module.exports = createAdminRoutes;

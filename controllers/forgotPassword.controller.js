@@ -4,6 +4,7 @@
  */
 
 const catchAsync = require("../utils/catchAsync");
+const { sendSuccess } = require("../utils/apiResponse");
 
 const createForgotPasswordController = ({ forgotPasswordService }) => {
   /**
@@ -15,7 +16,7 @@ const createForgotPasswordController = ({ forgotPasswordService }) => {
     const result = await forgotPasswordService.sendForgotPasswordOtp(
       req.body.email,
     );
-    return res.status(200).json(result);
+    return sendSuccess(res, result, "Password reset OTP sent");
   });
 
   /**
@@ -28,7 +29,7 @@ const createForgotPasswordController = ({ forgotPasswordService }) => {
       req.body.email,
       req.body.otp,
     );
-    return res.status(200).json(result);
+    return sendSuccess(res, result, "Reset OTP verified");
   });
 
   /**
@@ -42,7 +43,7 @@ const createForgotPasswordController = ({ forgotPasswordService }) => {
       otp: req.body.otp,
       newPassword: req.body.newPassword,
     });
-    return res.status(200).json(result);
+    return sendSuccess(res, result, "Password reset successfully");
   });
 
   return {
