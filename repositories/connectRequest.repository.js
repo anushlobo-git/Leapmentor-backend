@@ -24,6 +24,22 @@ const createConnectRequestRepository = (ConnectRequest) => {
     });
   };
 
+  /**
+   * Detects whether the mentor already has a live (accepted/ongoing) booking on
+   * the exact confirmed slot tuple, excluding the request being accepted.
+   * Intended to run inside the accept transaction as the double-book guard.
+   */
+  const findAcceptedSlotConflict = (mentorId, slot, excludeId, session) => {
+    return ConnectRequest.findOne({
+      mentor: mentorId,
+      _id: { $ne: excludeId },
+      status: { $in: ["accepted", "ongoing"] },
+      "confirmedSlot.date": slot.date,
+      "confirmedSlot.startTime": slot.startTime,
+      "confirmedSlot.endTime": slot.endTime,
+    }).session(session);
+  };
+
   const createConnectRequest = async (data) => {
     return await ConnectRequest.create(data);
   };
@@ -77,7 +93,12 @@ const createConnectRequestRepository = (ConnectRequest) => {
     return await request.save();
   };
 
-  const rejectConflictingSlots = async (requestId, mentorId, confirmedSlot) => {
+  const rejectConflictingSlots = async (
+    requestId,
+    mentorId,
+    confirmedSlot,
+    session,
+  ) => {
     return await ConnectRequest.updateMany(
       {
         _id: { $ne: requestId },
@@ -88,6 +109,7 @@ const createConnectRequestRepository = (ConnectRequest) => {
         "selectedSlots.endTime": confirmedSlot.endTime,
       },
       { $set: { status: "rejected", respondedAt: new Date() } },
+      { session },
     );
   };
 
@@ -211,6 +233,7 @@ const createConnectRequestRepository = (ConnectRequest) => {
   return {
     findPendingRequest,
     findSlotConflict,
+    findAcceptedSlotConflict,
     createConnectRequest,
     findMyRequests,
     findIncomingRequests,

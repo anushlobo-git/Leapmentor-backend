@@ -26,7 +26,7 @@
  *    to start with).
  * 3. Optionally add it to ROLE_PRIORITY if it should participate in
  *    "which role wins when a user has several" logic (dashboard redirects,
- *    the authRole routing cookie, etc).
+ *    for example).
  * That's it — models/User.js, the registration validator, and every route
  * using requireRole/requirePermission all pick this up automatically,
  * because they all read from this file instead of hardcoding names.
@@ -54,9 +54,9 @@ const ALL_ROLES = Object.freeze(Object.values(ROLES));
 
 /**
  * When a user holds more than one role and something needs to pick a
- * single "primary" one (e.g. which dashboard to land on after login, what
- * to store in the routing-hint `authRole` cookie), this list breaks the
- * tie. Earlier entries win. A new role that should never win a tie simply
+ * single "primary" one (e.g. which dashboard to land on after login), this
+ * list breaks the tie. Earlier entries win. A new role that should never win
+ * a tie simply
  * isn't listed here — getPrimaryRole() falls back to "first role found".
  */
 const ROLE_PRIORITY = Object.freeze([ROLES.MENTOR, ROLES.MENTEE]);

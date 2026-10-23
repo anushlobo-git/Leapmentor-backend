@@ -142,31 +142,31 @@ describe("auth.cookies", () => {
   let res;
   beforeEach(() => { res = makeMockRes(); });
 
-  test("setAuthCookies sets refreshToken and authRole in non-prod mode", () => {
+  test("setAuthCookies sets only the HttpOnly refreshToken in non-prod mode", () => {
     const utils = createCookieUtils({ isProd: false });
-    utils.setAuthCookies(res, "my-token", "mentor");
+    utils.setAuthCookies(res, "my-token");
     expect(res.cookie).toHaveBeenCalledWith("refreshToken", "my-token", expect.objectContaining({ httpOnly: true, secure: false }));
-    expect(res.cookie).toHaveBeenCalledWith("authRole", "mentor", expect.objectContaining({ httpOnly: false }));
+    expect(res.cookie).toHaveBeenCalledTimes(1);
   });
 
   test("setAuthCookies sets secure cookies in prod mode", () => {
     const utils = createCookieUtils({ isProd: true });
-    utils.setAuthCookies(res, "prod-token", "mentee");
+    utils.setAuthCookies(res, "prod-token");
     expect(res.cookie).toHaveBeenCalledWith("refreshToken", "prod-token", expect.objectContaining({ secure: true, sameSite: "none" }));
   });
 
-  test("setAuthCookies skips authRole when role is falsy", () => {
+  test("setAuthCookies does not require a role", () => {
     const utils = createCookieUtils({ isProd: false });
-    utils.setAuthCookies(res, "my-token", null);
+    utils.setAuthCookies(res, "my-token");
     expect(res.cookie).toHaveBeenCalledTimes(1);
     expect(res.cookie).toHaveBeenCalledWith("refreshToken", "my-token", expect.any(Object));
   });
 
-  test("clearAuthCookies clears both refreshToken and authRole", () => {
+  test("clearAuthCookies clears the refreshToken", () => {
     const utils = createCookieUtils({ isProd: false });
     utils.clearAuthCookies(res);
     expect(res.clearCookie).toHaveBeenCalledWith("refreshToken", expect.any(Object));
-    expect(res.clearCookie).toHaveBeenCalledWith("authRole", expect.objectContaining({ httpOnly: false }));
+    expect(res.clearCookie).toHaveBeenCalledTimes(1);
   });
 
   test("derives isProd from env.nodeEnv when config.isProd is not set", () => {
@@ -174,7 +174,7 @@ describe("auth.cookies", () => {
     const originalEnv = env.nodeEnv;
     env.nodeEnv = "production";
     const utils = createCookieUtils({});
-    utils.setAuthCookies(res, "token", "admin");
+    utils.setAuthCookies(res, "token");
     expect(res.cookie).toHaveBeenCalledWith("refreshToken", "token", expect.objectContaining({ secure: true }));
     env.nodeEnv = originalEnv;
   });

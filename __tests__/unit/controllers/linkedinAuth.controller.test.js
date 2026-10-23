@@ -148,7 +148,6 @@ describe("LinkedIn OAuth Controller Unit Tests", () => {
       expect(mockCookieUtils.setAuthCookies).toHaveBeenCalledWith(
         mockRes,
         "ref_jwt",
-        "mentor",
       );
       expect(mockRes.status).toHaveBeenCalledWith(200);
       expect(mockRes.json).toHaveBeenCalledWith(
@@ -181,7 +180,6 @@ describe("LinkedIn OAuth Controller Unit Tests", () => {
       expect(mockCookieUtils.setAuthCookies).toHaveBeenCalledWith(
         mockRes,
         "ref_jwt",
-        null,
       );
     });
 

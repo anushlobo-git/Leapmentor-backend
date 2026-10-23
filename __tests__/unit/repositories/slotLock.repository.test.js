@@ -37,8 +37,10 @@ describe("SlotLock Repository", () => {
   beforeEach(() => {
     mockSlotLockModel = {
       find: jest.fn(),
+      findOne: jest.fn(),
       findOneAndUpdate: jest.fn(),
       findOneAndDelete: jest.fn(),
+      deleteOne: jest.fn(),
       deleteMany: jest.fn(),
     };
     slotLockRepository = createSlotLockRepository(mockSlotLockModel);
@@ -127,6 +129,27 @@ describe("SlotLock Repository", () => {
       expect(mockChain.lean).toHaveBeenCalled();
       expect(result).toEqual(mockLockRecord);
     });
+
+    test("findLockBySlot should look up a single lock by its exact slot tuple regardless of owner", async () => {
+      const mockChain = makeChain(mockLockRecord);
+      mockSlotLockModel.findOne.mockReturnValue(mockChain);
+
+      const result = await slotLockRepository.findLockBySlot({
+        mentorId: "mentor777",
+        date: "2026-07-15",
+        startTime: "10:00",
+        endTime: "11:00",
+      });
+
+      expect(mockSlotLockModel.findOne).toHaveBeenCalledWith({
+        mentorId: "mentor777",
+        date: "2026-07-15",
+        startTime: "10:00",
+        endTime: "11:00",
+      });
+      expect(mockChain.lean).toHaveBeenCalled();
+      expect(result).toEqual(mockLockRecord);
+    });
   });
 
   // ── REMOVALS & LOCK PURGES ──────────────────────────────────────────────
@@ -149,6 +172,17 @@ describe("SlotLock Repository", () => {
 
       expect(mockSlotLockModel.deleteMany).toHaveBeenCalledWith(purgeFilter);
       expect(result).toEqual({ deletedCount: 5 });
+    });
+
+    test("deleteLockById should remove a single lock by primary identifier", async () => {
+      mockSlotLockModel.deleteOne.mockResolvedValue({ deletedCount: 1 });
+
+      const result = await slotLockRepository.deleteLockById("lock123");
+
+      expect(mockSlotLockModel.deleteOne).toHaveBeenCalledWith({
+        _id: "lock123",
+      });
+      expect(result).toEqual({ deletedCount: 1 });
     });
   });
 });

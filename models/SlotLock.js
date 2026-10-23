@@ -64,9 +64,11 @@ const slotLockSchema = new mongoose.Schema(
 // MongoDB auto-deletes document when expiresAt is reached
 slotLockSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 
-// Prevent duplicate locks on same slot by same mentee
+// Prevent double-booking: only one active lock may exist per exact slot tuple,
+// regardless of which user holds it. `lockedBy` is intentionally excluded so a
+// second user's lock on the same slot fails atomically with an E11000 error.
 slotLockSchema.index(
-  { mentorId: 1, date: 1, startTime: 1, endTime: 1, lockedBy: 1 },
+  { mentorId: 1, date: 1, startTime: 1, endTime: 1 },
   { unique: true },
 );
 

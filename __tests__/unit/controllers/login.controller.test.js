@@ -69,7 +69,6 @@ describe("User Login Controller Unit Tests", () => {
     expect(mockCookieUtils.setAuthCookies).toHaveBeenCalledWith(
       mockRes,
       "mock_refresh_jwt_token",
-      "mentor",
     );
     expect(mockRes.status).toHaveBeenCalledWith(200);
     expect(mockRes.json).toHaveBeenCalledWith(
@@ -100,7 +99,6 @@ describe("User Login Controller Unit Tests", () => {
     expect(mockCookieUtils.setAuthCookies).toHaveBeenCalledWith(
       mockRes,
       "mock_refresh_jwt_token",
-      null,
     );
   });
 

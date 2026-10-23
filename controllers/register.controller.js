@@ -6,7 +6,6 @@
 
 const catchAsync = require("../utils/catchAsync");
 const { sendSuccess, STATUS } = require("../utils/apiResponse");
-const { getPrimaryRole } = require("../constants/roles");
 
 const createRegisterController = ({ authService, cookieUtils }) => {
   // Human-readable message per register outcome (the frontend routes off the
@@ -37,8 +36,7 @@ const createRegisterController = ({ authService, cookieUtils }) => {
     // role to). For those we set the auth cookies exactly like login does;
     // for the "go log in" outcomes we deliberately set nothing.
     if (result.refreshToken) {
-      const role = getPrimaryRole(result.user?.roles);
-      cookieUtils.setAuthCookies(res, result.refreshToken, role);
+      cookieUtils.setAuthCookies(res, result.refreshToken);
     }
 
     const status =

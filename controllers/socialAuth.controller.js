@@ -6,7 +6,6 @@
 
 const catchAsync = require("../utils/catchAsync");
 const { sendSuccess, sendError, STATUS } = require("../utils/apiResponse");
-const { getPrimaryRole } = require("../constants/roles");
 
 const createSocialAuthController = ({
   socialAuthService,
@@ -22,9 +21,7 @@ const createSocialAuthController = ({
     try {
       const result = await socialAuthService.socialAuthUser(req.body);
 
-      // Extract authorization metadata and hand over parameters to injected cookie managers
-      const role = getPrimaryRole(result.user?.roles);
-      cookieUtils.setAuthCookies(res, result.refreshToken, role);
+      cookieUtils.setAuthCookies(res, result.refreshToken);
 
       return sendSuccess(
         res,

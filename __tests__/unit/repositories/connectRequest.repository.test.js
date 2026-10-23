@@ -284,7 +284,52 @@ describe("ConnectRequest Repository", () => {
         expect.objectContaining({
           $set: expect.objectContaining({ status: "rejected" }),
         }),
+        { session: undefined },
       );
+    });
+
+    test("rejectConflictingSlots forwards the transaction session to updateMany", async () => {
+      mockModel.updateMany.mockResolvedValue({ modifiedCount: 1 });
+      const confirmedSlot = {
+        date: "2026-07-02",
+        startTime: "14:00",
+        endTime: "15:00",
+      };
+
+      await repository.rejectConflictingSlots(
+        "req123",
+        "userB",
+        confirmedSlot,
+        mockSession,
+      );
+      expect(mockModel.updateMany).toHaveBeenCalledWith(
+        expect.any(Object),
+        expect.any(Object),
+        { session: mockSession },
+      );
+    });
+
+    test("findAcceptedSlotConflict targets live bookings on the exact confirmed slot excluding self", async () => {
+      const chain = makeChain(mockRecord);
+      mockModel.findOne.mockReturnValue(chain);
+      const slot = { date: "2026-07-02", startTime: "14:00", endTime: "15:00" };
+
+      await repository.findAcceptedSlotConflict(
+        "userB",
+        slot,
+        "req123",
+        mockSession,
+      );
+
+      expect(mockModel.findOne).toHaveBeenCalledWith({
+        mentor: "userB",
+        _id: { $ne: "req123" },
+        status: { $in: ["accepted", "ongoing"] },
+        "confirmedSlot.date": slot.date,
+        "confirmedSlot.startTime": slot.startTime,
+        "confirmedSlot.endTime": slot.endTime,
+      });
+      expect(chain.session).toHaveBeenCalledWith(mockSession);
     });
 
     test("findBookedRequestsByMentor restricts projections tightly", async () => {

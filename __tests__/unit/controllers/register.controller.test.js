@@ -36,7 +36,7 @@ describe("User Account Registration Controller Unit Tests", () => {
     jest.clearAllMocks();
   });
 
-  test("outcome 'created': 201 status and auth cookies for a brand-new account", async () => {
+  test("outcome 'created': 201 status and refresh cookie for a brand-new account", async () => {
     const mockServicePayload = {
       outcome: "created",
       isNewUser: true,
@@ -54,7 +54,6 @@ describe("User Account Registration Controller Unit Tests", () => {
     expect(mockCookieUtils.setAuthCookies).toHaveBeenCalledWith(
       mockRes,
       "mocked_refresh_jwt_string",
-      "mentee",
     );
     expect(mockRes.status).toHaveBeenCalledWith(201);
     expect(mockRes.json).toHaveBeenCalledWith(
@@ -71,7 +70,7 @@ describe("User Account Registration Controller Unit Tests", () => {
     );
   });
 
-  test("outcome 'created' with no roles sets a null role cookie", async () => {
+  test("outcome 'created' with no roles still sets the refresh cookie", async () => {
     mockAuthService.registerUser.mockResolvedValue({
       outcome: "created",
       isNewUser: true,
@@ -87,7 +86,6 @@ describe("User Account Registration Controller Unit Tests", () => {
     expect(mockCookieUtils.setAuthCookies).toHaveBeenCalledWith(
       mockRes,
       "mocked_refresh_jwt_string",
-      null,
     );
   });
 
@@ -109,11 +107,9 @@ describe("User Account Registration Controller Unit Tests", () => {
     await controller.register(mockReq, mockRes, mockNext);
     await flushPromises();
 
-    // mentor wins the ROLE_PRIORITY tie-break for the routing-hint cookie.
     expect(mockCookieUtils.setAuthCookies).toHaveBeenCalledWith(
       mockRes,
       "mocked_refresh_jwt_string",
-      "mentor",
     );
     expect(mockRes.status).toHaveBeenCalledWith(200);
     expect(mockRes.json).toHaveBeenCalledWith(

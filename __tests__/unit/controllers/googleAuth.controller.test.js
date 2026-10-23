@@ -71,7 +71,6 @@ describe("Google Authentication Controller Unit Tests", () => {
     expect(mockCookieUtils.setAuthCookies).toHaveBeenCalledWith(
       mockRes,
       "minted_refresh_jwt",
-      "mentee",
     );
     expect(mockRes.status).toHaveBeenCalledWith(200);
     expect(mockRes.json).toHaveBeenCalledWith(
@@ -86,7 +85,7 @@ describe("Google Authentication Controller Unit Tests", () => {
     );
   });
 
-  test("should set primaryRole to null when user has no roles array", async () => {
+  test("should set the refresh cookie when user has no roles array", async () => {
     const mockServiceResponse = {
       accessToken: "minted_access_jwt",
       refreshToken: "minted_refresh_jwt",
@@ -101,7 +100,6 @@ describe("Google Authentication Controller Unit Tests", () => {
     expect(mockCookieUtils.setAuthCookies).toHaveBeenCalledWith(
       mockRes,
       "minted_refresh_jwt",
-      null,
     );
   });
 

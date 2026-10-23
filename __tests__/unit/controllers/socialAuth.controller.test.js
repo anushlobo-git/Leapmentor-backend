@@ -54,7 +54,6 @@ describe("Social Authentication Controller Unit Tests", () => {
     expect(mockCookieUtils.setAuthCookies).toHaveBeenCalledWith(
       mockRes,
       "refresh_token_jwt",
-      "mentor",
     );
     expect(mockRes.json).toHaveBeenCalledWith(
       successEnvelope(
@@ -68,7 +67,7 @@ describe("Social Authentication Controller Unit Tests", () => {
     );
   });
 
-  test("should handle user with no roles and set null role in cookie", async () => {
+  test("should handle user with no roles and still set the refresh cookie", async () => {
     const mockServicePayload = {
       accessToken: "access_token_jwt",
       refreshToken: "refresh_token_jwt",
@@ -83,7 +82,6 @@ describe("Social Authentication Controller Unit Tests", () => {
     expect(mockCookieUtils.setAuthCookies).toHaveBeenCalledWith(
       mockRes,
       "refresh_token_jwt",
-      null,
     );
   });
 

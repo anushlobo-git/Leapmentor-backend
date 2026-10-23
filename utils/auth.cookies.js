@@ -1,7 +1,7 @@
 /**
  * @fileoverview Authentication Cookie Management Utilities
- * @description Provides decoupled handlers for setting and clearing secure HTTP-only
- * authentication and metadata cookies based on injected environment configuration parameters.
+ * @description Provides decoupled handlers for setting and clearing the secure
+ * HTTP-only refresh-token cookie.
  */
 const env = require("../config/env");
 
@@ -16,24 +16,17 @@ const createCookieUtils = (config) => {
   };
 
   /**
-   * Sets the refresh token and role cookies on the Express response object.
+   * Sets the refresh token cookie on the Express response object.
    */
-  const setAuthCookies = (res, token, role) => {
+  const setAuthCookies = (res, token) => {
     res.cookie("refreshToken", token, BASE_OPTIONS);
-    if (role) {
-      res.cookie("authRole", role, {
-        ...BASE_OPTIONS,
-        httpOnly: false, // frontend needs to read role for routing
-      });
-    }
   };
 
   /**
-   * Clears the authentication and role cookies from the client browser.
+   * Clears the authentication cookie from the client browser.
    */
   const clearAuthCookies = (res) => {
     res.clearCookie("refreshToken", BASE_OPTIONS);
-    res.clearCookie("authRole", { ...BASE_OPTIONS, httpOnly: false });
   };
 
   return { setAuthCookies, clearAuthCookies };

@@ -42,6 +42,25 @@ const createSlotLockRepository = (SlotLock) => {
   };
 
   /**
+   * Finds a single lock matching an exact slot tuple, regardless of which user
+   * owns it. Used to inspect the doc that triggered a duplicate-key conflict.
+   * @param {Object} slot - { mentorId, date, startTime, endTime }
+   * @returns {Promise<Object|null>} The conflicting lock document or null.
+   */
+  const findLockBySlot = ({ mentorId, date, startTime, endTime }) => {
+    return SlotLock.findOne({ mentorId, date, startTime, endTime }).lean();
+  };
+
+  /**
+   * Removes a single lock by its primary identifier.
+   * @param {string} id - The lock document _id.
+   * @returns {Promise<Object>} Mongoose delete execution metadata.
+   */
+  const deleteLockById = (id) => {
+    return SlotLock.deleteOne({ _id: id });
+  };
+
+  /**
    * Deletes a single specific slot lock matching the lock owner criteria.
    * @param {Object} filterCriteria - Unique identifying filter bounds.
    * @returns {Promise<Object|null>} Deleted data tracking parameters logs or null.
@@ -76,6 +95,8 @@ const createSlotLockRepository = (SlotLock) => {
     findActiveLocksByMentor,
     findActiveLocksByMentorAndDate,
     upsertSlotLock,
+    findLockBySlot,
+    deleteLockById,
     deleteOneLock,
     deleteManyLocks,
     findActiveLocksExcludingUser,
